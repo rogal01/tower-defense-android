@@ -1,0 +1,236 @@
+<?xml version="1.0" encoding="utf-8"?>
+<FrameLayout
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    tools:context=".MainActivity">
+
+    <!-- Game Canvas -->
+    <com.example.myapp.game.GameView
+        android:id="@+id/game_view"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent" />
+
+    <!-- Top HUD -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:background="#CC1B2838"
+        android:padding="8dp"
+        android:gravity="center_vertical">
+
+        <TextView
+            android:id="@+id/text_gold"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:text="\uD83D\uDCB0 50"
+            android:textColor="#FFD700"
+            android:textSize="20sp"
+            android:textStyle="bold" />
+
+        <TextView
+            android:id="@+id/text_wave"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:text="\u2694\uFE0F Wave 0"
+            android:textColor="#FFFFFF"
+            android:textSize="18sp"
+            android:gravity="center" />
+
+        <TextView
+            android:id="@+id/text_kills"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:text="\uD83D\uDC80 0"
+            android:textColor="#AAAACC"
+            android:textSize="16sp"
+            android:gravity="end" />
+    </LinearLayout>
+
+    <!-- Powers Bar -->
+    <LinearLayout
+        android:id="@+id/powers_bar"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="44dp"
+        android:orientation="horizontal"
+        android:background="#CC1B2838"
+        android:padding="4dp"
+        android:gravity="center">
+        <Button
+            android:id="@+id/btn_power_fireball"
+            android:layout_width="0dp"
+            android:layout_height="40dp"
+            android:layout_weight="1"
+            android:text="\uD83D\uDD25 Fireball"
+            android:textSize="12sp"
+            android:backgroundTint="#FF7043" />
+        <Button
+            android:id="@+id/btn_power_freeze"
+            android:layout_width="0dp"
+            android:layout_height="40dp"
+            android:layout_weight="1"
+            android:text="\u2744\uFE0F Freeze"
+            android:textSize="12sp"
+            android:backgroundTint="#42A5F5" />
+        <Button
+            android:id="@+id/btn_power_heal"
+            android:layout_width="0dp"
+            android:layout_height="40dp"
+            android:layout_weight="1"
+            android:text="\uD83D\uDC9A Heal"
+            android:textSize="12sp"
+            android:backgroundTint="#4CAF50" />
+        <Button
+            android:id="@+id/btn_power_lightning"
+            android:layout_width="0dp"
+            android:layout_height="40dp"
+            android:layout_weight="1"
+            android:text="\u26A1 Zap"
+            android:textSize="12sp"
+            android:backgroundTint="#FFD700" />
+    </LinearLayout>
+
+    <!-- Bottom Controls -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_gravity="bottom"
+        android:orientation="vertical"
+        android:background="#CC1B2838">
+
+        <!-- Tower placement buttons -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:padding="4dp"
+            android:gravity="center">
+
+            <Button
+                android:id="@+id/btn_tower_arrow"
+                android:layout_width="0dp"
+                android:layout_height="40dp"
+                android:layout_weight="1"
+                android:layout_marginHorizontal="2dp"
+                android:text="\uD83C\uDFF9 30g"
+                android:textSize="13sp"
+                android:backgroundTint="#4CAF50" />
+
+            <Button
+                android:id="@+id/btn_tower_magic"
+                android:layout_width="0dp"
+                android:layout_height="40dp"
+                android:layout_weight="1"
+                android:layout_marginHorizontal="2dp"
+                android:text="\uD83E\uDDE8 60g"
+                android:textSize="13sp"
+                android:backgroundTint="#AB47BC" />
+
+            <Button
+                android:id="@+id/btn_tower_cannon"
+                android:layout_width="0dp"
+                android:layout_height="40dp"
+                android:layout_weight="1"
+                android:layout_marginHorizontal="2dp"
+                android:text="\uD83D\uDCA3 100g"
+                android:textSize="13sp"
+                android:backgroundTint="#FF7043" />
+
+            <Button
+                android:id="@+id/btn_tower_poison"
+                android:layout_width="0dp"
+                android:layout_height="40dp"
+                android:layout_weight="1"
+                android:layout_marginHorizontal="2dp"
+                android:text="\u2620\uFE0F 80g"
+                android:textSize="13sp"
+                android:backgroundTint="#66BB6A" />
+
+            <Button
+                android:id="@+id/btn_tower_tesla"
+                android:layout_width="0dp"
+                android:layout_height="40dp"
+                android:layout_weight="1"
+                android:layout_marginHorizontal="2dp"
+                android:text="\u26A1 120g"
+                android:textSize="13sp"
+                android:backgroundTint="#29B6F6" />
+
+            <Button
+                android:id="@+id/btn_repair"
+                android:layout_width="0dp"
+                android:layout_height="40dp"
+                android:layout_weight="1"
+                android:layout_marginHorizontal="2dp"
+                android:text="\uD83D\uDD27 20g"
+                android:textSize="13sp"
+                android:backgroundTint="#26A69A" />
+        </LinearLayout>
+
+        <!-- Upgrade buttons -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:padding="4dp"
+            android:gravity="center">
+
+            <Button
+                android:id="@+id/btn_up_damage"
+                android:layout_width="0dp"
+                android:layout_height="36dp"
+                android:layout_weight="1"
+                android:layout_marginHorizontal="2dp"
+                android:text="\u2694\uFE0F ATK"
+                android:textSize="11sp"
+                android:backgroundTint="#42A5F5" />
+
+            <Button
+                android:id="@+id/btn_up_speed"
+                android:layout_width="0dp"
+                android:layout_height="36dp"
+                android:layout_weight="1"
+                android:layout_marginHorizontal="2dp"
+                android:text="\uD83D\uDC5F SPD"
+                android:textSize="11sp"
+                android:backgroundTint="#42A5F5" />
+
+            <Button
+                android:id="@+id/btn_up_hp"
+                android:layout_width="0dp"
+                android:layout_height="36dp"
+                android:layout_weight="1"
+                android:layout_marginHorizontal="2dp"
+                android:text="\u2764\uFE0F HP"
+                android:textSize="11sp"
+                android:backgroundTint="#42A5F5" />
+
+            <Button
+                android:id="@+id/btn_up_base"
+                android:layout_width="0dp"
+                android:layout_height="36dp"
+                android:layout_weight="1"
+                android:layout_marginHorizontal="2dp"
+                android:text="\uD83C\uDFF0 BASE"
+                android:textSize="11sp"
+                android:backgroundTint="#42A5F5" />
+
+            <Button
+                android:id="@+id/btn_up_tower"
+                android:layout_width="0dp"
+                android:layout_height="36dp"
+                android:layout_weight="1"
+                android:layout_marginHorizontal="2dp"
+                android:text="\u2B06\uFE0F TOWER"
+                android:textSize="11sp"
+                android:backgroundTint="#FFB300" />
+        </LinearLayout>
+    </LinearLayout>
+
+</FrameLayout>
