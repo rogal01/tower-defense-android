@@ -9,13 +9,17 @@ data class Projectile(
     val damage: Float,
     val size: Float = 8f,
     val color: Int = 0xFFFFD700.toInt(),
-    var alive: Boolean = true
+    @Volatile var alive: Boolean = true
 ) {
     fun update(dt: Float) {
         val dx = targetX - x
         val dy = targetY - y
         val dist = Math.sqrt((dx * dx + dy * dy).toDouble()).toFloat()
-        if (dist < speed * dt) {
+        if (dist < 1f) {
+            x = targetX
+            y = targetY
+            alive = false
+        } else if (dist < speed * dt) {
             x = targetX
             y = targetY
             alive = false

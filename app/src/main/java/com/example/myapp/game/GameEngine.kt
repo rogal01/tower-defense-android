@@ -42,6 +42,18 @@ data class Achievement(
 
 class GameEngine(context: Context) {
 
+    val lock = Any()
+    private val appContext = context.applicationContext
+
+    // Difficulty: 0=easy, 1=normal, 2=hard
+    var difficulty: Int = 1
+    // Difficulty multipliers (set via setDifficulty)
+    private var enemyHpMult: Float = 1f
+    private var enemyDmgMult: Float = 1f
+    private var enemySpeedMult: Float = 1f
+    private var goldMult: Float = 1f
+    private var spawnRateMult: Float = 1f
+
     private val prefs: SharedPreferences =
         context.getSharedPreferences("tower_defense_save", Context.MODE_PRIVATE)
 
@@ -117,6 +129,33 @@ class GameEngine(context: Context) {
 
     private val spawnPoints = mutableListOf<Pair<Float, Float>>()
 
+    // Boss pool — shuffled at start, no repeats until all 10 used
+    private val bossPool = mutableListOf<BossType>()
+    var currentBoss: BossType? = null
+        private set
+    private var bossMinionsRemaining: Int = 0
+
+    fun setDifficulty(level: Int) {
+        difficulty = level
+        when (level) {
+            0 -> { // Easy
+                enemyHpMult = 0.7f; enemyDmgMult = 0.6f; enemySpeedMult = 0.85f
+                goldMult = 1.3f; spawnRateMult = 0.8f
+                gold = 80
+            }
+            1 -> { // Normal
+                enemyHpMult = 1f; enemyDmgMult = 1f; enemySpeedMult = 1f
+                goldMult = 1f; spawnRateMult = 1f
+                gold = 50
+            }
+            2 -> { // Hard
+                enemyHpMult = 1.5f; enemyDmgMult = 1.4f; enemySpeedMult = 1.15f
+                goldMult = 0.8f; spawnRateMult = 1.3f
+                gold = 30
+            }
+        }
+    }
+
     fun init(width: Float, height: Float) {
         screenW = width
         screenH = height
@@ -145,7 +184,7 @@ class GameEngine(context: Context) {
         }
     }
 
-    fun update(dt: Float) {
+    fun update(dt: Float) { synchronized(lock) {
         if (gameOver) return
 
         // Wave management
@@ -233,7 +272,7 @@ class GameEngine(context: Context) {
             val dx = baseX - enemy.x
             val dy = baseY - enemy.y
             val dist = Math.sqrt((dx * dx + dy * dy).toDouble()).toFloat()
-            if (dist > enemy.size) {
+            if (dist > enemy.size && dist > 0.1f) {
                 enemy.x += (dx / dist) * enemy.speed * speedMult * dt
                 enemy.y += (dy / dist) * enemy.speed * speedMult * dt
             }
@@ -275,13 +314,15 @@ class GameEngine(context: Context) {
             // Boss death = big shake + extra particles
             if (enemy.type == EnemyType.BOSS) {
                 shakeTimer = 0.4f; shakeIntensity = 15f
+                val bossColor = enemy.bossType?.color ?: 0xFFFFD700.toInt()
                 repeat(20) {
                     val angle = Math.random() * Math.PI * 2
                     particles.add(Particle(enemy.x, enemy.y,
                         (Math.cos(angle) * 250).toFloat(), (Math.sin(angle) * 250).toFloat(),
-                        0.8f, 0xFFFFD700.toInt(), 8f))
+                        0.8f, bossColor, 8f))
                 }
                 checkAchievement("boss_kill")
+                currentBoss = null
             }
 
             // Check achievements
@@ -336,8 +377,12 @@ class GameEngine(context: Context) {
             // Save high score
             if (score > highScore) { highScore = score; prefs.edit().putInt("highScore", highScore).apply() }
             if (wave > highWave) { highWave = wave; prefs.edit().putInt("highWave", highWave).apply() }
+            // Unlock hard difficulty once wave 10 reached on normal
+            if (difficulty == 1 && wave >= 10) {
+                prefs.edit().putBoolean("normal_beaten", true).apply()
+            }
         }
-    }
+    } }
 
     private fun startNextWave() {
         wave++
@@ -346,10 +391,18 @@ class GameEngine(context: Context) {
         waveBannerTimer = 1.5f
         // Boss every 5th wave
         if (wave % 5 == 0) {
-            enemiesRemaining = 1 // Only boss
+            // Pick next unique boss
+            if (bossPool.isEmpty()) {
+                bossPool.addAll(BossType.values().toList().shuffled())
+            }
+            currentBoss = bossPool.removeFirst()
+            bossMinionsRemaining = currentBoss!!.minionCount
+            enemiesRemaining = 1 // The boss itself; minions spawn alongside
         } else {
+            currentBoss = null
+            bossMinionsRemaining = 0
             // More variety: mix of types
-            enemiesRemaining = 3 + wave * 2
+            enemiesRemaining = ((3 + wave * 2) * spawnRateMult).toInt().coerceAtMost(100)
         }
     }
 
@@ -357,8 +410,27 @@ class GameEngine(context: Context) {
         val spawn = spawnPoints.random()
         val waveScale = 1f + (wave - 1) * 0.15f
 
+        // Boss wave: spawn boss first, then themed minions
+        val boss = currentBoss
+        if (boss != null && enemiesRemaining > 0) {
+            // Spawn the boss itself
+            val hp = (boss.baseHp + wave * 40f) * waveScale * enemyHpMult
+            enemies.add(Enemy(
+                x = spawn.first, y = spawn.second,
+                speed = boss.baseSpeed * enemySpeedMult,
+                hp = hp, maxHp = hp,
+                goldReward = ((boss.baseGold + wave * 10f) * waveScale * goldMult).toInt(),
+                damage = boss.baseDmg * waveScale * enemyDmgMult,
+                type = EnemyType.BOSS, bossType = boss, size = 55f
+            ))
+            enemiesRemaining--
+            // Also spawn minions alongside boss
+            spawnBossMinions(boss, waveScale)
+            return
+        }
+
+        // Regular wave enemies
         val type = when {
-            wave % 5 == 0 -> EnemyType.BOSS
             wave >= 10 && Math.random() < 0.1 -> EnemyType.DRAGON
             wave >= 8 && Math.random() < 0.15 -> EnemyType.DEMON
             wave >= 6 && Math.random() < 0.2 -> EnemyType.ORC
@@ -372,26 +444,44 @@ class GameEngine(context: Context) {
             EnemyType.ORC -> arrayOf(60f, 60f, 8f, 12f)
             EnemyType.DEMON -> arrayOf(80f, 90f, 12f, 15f)
             EnemyType.DRAGON -> arrayOf(150f, 70f, 20f, 20f)
-            EnemyType.BOSS -> arrayOf(600f + wave * 40f, 40f, 100f + wave * 10f, 40f)
+            else -> arrayOf(20f, 80f, 3f, 5f)
         }
 
-        val hp = baseHpVal * waveScale
+        val hp = baseHpVal * waveScale * enemyHpMult
         enemies.add(
             Enemy(
                 x = spawn.first,
                 y = spawn.second,
-                speed = baseSpeed + (Math.random() * 20).toFloat(),
+                speed = (baseSpeed + (Math.random() * 20).toFloat()) * enemySpeedMult,
                 hp = hp,
                 maxHp = hp,
-                goldReward = (baseGold * waveScale).toInt(),
-                damage = baseDmg * waveScale,
+                goldReward = (baseGold * waveScale * goldMult).toInt(),
+                damage = baseDmg * waveScale * enemyDmgMult,
                 type = type,
-                size = if (type == EnemyType.BOSS) 55f else 30f
+                size = 30f
             )
         )
     }
 
-    fun placeTower(x: Float, y: Float, type: TowerType): Boolean {
+    private fun spawnBossMinions(boss: BossType, waveScale: Float) {
+        val count = (boss.minionCount * spawnRateMult).toInt().coerceAtLeast(2)
+        repeat(count) {
+            val sp = spawnPoints.random()
+            val mHp = (15f + wave * 3f) * waveScale * enemyHpMult
+            enemies.add(Enemy(
+                x = sp.first + ((Math.random() - 0.5) * 80).toFloat(),
+                y = sp.second + ((Math.random() - 0.5) * 40).toFloat(),
+                speed = (70f + (Math.random() * 30).toFloat()) * enemySpeedMult,
+                hp = mHp, maxHp = mHp,
+                goldReward = ((2f + wave) * goldMult).toInt(),
+                damage = (4f + wave) * waveScale * enemyDmgMult,
+                type = boss.minionType,
+                size = 22f
+            ))
+        }
+    }
+
+    fun placeTower(x: Float, y: Float, type: TowerType): Boolean { synchronized(lock) {
         if (gold < type.baseCost) return false
         // Don't place too close to another tower or the base
         if (towers.any { it.distanceTo(x, y) < 70f }) return false
@@ -401,35 +491,35 @@ class GameEngine(context: Context) {
         gold -= type.baseCost
         towers.add(Tower(x, y, type = type))
         return true
-    }
+    } }
 
-    fun upgradeTower(tower: Tower): Boolean {
+    fun upgradeTower(tower: Tower): Boolean { synchronized(lock) {
         val cost = tower.upgradeCost()
         if (gold < cost) return false
         gold -= cost
         tower.upgrade()
         return true
-    }
+    } }
 
-    fun upgradePlayerDamage(): Boolean {
+    fun upgradePlayerDamage(): Boolean { synchronized(lock) {
         val cost = playerDamageLevel * 25
         if (gold < cost) return false
         gold -= cost
         playerDamageLevel++
         player.attackDamage += 5f
         return true
-    }
+    } }
 
-    fun upgradePlayerSpeed(): Boolean {
+    fun upgradePlayerSpeed(): Boolean { synchronized(lock) {
         val cost = playerSpeedLevel * 20
         if (gold < cost) return false
         gold -= cost
         playerSpeedLevel++
         player.speed += 30f
         return true
-    }
+    } }
 
-    fun upgradePlayerHp(): Boolean {
+    fun upgradePlayerHp(): Boolean { synchronized(lock) {
         val cost = playerHpLevel * 30
         if (gold < cost) return false
         gold -= cost
@@ -437,9 +527,9 @@ class GameEngine(context: Context) {
         player.maxHp += 25f
         player.hp = player.maxHp
         return true
-    }
+    } }
 
-    fun upgradeBaseHp(): Boolean {
+    fun upgradeBaseHp(): Boolean { synchronized(lock) {
         val cost = baseHpLevel * 40
         if (gold < cost) return false
         gold -= cost
@@ -447,25 +537,25 @@ class GameEngine(context: Context) {
         maxBaseHp += 30f
         baseHp = (baseHp + 30f).coerceAtMost(maxBaseHp)
         return true
-    }
+    } }
 
-    fun repairBase(): Boolean {
+    fun repairBase(): Boolean { synchronized(lock) {
         val cost = 20
         if (gold < cost) return false
         if (baseHp >= maxBaseHp) return false
         gold -= cost
         baseHp = (baseHp + 30f).coerceAtMost(maxBaseHp)
         return true
-    }
+    } }
 
-    fun usePower(type: PowerType): Boolean {
+    fun usePower(type: PowerType): Boolean { synchronized(lock) {
         val cd = powerCooldowns.getOrDefault(type, 0f)
         if (cd > 0) return false
 
         when (type) {
             PowerType.FIREBALL -> {
-                if (gold < 15) return false
-                gold -= 15
+                if (gold < type.cost) return false
+                gold -= type.cost
                 // AoE damage to all enemies
                 enemies.forEach { enemy ->
                     enemy.hp -= 50f
@@ -485,11 +575,11 @@ class GameEngine(context: Context) {
                 }
                 floatingTexts.add(FloatingText(screenW / 2, screenH * 0.35f,
                     "FIREBALL!", 0xFFFF5722.toInt(), 1.5f, 44f))
-                powerCooldowns[type] = 8f
+                powerCooldowns[type] = type.cooldown
             }
             PowerType.FREEZE -> {
-                if (gold < 10) return false
-                gold -= 10
+                if (gold < type.cost) return false
+                gold -= type.cost
                 freezeTimer = 4f
                 // Ice particles on all enemies
                 enemies.forEach { enemy ->
@@ -501,11 +591,11 @@ class GameEngine(context: Context) {
                 }
                 floatingTexts.add(FloatingText(screenW / 2, screenH * 0.35f,
                     "FREEZE!", 0xFF29B6F6.toInt(), 1.5f, 44f))
-                powerCooldowns[type] = 10f
+                powerCooldowns[type] = type.cooldown
             }
             PowerType.HEAL -> {
-                if (gold < 20) return false
-                gold -= 20
+                if (gold < type.cost) return false
+                gold -= type.cost
                 baseHp = (baseHp + 50f).coerceAtMost(maxBaseHp)
                 // Green heal particles
                 repeat(15) {
@@ -516,11 +606,11 @@ class GameEngine(context: Context) {
                 }
                 floatingTexts.add(FloatingText(baseX, baseY - 60f,
                     "+50 HP!", 0xFF66BB6A.toInt(), 1.2f, 36f))
-                powerCooldowns[type] = 12f
+                powerCooldowns[type] = type.cooldown
             }
             PowerType.LIGHTNING -> {
-                if (gold < 25) return false
-                gold -= 25
+                if (gold < type.cost) return false
+                gold -= type.cost
                 // Chain lightning: hit up to 5 enemies for 80 damage
                 val targets = enemies.sortedBy { it.distanceTo(player.x, player.y) }.take(5)
                 var prevX = player.x; var prevY = player.y
@@ -540,11 +630,11 @@ class GameEngine(context: Context) {
                 shakeTimer = 0.2f; shakeIntensity = 8f
                 floatingTexts.add(FloatingText(screenW / 2, screenH * 0.35f,
                     "LIGHTNING!", 0xFFFFEB3B.toInt(), 1.5f, 44f))
-                powerCooldowns[type] = 6f
+                powerCooldowns[type] = type.cooldown
             }
         }
         return true
-    }
+    } }
 
     fun getPowerCooldown(type: PowerType): Float = powerCooldowns.getOrDefault(type, 0f)
 
@@ -557,13 +647,13 @@ class GameEngine(context: Context) {
         achievementBannerTimer = 3f
     }
 
-    fun restart() {
+    fun restart() { synchronized(lock) {
         enemies.clear()
         towers.clear()
         projectiles.clear()
         floatingTexts.clear()
         particles.clear()
-        gold = 50
+        setDifficulty(difficulty)
         wave = 0
         baseHp = 100f
         maxBaseHp = 100f
@@ -584,6 +674,9 @@ class GameEngine(context: Context) {
         goldBoostTimer = 0f
         shakeTimer = 0f
         powerCooldowns.clear()
+        bossPool.clear()
+        currentBoss = null
+        bossMinionsRemaining = 0
         newAchievement = null
         achievementBannerTimer = 0f
         showWaveBanner = false
@@ -596,5 +689,5 @@ class GameEngine(context: Context) {
             attackCooldown = 0.5f
         }
         init(screenW, screenH)
-    }
+    } }
 }

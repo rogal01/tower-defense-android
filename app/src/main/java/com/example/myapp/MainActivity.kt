@@ -20,6 +20,10 @@ class MainActivity : AppCompatActivity() {
         val gameView = binding.gameView
         val engine = gameView.getEngine()
 
+        // Apply difficulty from menu
+        val difficulty = intent.getIntExtra(MainMenuActivity.EXTRA_DIFFICULTY, MainMenuActivity.DIFFICULTY_NORMAL)
+        engine.setDifficulty(difficulty)
+
         // HUD updates from game thread
         gameView.onGoldChanged = { gold ->
             binding.textGold.text = "\uD83D\uDCB0 $gold"
@@ -30,7 +34,10 @@ class MainActivity : AppCompatActivity() {
         gameView.onStatsChanged = {
             binding.textKills.text = "\uD83D\uDC80 ${engine.totalKills}"
         }
-        gameView.onGameOver = { score, wave -> }
+        gameView.onGameOver = { score, wave ->
+            binding.textGold.text = "\uD83D\uDCB0 GAME OVER"
+            binding.textWave.text = "\u2694\uFE0F Wave $wave | Score $score"
+        }
 
         // Tower placement buttons
         binding.btnTowerArrow.setOnClickListener {
@@ -70,28 +77,28 @@ class MainActivity : AppCompatActivity() {
             if (cd > 0) { Toast.makeText(this, "Cooldown: ${cd.toInt()}s", Toast.LENGTH_SHORT).show(); return@setOnClickListener }
             if (engine.usePower(PowerType.FIREBALL)) {
                 Toast.makeText(this, "\uD83D\uDD25 Fireball! AoE damage!", Toast.LENGTH_SHORT).show()
-            } else Toast.makeText(this, "Need 15g!", Toast.LENGTH_SHORT).show()
+            } else Toast.makeText(this, "Need ${PowerType.FIREBALL.cost}g!", Toast.LENGTH_SHORT).show()
         }
         binding.btnPowerFreeze.setOnClickListener {
             val cd = engine.getPowerCooldown(PowerType.FREEZE)
             if (cd > 0) { Toast.makeText(this, "Cooldown: ${cd.toInt()}s", Toast.LENGTH_SHORT).show(); return@setOnClickListener }
             if (engine.usePower(PowerType.FREEZE)) {
                 Toast.makeText(this, "\u2744\uFE0F Freeze! Enemies slowed!", Toast.LENGTH_SHORT).show()
-            } else Toast.makeText(this, "Need 10g!", Toast.LENGTH_SHORT).show()
+            } else Toast.makeText(this, "Need ${PowerType.FREEZE.cost}g!", Toast.LENGTH_SHORT).show()
         }
         binding.btnPowerHeal.setOnClickListener {
             val cd = engine.getPowerCooldown(PowerType.HEAL)
             if (cd > 0) { Toast.makeText(this, "Cooldown: ${cd.toInt()}s", Toast.LENGTH_SHORT).show(); return@setOnClickListener }
             if (engine.usePower(PowerType.HEAL)) {
                 Toast.makeText(this, "\uD83D\uDC9A Heal! Base +50 HP!", Toast.LENGTH_SHORT).show()
-            } else Toast.makeText(this, "Need 20g!", Toast.LENGTH_SHORT).show()
+            } else Toast.makeText(this, "Need ${PowerType.HEAL.cost}g!", Toast.LENGTH_SHORT).show()
         }
         binding.btnPowerLightning.setOnClickListener {
             val cd = engine.getPowerCooldown(PowerType.LIGHTNING)
             if (cd > 0) { Toast.makeText(this, "Cooldown: ${cd.toInt()}s", Toast.LENGTH_SHORT).show(); return@setOnClickListener }
             if (engine.usePower(PowerType.LIGHTNING)) {
                 Toast.makeText(this, "\u26A1 Lightning! Chain damage!", Toast.LENGTH_SHORT).show()
-            } else Toast.makeText(this, "Need 25g!", Toast.LENGTH_SHORT).show()
+            } else Toast.makeText(this, "Need ${PowerType.LIGHTNING.cost}g!", Toast.LENGTH_SHORT).show()
         }
 
         // Repair base

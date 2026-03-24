@@ -13,7 +13,7 @@ class GameView @JvmOverloads constructor(
 ) : SurfaceView(context, attrs), SurfaceHolder.Callback, Runnable {
 
     private var gameThread: Thread? = null
-    private var running = false
+    @Volatile private var running = false
     private val engine = GameEngine(context)
 
     var onGoldChanged: ((Int) -> Unit)? = null
@@ -67,6 +67,17 @@ class GameView @JvmOverloads constructor(
         typeface = Typeface.DEFAULT_BOLD
     }
     private val freezeOverlayPaint = Paint().apply { color = 0x1529B6F6 }
+    // Pre-allocated reusable paints to avoid GC pressure in render loop
+    private val bossHpPaint = Paint().apply { isAntiAlias = true }
+    private val bossNamePaint = Paint().apply { isAntiAlias = true; textAlign = Paint.Align.CENTER }
+    private val lvlPaint = Paint().apply { color = 0xFFFFD700.toInt(); textSize = 18f; isAntiAlias = true; textAlign = Paint.Align.CENTER; typeface = Typeface.DEFAULT_BOLD }
+    private val playerHpBarPaint = Paint().apply { color = 0xFF42A5F5.toInt() }
+    private val overlayPaint = Paint().apply { color = 0xAA000000.toInt() }
+    private val gameOverPaint = Paint().apply {
+        color = 0xFFF44336.toInt(); textSize = 64f; isAntiAlias = true
+        textAlign = Paint.Align.CENTER; typeface = Typeface.DEFAULT_BOLD
+    }
+    private val scoreDisplayPaint = Paint().apply { color = Color.WHITE; textSize = 36f; isAntiAlias = true; textAlign = Paint.Align.CENTER; typeface = Typeface.DEFAULT_BOLD }
 
     // Tower placement mode
     var placementMode: TowerType? = null
@@ -92,7 +103,15 @@ class GameView @JvmOverloads constructor(
 
     override fun surfaceDestroyed(holder: SurfaceHolder) {
         running = false
-        gameThread?.join()
+        try {
+            gameThread?.join(2000)
+        } catch (_: InterruptedException) { }
+        gameThread = null
+        // Clear callbacks to prevent activity memory leak
+        onGoldChanged = null
+        onWaveChanged = null
+        onGameOver = null
+        onStatsChanged = null
     }
 
     override fun run() {
@@ -107,19 +126,31 @@ class GameView @JvmOverloads constructor(
             val canvas = holder.lockCanvas()
             if (canvas != null) {
                 try {
-                    drawGame(canvas)
+                    synchronized(engine.lock) { drawGame(canvas) }
                 } finally {
                     holder.unlockCanvasAndPost(canvas)
                 }
             }
 
             // Notify UI thread
+            val goldSnap: Int
+            val waveSnap: Int
+            val killsSnap: Int
+            val isGameOver: Boolean
+            val scoreSnap: Int
+            synchronized(engine.lock) {
+                goldSnap = engine.gold
+                waveSnap = engine.wave
+                killsSnap = engine.totalKills
+                isGameOver = engine.gameOver
+                scoreSnap = engine.score
+            }
             post {
-                onGoldChanged?.invoke(engine.gold)
-                onWaveChanged?.invoke(engine.wave)
+                onGoldChanged?.invoke(goldSnap)
+                onWaveChanged?.invoke(waveSnap)
                 onStatsChanged?.invoke()
-                if (engine.gameOver) {
-                    onGameOver?.invoke(engine.score, engine.wave)
+                if (isGameOver) {
+                    onGameOver?.invoke(scoreSnap, waveSnap)
                 }
             }
 
@@ -163,9 +194,7 @@ class GameView @JvmOverloads constructor(
 
         // Base
         val baseHpRatio = engine.baseHp / engine.maxBaseHp
-        val bPaint = if (baseHpRatio > 0.3f) basePaint else baseDamagedPaint
-        canvas.drawCircle(engine.baseX, engine.baseY, 50f, bPaint)
-        canvas.drawText("\uD83C\uDFF0", engine.baseX, engine.baseY + 16f, emojiPaint)
+        EntityRenderer.drawBase(canvas, engine.baseX, engine.baseY, baseHpRatio)
 
         // Base HP bar
         val barW = 80f
@@ -181,25 +210,15 @@ class GameView @JvmOverloads constructor(
             if (tower == selectedTower) {
                 canvas.drawCircle(tower.x, tower.y, tower.range, towerRangePaint)
             }
-            canvas.drawText(tower.type.emoji, tower.x, tower.y + 14f, smallEmojiPaint)
+            EntityRenderer.drawTower(canvas, tower, tower == selectedTower)
             if (tower.level > 1) {
-                val lvlPaint = Paint(goldTextPaint).apply { textSize = 18f }
                 canvas.drawText("Lv${tower.level}", tower.x, tower.y - 25f, lvlPaint)
             }
         }
 
         // Enemies
         for (enemy in engine.enemies) {
-            val ePaint = Paint().apply {
-                color = when {
-                    enemy.hitFlash > 0 -> Color.WHITE
-                    engine.freezeTimer > 0 -> 0xFF81D4FA.toInt()
-                    else -> enemy.type.color
-                }
-                isAntiAlias = true
-            }
-            canvas.drawCircle(enemy.x, enemy.y, enemy.size, ePaint)
-            canvas.drawText(enemy.type.emoji, enemy.x, enemy.y + 14f, smallEmojiPaint)
+            EntityRenderer.drawEnemy(canvas, enemy, engine.freezeTimer > 0)
 
             // HP bar
             val ehpRatio = enemy.hp / enemy.maxHp
@@ -209,16 +228,18 @@ class GameView @JvmOverloads constructor(
             canvas.drawRect(eBarX, eBarY, eBarX + eBarW, eBarY + 5f, hpBarBgPaint)
             canvas.drawRect(eBarX, eBarY, eBarX + eBarW * ehpRatio, eBarY + 5f, hpBarPaint)
 
-            // Boss: large HP bar at top of screen
+            // Boss: large HP bar at top of screen with name
             if (enemy.type == EnemyType.BOSS) {
                 val bossBarW = width * 0.7f
                 val bossBarX = (width - bossBarW) / 2
                 val bossBarY = 100f
                 canvas.drawRect(bossBarX, bossBarY, bossBarX + bossBarW, bossBarY + 14f, hpBarBgPaint)
-                val bossHpPaint = Paint().apply { color = 0xFFE91E63.toInt() }
+                val bossColor = enemy.bossType?.color ?: 0xFFE91E63.toInt()
+                bossHpPaint.color = bossColor
                 canvas.drawRect(bossBarX, bossBarY, bossBarX + bossBarW * ehpRatio, bossBarY + 14f, bossHpPaint)
-                val bossTxt = Paint(waveTextPaint).apply { textSize = 24f; color = 0xFFE91E63.toInt() }
-                canvas.drawText("\u2620\uFE0F BOSS  ${enemy.hp.toInt()}/${enemy.maxHp.toInt()}", width / 2f, bossBarY - 8f, bossTxt)
+                val bossName = enemy.bossType?.let { "${it.emoji} ${it.displayName}" } ?: "\u2620\uFE0F BOSS"
+                bossNamePaint.textSize = 24f; bossNamePaint.color = bossColor
+                canvas.drawText("$bossName  ${enemy.hp.toInt()}/${enemy.maxHp.toInt()}", width / 2f, bossBarY - 8f, bossNamePaint)
             }
         }
 
@@ -236,8 +257,8 @@ class GameView @JvmOverloads constructor(
         }
 
         // Player
-        canvas.drawCircle(engine.player.x, engine.player.y, engine.player.size, playerPaint)
-        canvas.drawText("\uD83E\uDDDD", engine.player.x, engine.player.y + 16f, emojiPaint)
+        val phRatioForDraw = engine.player.hp / engine.player.maxHp
+        EntityRenderer.drawPlayer(canvas, engine.player.x, engine.player.y, engine.player.size, phRatioForDraw)
         canvas.drawCircle(engine.player.x, engine.player.y, engine.player.attackRange, playerRangePaint)
 
         // Player HP bar
@@ -246,7 +267,7 @@ class GameView @JvmOverloads constructor(
         val pBarX = engine.player.x - pBarW / 2
         val pBarY = engine.player.y - engine.player.size - 15f
         canvas.drawRect(pBarX, pBarY, pBarX + pBarW, pBarY + 6f, hpBarBgPaint)
-        canvas.drawRect(pBarX, pBarY, pBarX + pBarW * phRatio, pBarY + 6f, Paint().apply { color = 0xFF42A5F5.toInt() })
+        canvas.drawRect(pBarX, pBarY, pBarX + pBarW * phRatio, pBarY + 6f, playerHpBarPaint)
 
         // Floating texts
         for (ft in engine.floatingTexts) {
@@ -270,8 +291,13 @@ class GameView @JvmOverloads constructor(
             canvas.drawRect(0f, height * 0.35f, width.toFloat(), height * 0.55f, bannerPaint)
             val wp = Paint(waveTextPaint).apply { textSize = 56f; color = 0xFFFFD700.toInt() }
             val isBoss = engine.wave % 5 == 0
-            val waveLabel = if (isBoss) "\u2620\uFE0F BOSS WAVE ${engine.wave} \u2620\uFE0F" else "\u2694\uFE0F WAVE ${engine.wave} \u2694\uFE0F"
+            val bossLabel = engine.currentBoss?.let { "${it.emoji} ${it.displayName}" }
+            val waveLabel = if (isBoss && bossLabel != null) "$bossLabel" else "\u2694\uFE0F WAVE ${engine.wave} \u2694\uFE0F"
             canvas.drawText(waveLabel, width / 2f, height * 0.47f, wp)
+            if (isBoss) {
+                val subPaint = Paint(waveTextPaint).apply { textSize = 28f; color = 0xFFBDBDBD.toInt() }
+                canvas.drawText("Wave ${engine.wave}", width / 2f, height * 0.52f, subPaint)
+            }
         }
 
         // Combo display (top right)
@@ -313,18 +339,12 @@ class GameView @JvmOverloads constructor(
 
         // Game over overlay (drawn outside shake)
         if (engine.gameOver) {
-            val overlay = Paint().apply { color = 0xAA000000.toInt() }
-            canvas.drawRect(0f, 0f, width.toFloat(), height.toFloat(), overlay)
+            canvas.drawRect(0f, 0f, width.toFloat(), height.toFloat(), overlayPaint)
 
-            val goPaint = Paint().apply {
-                color = 0xFFF44336.toInt(); textSize = 64f; isAntiAlias = true
-                textAlign = Paint.Align.CENTER; typeface = Typeface.DEFAULT_BOLD
-            }
-            canvas.drawText("GAME OVER", width / 2f, height / 2f - 80f, goPaint)
+            canvas.drawText("GAME OVER", width / 2f, height / 2f - 80f, gameOverPaint)
 
-            val scorePaint = Paint(waveTextPaint).apply { textSize = 36f }
-            canvas.drawText("Wave: ${engine.wave}  |  Score: ${engine.score}", width / 2f, height / 2f - 10f, scorePaint)
-            canvas.drawText("Kills: ${engine.totalKills}  |  Best Combo: ${engine.bestCombo}x", width / 2f, height / 2f + 35f, scorePaint)
+            canvas.drawText("Wave: ${engine.wave}  |  Score: ${engine.score}", width / 2f, height / 2f - 10f, scoreDisplayPaint)
+            canvas.drawText("Kills: ${engine.totalKills}  |  Best Combo: ${engine.bestCombo}x", width / 2f, height / 2f + 35f, scoreDisplayPaint)
 
             if (engine.score >= engine.highScore) {
                 val newBestPaint = Paint(goldTextPaint).apply { textSize = 32f }
@@ -343,30 +363,32 @@ class GameView @JvmOverloads constructor(
             val tx = event.x
             val ty = event.y
 
-            if (engine.gameOver) {
-                engine.restart()
-                return true
-            }
-
-            // Tower placement mode
-            if (placementMode != null) {
-                if (engine.placeTower(tx, ty, placementMode!!)) {
-                    post { onGoldChanged?.invoke(engine.gold) }
+            synchronized(engine.lock) {
+                if (engine.gameOver) {
+                    engine.restart()
+                    return true
                 }
-                placementMode = null
-                return true
-            }
 
-            // Check if tapped on a tower (to select it)
-            val tapped = engine.towers.find { it.distanceTo(tx, ty) < it.size + 20f }
-            if (tapped != null) {
-                selectedTower = tapped
-                return true
-            }
-            selectedTower = null
+                // Tower placement mode
+                if (placementMode != null) {
+                    if (engine.placeTower(tx, ty, placementMode!!)) {
+                        post { onGoldChanged?.invoke(engine.gold) }
+                    }
+                    placementMode = null
+                    return true
+                }
 
-            // Otherwise move player
-            engine.player.moveTo(tx, ty)
+                // Check if tapped on a tower (to select it)
+                val tapped = engine.towers.find { it.distanceTo(tx, ty) < it.size + 20f }
+                if (tapped != null) {
+                    selectedTower = tapped
+                    return true
+                }
+                selectedTower = null
+
+                // Otherwise move player
+                engine.player.moveTo(tx, ty)
+            }
             return true
         }
         return super.onTouchEvent(event)
@@ -374,7 +396,10 @@ class GameView @JvmOverloads constructor(
 
     fun pause() {
         running = false
-        gameThread?.join()
+        try {
+            gameThread?.join(2000)
+        } catch (_: InterruptedException) { }
+        gameThread = null
     }
 
     fun resume() {
