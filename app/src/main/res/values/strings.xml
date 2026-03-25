@@ -16,4 +16,8 @@
     <string name="show_fps">Show FPS</string>
     <string name="screen_shake">Screen Shake</string>
     <string name="reset_progress">🗑️ Reset Progress</string>
+    <string name="skill_tree">💎 Skill Tree</string>
+    <string name="skill_tree_title">🌟 Skill Tree</string>
+    <string name="skill_tree_subtitle">Spend diamonds to unlock permanent upgrades</string>
+    <string name="endless_mode">♾️ ENDLESS MODE</string>
 </resources>

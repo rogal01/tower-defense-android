@@ -116,6 +116,28 @@
         android:backgroundTint="@color/gold"
         android:textColor="@color/bg_dark" />
 
+    <!-- Endless Mode button -->
+    <Button
+        android:id="@+id/btn_endless"
+        android:layout_width="match_parent"
+        android:layout_height="52dp"
+        android:layout_marginTop="8dp"
+        android:text="@string/endless_mode"
+        android:textSize="18sp"
+        android:textStyle="bold"
+        android:backgroundTint="#E040FB"
+        android:textColor="@color/bg_dark" />
+
+    <!-- Endless high wave -->
+    <TextView
+        android:id="@+id/text_endless_record"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:textColor="#E040FB"
+        android:textSize="14sp"
+        android:gravity="center"
+        android:layout_marginTop="4dp" />
+
     <!-- Settings button -->
     <Button
         android:id="@+id/btn_settings"
@@ -126,6 +148,28 @@
         android:text="@string/settings"
         android:textSize="16sp"
         android:textColor="@color/text_secondary" />
+
+    <!-- Skill Tree button -->
+    <Button
+        android:id="@+id/btn_skill_tree"
+        android:layout_width="match_parent"
+        android:layout_height="48dp"
+        android:layout_marginTop="8dp"
+        android:text="@string/skill_tree"
+        android:textSize="16sp"
+        android:backgroundTint="#00E5FF"
+        android:textColor="@color/bg_dark" />
+
+    <!-- Diamond counter -->
+    <TextView
+        android:id="@+id/text_diamonds"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:textColor="#00E5FF"
+        android:textSize="16sp"
+        android:textStyle="bold"
+        android:gravity="center"
+        android:layout_marginTop="8dp" />
 
     <!-- Spacer -->
     <View

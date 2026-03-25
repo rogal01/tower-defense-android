@@ -6,6 +6,7 @@ import android.os.Bundle
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import com.example.myapp.databinding.ActivityMenuBinding
+import com.example.myapp.game.SkillTree
 
 class MainMenuActivity : AppCompatActivity() {
 
@@ -45,8 +46,18 @@ class MainMenuActivity : AppCompatActivity() {
             startActivity(intent)
         }
 
+        binding.btnEndless.setOnClickListener {
+            val intent = Intent(this, MainActivity::class.java)
+            intent.putExtra(EXTRA_DIFFICULTY, DIFFICULTY_ENDLESS)
+            startActivity(intent)
+        }
+
         binding.btnSettings.setOnClickListener {
             startActivity(Intent(this, SettingsActivity::class.java))
+        }
+
+        binding.btnSkillTree.setOnClickListener {
+            startActivity(Intent(this, SkillTreeActivity::class.java))
         }
     }
 
@@ -54,6 +65,16 @@ class MainMenuActivity : AppCompatActivity() {
         super.onResume()
         loadHighScore()
         updateHardLock()
+        loadDiamonds()
+    }
+
+    private fun loadDiamonds() {
+        val st = SkillTree(this)
+        if (st.diamonds > 0) {
+            binding.textDiamonds.text = "\uD83D\uDC8E ${st.diamonds} Diamonds"
+        } else {
+            binding.textDiamonds.text = ""
+        }
     }
 
     private fun isHardUnlocked(): Boolean {
@@ -75,10 +96,16 @@ class MainMenuActivity : AppCompatActivity() {
         val prefs = getSharedPreferences("tower_defense_save", Context.MODE_PRIVATE)
         val highScore = prefs.getInt("highScore", 0)
         val highWave = prefs.getInt("highWave", 0)
+        val endlessHighWave = prefs.getInt("endlessHighWave", 0)
         if (highScore > 0) {
             binding.textHighScore.text = "⭐ Best: $highScore  |  Wave: $highWave"
         } else {
             binding.textHighScore.text = ""
+        }
+        if (endlessHighWave > 0) {
+            binding.textEndlessRecord.text = "♾️ Endless Record: Wave $endlessHighWave"
+        } else {
+            binding.textEndlessRecord.text = ""
         }
     }
 
@@ -101,5 +128,6 @@ class MainMenuActivity : AppCompatActivity() {
         const val DIFFICULTY_EASY = 0
         const val DIFFICULTY_NORMAL = 1
         const val DIFFICULTY_HARD = 2
+        const val DIFFICULTY_ENDLESS = 3
     }
 }
