@@ -1,9 +1,11 @@
 package com.example.myapp
 
 import android.os.Bundle
+import android.view.View
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import com.example.myapp.databinding.ActivityMainBinding
+import com.example.myapp.game.CampaignData
 import com.example.myapp.game.PowerType
 import com.example.myapp.game.TowerType
 
@@ -22,6 +24,50 @@ class MainActivity : AppCompatActivity() {
 
         val difficulty = intent.getIntExtra("difficulty", 1)
         engine.applyDifficulty(difficulty)
+
+        // Campaign mode setup
+        val campaignLevelId = intent.getIntExtra("campaign_level", -1)
+        val campaignLevel = if (campaignLevelId > 0) CampaignData.levels.find { it.id == campaignLevelId } else null
+        if (campaignLevel != null) {
+            engine.applyCampaign(campaignLevel)
+
+            // Hide tower buttons not allowed
+            binding.btnTowerArrow.visibility = if (TowerType.ARROW in campaignLevel.allowedTowers) View.VISIBLE else View.GONE
+            binding.btnTowerMagic.visibility = if (TowerType.MAGIC in campaignLevel.allowedTowers) View.VISIBLE else View.GONE
+            binding.btnTowerCannon.visibility = if (TowerType.CANNON in campaignLevel.allowedTowers) View.VISIBLE else View.GONE
+            binding.btnTowerPoison.visibility = if (TowerType.POISON in campaignLevel.allowedTowers) View.VISIBLE else View.GONE
+            binding.btnTowerTesla.visibility = if (TowerType.TESLA in campaignLevel.allowedTowers) View.VISIBLE else View.GONE
+
+            // Hide power buttons not allowed
+            binding.btnPowerFireball.visibility = if (PowerType.FIREBALL in campaignLevel.allowedPowers) View.VISIBLE else View.GONE
+            binding.btnPowerFreeze.visibility = if (PowerType.FREEZE in campaignLevel.allowedPowers) View.VISIBLE else View.GONE
+            binding.btnPowerHeal.visibility = if (PowerType.HEAL in campaignLevel.allowedPowers) View.VISIBLE else View.GONE
+            binding.btnPowerLightning.visibility = if (PowerType.LIGHTNING in campaignLevel.allowedPowers) View.VISIBLE else View.GONE
+
+            // Hide powers bar entirely if no powers allowed
+            if (campaignLevel.allowedPowers.isEmpty()) {
+                binding.powersBar.visibility = View.GONE
+            }
+
+            // Hide upgrade buttons if upgrades disabled
+            if (!campaignLevel.upgradesEnabled) {
+                binding.btnUpDamage.visibility = View.GONE
+                binding.btnUpSpeed.visibility = View.GONE
+                binding.btnUpHp.visibility = View.GONE
+                binding.btnUpBase.visibility = View.GONE
+                binding.btnUpTower.visibility = View.GONE
+            }
+
+            // Show hint
+            if (campaignLevel.hint.isNotEmpty()) {
+                Toast.makeText(this, "\uD83D\uDCA1 ${campaignLevel.hint}", Toast.LENGTH_LONG).show()
+            }
+        }
+
+        // Campaign victory — return to level select
+        gameView.onCampaignVictory = {
+            finish()
+        }
 
         // HUD updates from game thread
         gameView.onGoldChanged = { gold ->
@@ -137,6 +183,18 @@ class MainActivity : AppCompatActivity() {
                 if (engine.upgradeTower(selected)) Toast.makeText(this, "⬆️ Tower Lv${selected.level}! (${cost}g)", Toast.LENGTH_SHORT).show()
                 else Toast.makeText(this, "Need ${cost}g!", Toast.LENGTH_SHORT).show()
             } else Toast.makeText(this, "Tap a tower first!", Toast.LENGTH_SHORT).show()
+        }
+        binding.btnTarget.setOnClickListener {
+            val selected = gameView.getSelectedTower()
+            if (selected != null) {
+                selected.targetingMode = selected.targetingMode.next()
+                binding.btnTarget.text = "\uD83C\uDFAF ${selected.targetingMode.label}"
+                Toast.makeText(this, "Target: ${selected.targetingMode.label}", Toast.LENGTH_SHORT).show()
+            } else Toast.makeText(this, "Tap a tower first!", Toast.LENGTH_SHORT).show()
+        }
+
+        gameView.onTowerSelected = { tower ->
+            binding.btnTarget.text = "\uD83C\uDFAF ${tower?.targetingMode?.label ?: "Close"}"
         }
     }
 

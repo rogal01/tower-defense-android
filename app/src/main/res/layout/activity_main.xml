@@ -230,6 +230,16 @@
                 android:text="\u2B06\uFE0F TOWER"
                 android:textSize="11sp"
                 android:backgroundTint="#FFB300" />
+
+            <Button
+                android:id="@+id/btn_target"
+                android:layout_width="0dp"
+                android:layout_height="36dp"
+                android:layout_weight="1"
+                android:layout_marginHorizontal="2dp"
+                android:text="\uD83C\uDFAF Close"
+                android:textSize="11sp"
+                android:backgroundTint="#26A69A" />
         </LinearLayout>
     </LinearLayout>
 

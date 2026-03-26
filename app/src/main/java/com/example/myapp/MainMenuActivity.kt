@@ -6,6 +6,7 @@ import android.os.Bundle
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import com.example.myapp.databinding.ActivityMenuBinding
+import com.example.myapp.game.CampaignData
 import com.example.myapp.game.SkillTree
 
 class MainMenuActivity : AppCompatActivity() {
@@ -59,6 +60,18 @@ class MainMenuActivity : AppCompatActivity() {
         binding.btnSkillTree.setOnClickListener {
             startActivity(Intent(this, SkillTreeActivity::class.java))
         }
+
+        binding.btnStats.setOnClickListener {
+            startActivity(Intent(this, StatsActivity::class.java))
+        }
+
+        binding.btnAchievements.setOnClickListener {
+            startActivity(Intent(this, AchievementsActivity::class.java))
+        }
+
+        binding.btnCampaign.setOnClickListener {
+            startActivity(Intent(this, CampaignActivity::class.java))
+        }
     }
 
     override fun onResume() {
@@ -66,6 +79,7 @@ class MainMenuActivity : AppCompatActivity() {
         loadHighScore()
         updateHardLock()
         loadDiamonds()
+        loadCampaignProgress()
     }
 
     private fun loadDiamonds() {
@@ -74,6 +88,14 @@ class MainMenuActivity : AppCompatActivity() {
             binding.textDiamonds.text = "\uD83D\uDC8E ${st.diamonds} Diamonds"
         } else {
             binding.textDiamonds.text = ""
+        }
+    }
+
+    private fun loadCampaignProgress() {
+        val prefs = getSharedPreferences("tower_defense_save", Context.MODE_PRIVATE)
+        val completed = CampaignData.levels.count { prefs.getBoolean("campaign_${it.id}", false) }
+        if (completed > 0) {
+            binding.btnCampaign.text = "\uD83D\uDDFA\uFE0F CAMPAIGN ($completed/${CampaignData.levels.size})"
         }
     }
 

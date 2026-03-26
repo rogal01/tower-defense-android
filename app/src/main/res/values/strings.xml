@@ -20,4 +20,7 @@
     <string name="skill_tree_title">🌟 Skill Tree</string>
     <string name="skill_tree_subtitle">Spend diamonds to unlock permanent upgrades</string>
     <string name="endless_mode">♾️ ENDLESS MODE</string>
+    <string name="statistics">📊 Statistics</string>
+    <string name="achievements">🏆 Achievements</string>
+    <string name="campaign">🗺️ CAMPAIGN</string>
 </resources>

@@ -2,6 +2,7 @@ package com.example.myapp.game
 
 import android.content.Context
 import android.content.SharedPreferences
+import android.graphics.PointF
 
 // Floating text for damage numbers, gold, combos
 data class FloatingText(
@@ -46,6 +47,11 @@ data class WavePreview(
     val bossType: BossType? = null
 )
 
+/** A path with waypoints that enemies follow from spawn to base */
+data class GamePath(val waypoints: List<PointF>) {
+    val spawnPoint: PointF get() = waypoints.first()
+}
+
 class GameEngine(context: Context) {
 
     val lock = Any()
@@ -81,6 +87,7 @@ class GameEngine(context: Context) {
 
     var score: Int = 0
     var totalKills: Int = 0
+    var totalGoldEarned: Int = 0
     var gameOver: Boolean = false
     var waveInProgress: Boolean = false
     var enemiesRemaining: Int = 0
@@ -90,7 +97,6 @@ class GameEngine(context: Context) {
     // Wave banner
     var waveBannerTimer: Float = 0f
     var showWaveBanner: Boolean = false
-    var waveBannerText: String = ""
 
     // Combo system
     var comboCount: Int = 0
@@ -117,12 +123,27 @@ class GameEngine(context: Context) {
         Achievement("wave_5", "Survivor", "Reach wave 5", "\uD83D\uDEE1\uFE0F"),
         Achievement("wave_10", "Veteran", "Reach wave 10", "\u2694\uFE0F"),
         Achievement("wave_20", "Legend", "Reach wave 20", "\uD83D\uDC51"),
+        Achievement("wave_30", "Immortal", "Reach wave 30", "\uD83C\uDFC6"),
+        Achievement("wave_50", "Mythic", "Reach wave 50", "\uD83C\uDF1F"),
         Achievement("kills_50", "Slayer", "Kill 50 enemies", "\uD83D\uDC80"),
         Achievement("kills_200", "Destroyer", "Kill 200 enemies", "\uD83D\uDD25"),
+        Achievement("kills_500", "Annihilator", "Kill 500 enemies", "\uD83D\uDCA5"),
         Achievement("combo_10", "Combo King", "Get a 10x combo", "\uD83D\uDD17"),
+        Achievement("combo_20", "Combo God", "Get a 20x combo", "\u26D3\uFE0F"),
         Achievement("boss_kill", "Boss Slayer", "Kill your first boss", "\u2620\uFE0F"),
+        Achievement("5_bosses", "Boss Hunter", "Kill 5 bosses in one run", "\uD83D\uDC09"),
         Achievement("5_towers", "Architect", "Place 5 towers", "\uD83C\uDFD7\uFE0F"),
-        Achievement("rich", "Rich", "Have 500 gold at once", "\uD83D\uDCB0")
+        Achievement("10_towers", "Fortress", "Place 10 towers", "\uD83C\uDFF0"),
+        Achievement("all_tower_types", "Arsenal", "Place all 5 tower types", "\uD83C\uDFAF"),
+        Achievement("use_power", "Sorcerer", "Use a power for the first time", "\u2728"),
+        Achievement("max_tower", "Master Builder", "Upgrade a tower to level 5", "\u2B06\uFE0F"),
+        Achievement("rich", "Rich", "Have 500 gold at once", "\uD83D\uDCB0"),
+        Achievement("rich_1000", "Millionaire", "Have 1000 gold at once", "\uD83E\uDD11"),
+        Achievement("score_1000", "Score Chaser", "Reach 1000 score", "\uD83D\uDCCA"),
+        Achievement("diamond_10", "Diamond Hoarder", "Earn 10 diamonds in a run", "\uD83D\uDC8E"),
+        Achievement("repaired_3", "Mechanic", "Repair the base 3 times in a run", "\uD83D\uDD27"),
+        Achievement("upgrade_all", "Well Rounded", "Buy all 4 player upgrades", "\uD83C\uDF96\uFE0F"),
+        Achievement("endless_10", "Endurance", "Reach wave 10 in endless mode", "\u267E\uFE0F")
     )
     var newAchievement: Achievement? = null
     var achievementBannerTimer: Float = 0f
@@ -134,6 +155,8 @@ class GameEngine(context: Context) {
     var baseHpLevel = 1
 
     private val spawnPoints = mutableListOf<Pair<Float, Float>>()
+    val paths = mutableListOf<GamePath>()
+    val riverWaypoints = mutableListOf<PointF>()
 
     // Boss pool
     private val bossPool = mutableListOf<BossType>()
@@ -141,14 +164,20 @@ class GameEngine(context: Context) {
         private set
     private var bossMinionsRemaining: Int = 0
 
-    // Day/Night Cycle
-    var dayNightPhase: Float = 0f
-    var isNight: Boolean = false
     var isEndlessMode: Boolean = false
+    val bossInterval: Int get() = if (campaignLevel?.id == 13) 3 else 5
     var nextWavePreview: WavePreview? = null
     var diamondsEarnedThisRun: Int = 0
+    var bossesKilledThisRun: Int = 0
+    var repairsThisRun: Int = 0
     var endlessHighWave: Int = 0
+    var isNewHighScore: Boolean = false
+    var isNewEndlessRecord: Boolean = false
     val skillTree = SkillTree(context)
+
+    // Campaign
+    var campaignLevel: CampaignLevel? = null
+    var campaignVictory: Boolean = false
 
     fun applyDifficulty(level: Int) {
         difficulty = level
@@ -177,6 +206,27 @@ class GameEngine(context: Context) {
         }
     }
 
+    fun applyCampaign(level: CampaignLevel) {
+        campaignLevel = level
+        campaignVictory = false
+        enemyHpMult = level.enemyHpMult
+        enemyDmgMult = level.enemyDmgMult
+        enemySpeedMult = level.enemySpeedMult
+        goldMult = level.goldMult
+        spawnRateMult = level.spawnRateMult
+        gold = level.startingGold
+    }
+
+    fun isTowerAllowed(type: TowerType): Boolean {
+        val cl = campaignLevel ?: return true
+        return type in cl.allowedTowers
+    }
+
+    fun isPowerAllowed(type: PowerType): Boolean {
+        val cl = campaignLevel ?: return true
+        return type in cl.allowedPowers
+    }
+
     fun init(width: Float, height: Float) {
         screenW = width
         screenH = height
@@ -187,14 +237,17 @@ class GameEngine(context: Context) {
         player.targetX = player.x
         player.targetY = player.y
 
-        spawnPoints.clear()
-        spawnPoints.add(Pair(width * 0.1f, -40f))
-        spawnPoints.add(Pair(width * 0.3f, -40f))
-        spawnPoints.add(Pair(width * 0.5f, -40f))
-        spawnPoints.add(Pair(width * 0.7f, -40f))
-        spawnPoints.add(Pair(width * 0.9f, -40f))
-        spawnPoints.add(Pair(-40f, height * 0.3f))
-        spawnPoints.add(Pair(width + 40f, height * 0.3f))
+        // Apply persistent skill tree bonuses
+        gold += skillTree.bonusStartGold()
+        maxBaseHp += skillTree.bonusBaseHp()
+        baseHp = maxBaseHp
+        player.attackDamage += skillTree.bonusPlayerDamage()
+        player.speed += skillTree.bonusPlayerSpeed()
+        player.maxHp += skillTree.bonusPlayerHp()
+        player.hp = player.maxHp
+        player.attackRange += skillTree.bonusAttackRange()
+
+        generatePaths(width, height)
 
         highScore = prefs.getInt("highScore", 0)
         highWave = prefs.getInt("highWave", 0)
@@ -206,9 +259,68 @@ class GameEngine(context: Context) {
         generateNextWavePreview()
     }
 
+    /** Build 3 winding paths from spawn edges down to the base */
+    private fun generatePaths(w: Float, h: Float) {
+        paths.clear()
+        spawnPoints.clear()
+        val bx = baseX
+        val by = baseY
+
+        // Left path — winding S-curve from top-left
+        paths.add(GamePath(listOf(
+            PointF(w * 0.08f, -40f),
+            PointF(w * 0.15f, h * 0.10f),
+            PointF(w * 0.28f, h * 0.24f),
+            PointF(w * 0.10f, h * 0.40f),
+            PointF(w * 0.26f, h * 0.56f),
+            PointF(w * 0.16f, h * 0.70f),
+            PointF(w * 0.36f, h * 0.80f),
+            PointF(bx, by)
+        )))
+
+        // Center path — gentle S-curve
+        paths.add(GamePath(listOf(
+            PointF(w * 0.50f, -40f),
+            PointF(w * 0.46f, h * 0.09f),
+            PointF(w * 0.58f, h * 0.24f),
+            PointF(w * 0.40f, h * 0.40f),
+            PointF(w * 0.56f, h * 0.56f),
+            PointF(w * 0.44f, h * 0.70f),
+            PointF(bx, by)
+        )))
+
+        // Right path — winding S-curve from top-right
+        paths.add(GamePath(listOf(
+            PointF(w * 0.92f, -40f),
+            PointF(w * 0.85f, h * 0.10f),
+            PointF(w * 0.72f, h * 0.24f),
+            PointF(w * 0.90f, h * 0.40f),
+            PointF(w * 0.74f, h * 0.56f),
+            PointF(w * 0.84f, h * 0.70f),
+            PointF(w * 0.64f, h * 0.80f),
+            PointF(bx, by)
+        )))
+
+        paths.forEach { path ->
+            val sp = path.spawnPoint
+            spawnPoints.add(Pair(sp.x, sp.y))
+        }
+
+        // River flowing left-to-right across the map at ~33% height
+        riverWaypoints.clear()
+        val ry = h * 0.33f
+        riverWaypoints.add(PointF(-20f, ry + 15f))
+        riverWaypoints.add(PointF(w * 0.15f, ry - 10f))
+        riverWaypoints.add(PointF(w * 0.30f, ry + 20f))
+        riverWaypoints.add(PointF(w * 0.50f, ry - 5f))
+        riverWaypoints.add(PointF(w * 0.70f, ry + 18f))
+        riverWaypoints.add(PointF(w * 0.85f, ry - 8f))
+        riverWaypoints.add(PointF(w + 20f, ry + 10f))
+    }
+
     private fun generateNextWavePreview() {
         val nextWave = wave + 1
-        if (nextWave % 5 == 0) {
+        if (nextWave % bossInterval == 0) {
             val type = if (bossPool.isEmpty()) BossType.values().random() else bossPool.first()
             nextWavePreview = WavePreview(true, emptyMap(), type)
         } else {
@@ -229,7 +341,7 @@ class GameEngine(context: Context) {
     }
 
     fun update(dt: Float) { synchronized(lock) {
-        if (gameOver) return
+        if (gameOver || campaignVictory) return
 
         if (!waveInProgress && enemies.isEmpty()) {
             waveTimer -= dt
@@ -249,10 +361,21 @@ class GameEngine(context: Context) {
         if (waveInProgress && enemies.isEmpty() && enemiesRemaining <= 0) {
             waveInProgress = false
             waveTimer = waveDelay
-            val bonus = wave * 5
+            val bonus = wave * 5 + skillTree.bonusWaveGold()
             gold += bonus
+            totalGoldEarned += bonus
             floatingTexts.add(FloatingText(baseX, baseY - 80f, "+${bonus}g wave bonus!", 0xFFFFD700.toInt(), 1.5f, 32f))
-            generateNextWavePreview()
+
+            // Campaign victory check
+            val cl = campaignLevel
+            if (cl != null && wave >= cl.targetWave) {
+                campaignVictory = true
+                prefs.edit().putBoolean("campaign_${cl.id}", true).apply()
+                skillTree.addDiamonds(cl.diamondReward)
+                diamondsEarnedThisRun += cl.diamondReward
+            } else {
+                generateNextWavePreview()
+            }
         }
 
         if (waveInProgress && enemiesRemaining > 0) {
@@ -277,6 +400,7 @@ class GameEngine(context: Context) {
                 if (comboCount >= 5) {
                     val bonus = (comboCount * 2)
                     gold += bonus
+                    totalGoldEarned += bonus
                     floatingTexts.add(FloatingText(screenW / 2, screenH * 0.4f,
                         "${comboCount}x COMBO! +${bonus}g", 0xFFFF9800.toInt(), 2f, 40f))
                 }
@@ -287,7 +411,7 @@ class GameEngine(context: Context) {
 
         player.update(dt)
 
-        if (player.canAttack()) {
+        if (player.hp > 0 && player.canAttack()) {
             val nearest = enemies.minByOrNull { it.distanceTo(player.x, player.y) }
             if (nearest != null && nearest.distanceTo(player.x, player.y) < player.attackRange) {
                 nearest.hp -= player.attackDamage
@@ -302,12 +426,29 @@ class GameEngine(context: Context) {
 
         val speedMult = if (freezeTimer > 0) 0.2f else 1f
         enemies.forEach { enemy ->
-            val dx = baseX - enemy.x
-            val dy = baseY - enemy.y
-            val dist = Math.sqrt((dx * dx + dy * dy).toDouble()).toFloat()
-            if (dist > enemy.size && dist > 0.1f) {
-                enemy.x += (dx / dist) * enemy.speed * enemySpeedMult * speedMult * dt
-                enemy.y += (dy / dist) * enemy.speed * enemySpeedMult * speedMult * dt
+            val chargeBoost = if (enemy.isCharging) 3f else 1f
+            // Follow waypoints along assigned path
+            val path = paths.getOrNull(enemy.pathIndex)
+            val target = path?.waypoints?.getOrNull(enemy.waypointIndex)
+            if (target != null) {
+                val dx = target.x - enemy.x
+                val dy = target.y - enemy.y
+                val dist = Math.sqrt((dx * dx + dy * dy).toDouble()).toFloat()
+                if (dist > enemy.size * 0.5f) {
+                    enemy.x += (dx / dist) * enemy.speed * speedMult * chargeBoost * dt
+                    enemy.y += (dy / dist) * enemy.speed * speedMult * chargeBoost * dt
+                } else {
+                    enemy.waypointIndex++
+                }
+            } else {
+                // Past last waypoint or no path — head to base
+                val dx = baseX - enemy.x
+                val dy = baseY - enemy.y
+                val dist = Math.sqrt((dx * dx + dy * dy).toDouble()).toFloat()
+                if (dist > enemy.size) {
+                    enemy.x += (dx / dist) * enemy.speed * speedMult * chargeBoost * dt
+                    enemy.y += (dy / dist) * enemy.speed * speedMult * chargeBoost * dt
+                }
             }
             if (enemy.hitFlash > 0) enemy.hitFlash -= dt
             if (enemy.isAtBase(baseX, baseY)) {
@@ -316,11 +457,31 @@ class GameEngine(context: Context) {
             }
         }
 
+        // Boss special abilities
+        val bossAbilityEnemies = mutableListOf<Enemy>()
+        enemies.forEach { enemy ->
+            if (enemy.type == EnemyType.BOSS && enemy.bossType != null && !enemy.isDead()) {
+                enemy.bossAbilityTimer -= dt
+                if (enemy.isCharging) {
+                    enemy.chargeTimer -= dt
+                    if (enemy.chargeTimer <= 0f) enemy.isCharging = false
+                }
+                if (enemy.bossAbilityTimer <= 0f) {
+                    enemy.bossAbilityTimer = enemy.bossAbilityCooldown
+                    bossAbilityEnemies.add(enemy)
+                }
+            }
+        }
+        for (boss in bossAbilityEnemies) {
+            executeBossAbility(boss, dt)
+        }
+
         val deadEnemies = enemies.filter { it.isDead() }
         deadEnemies.forEach { enemy ->
             val goldMultVal = if (goldBoostTimer > 0) 2 else 1
-            val comboGold = (enemy.goldReward * comboMultiplier * goldMultVal).toInt()
+            val comboGold = (enemy.goldReward * comboMultiplier * goldMultVal * skillTree.goldBonusMultiplier()).toInt()
             gold += comboGold
+            totalGoldEarned += comboGold
             score += comboGold
             totalKills++
 
@@ -350,22 +511,48 @@ class GameEngine(context: Context) {
                         0.8f, bossColor, 8f))
                 }
                 checkAchievement("boss_kill")
+                bossesKilledThisRun++
+                if (bossesKilledThisRun >= 5) checkAchievement("5_bosses")
                 currentBoss = null
+                // Boss always drops diamonds
+                val diamondDrop = (2 + wave / 5).coerceAtMost(10)
+                skillTree.addDiamonds(diamondDrop)
+                diamondsEarnedThisRun += diamondDrop
+                floatingTexts.add(FloatingText(enemy.x, enemy.y - enemy.size - 20f,
+                    "+${diamondDrop} \uD83D\uDC8E", 0xFF00E5FF.toInt(), 1.5f, 30f))
+            } else {
+                // Regular enemies have a small diamond drop chance
+                val dropChance = 0.03f + skillTree.diamondDropBonus()
+                if (Math.random() < dropChance) {
+                    skillTree.addDiamonds(1)
+                    diamondsEarnedThisRun += 1
+                    floatingTexts.add(FloatingText(enemy.x, enemy.y - enemy.size - 20f,
+                        "+1 \uD83D\uDC8E", 0xFF00E5FF.toInt(), 1.2f, 24f))
+                }
             }
 
             checkAchievement("first_kill")
             if (totalKills >= 50) checkAchievement("kills_50")
             if (totalKills >= 200) checkAchievement("kills_200")
+            if (totalKills >= 500) checkAchievement("kills_500")
             if (comboCount >= 10) checkAchievement("combo_10")
+            if (comboCount >= 20) checkAchievement("combo_20")
+            if (score >= 1000) checkAchievement("score_1000")
+            if (diamondsEarnedThisRun >= 10) checkAchievement("diamond_10")
         }
         enemies.removeAll { it.isDead() }
 
-        val towerDmgMult = 1f + (playerDamageLevel - 1) * 0.1f
+        val towerDmgMult = (1f + (playerDamageLevel - 1) * 0.1f) * skillTree.towerDamageMultiplier()
         towers.forEach { tower ->
             tower.update(dt)
             if (tower.canFire()) {
-                val target = enemies.filter { it.distanceTo(tower.x, tower.y) < tower.range }
-                    .minByOrNull { it.distanceTo(tower.x, tower.y) }
+                val inRange = enemies.filter { it.distanceTo(tower.x, tower.y) < tower.range }
+                val target = when (tower.targetingMode) {
+                    TargetingMode.CLOSE -> inRange.minByOrNull { it.distanceTo(tower.x, tower.y) }
+                    TargetingMode.FIRST -> inRange.maxByOrNull { it.waypointIndex }
+                    TargetingMode.LAST -> inRange.minByOrNull { it.waypointIndex }
+                    TargetingMode.STRONG -> inRange.maxByOrNull { it.hp }
+                }
                 if (target != null) {
                     tower.fire()
                     val dmg = tower.damage * towerDmgMult
@@ -395,10 +582,13 @@ class GameEngine(context: Context) {
         particles.removeAll { it.isDead() }
 
         if (gold >= 500) checkAchievement("rich")
+        if (gold >= 1000) checkAchievement("rich_1000")
 
         if (baseHp <= 0) {
             baseHp = 0f
             gameOver = true
+            isNewHighScore = score > highScore
+            isNewEndlessRecord = isEndlessMode && wave > endlessHighWave
             if (score > highScore) { highScore = score; prefs.edit().putInt("highScore", highScore).apply() }
             if (wave > highWave) { highWave = wave; prefs.edit().putInt("highWave", highWave).apply() }
             if (difficulty == 1 && wave >= 10) {
@@ -408,6 +598,25 @@ class GameEngine(context: Context) {
                 endlessHighWave = wave
                 prefs.edit().putInt("endlessHighWave", endlessHighWave).apply()
             }
+            // Save lifetime stats
+            prefs.edit()
+                .putInt("lifetime_kills", prefs.getInt("lifetime_kills", 0) + totalKills)
+                .putInt("lifetime_games", prefs.getInt("lifetime_games", 0) + 1)
+                .putInt("lifetime_waves", prefs.getInt("lifetime_waves", 0) + wave)
+                .putInt("lifetime_score", prefs.getInt("lifetime_score", 0) + score)
+                .putInt("lifetime_gold", prefs.getInt("lifetime_gold", 0) + totalGoldEarned)
+                .putInt("lifetime_towers", prefs.getInt("lifetime_towers", 0) + towers.size)
+                .putInt("lifetime_bosses", prefs.getInt("lifetime_bosses", 0) + (if (wave / 5 > 0) wave / 5 else 0))
+                .apply()
+            val best = prefs.getInt("lifetime_best_combo", 0)
+            if (bestCombo > best) prefs.edit().putInt("lifetime_best_combo", bestCombo).apply()
+            // Track favorite tower
+            val towerCounts = towers.groupBy { it.type.name }.mapValues { it.value.size }
+            val fav = towerCounts.maxByOrNull { it.value }
+            if (fav != null) {
+                val key = "tower_count_${fav.key}"
+                prefs.edit().putInt(key, prefs.getInt(key, 0) + fav.value).apply()
+            }
         }
     } }
 
@@ -416,7 +625,13 @@ class GameEngine(context: Context) {
         waveInProgress = true
         showWaveBanner = true
         waveBannerTimer = 1.5f
-        if (wave % 5 == 0) {
+        if (wave >= 5) checkAchievement("wave_5")
+        if (wave >= 10) checkAchievement("wave_10")
+        if (wave >= 20) checkAchievement("wave_20")
+        if (wave >= 30) checkAchievement("wave_30")
+        if (wave >= 50) checkAchievement("wave_50")
+        if (isEndlessMode && wave >= 10) checkAchievement("endless_10")
+        if (wave % bossInterval == 0) {
             if (bossPool.isEmpty()) {
                 bossPool.addAll(BossType.values().toList().shuffled())
             }
@@ -431,21 +646,23 @@ class GameEngine(context: Context) {
     }
 
     private fun spawnEnemy() {
-        val spawn = spawnPoints.random()
+        if (paths.isEmpty()) return
+        val pathIdx = paths.indices.random()
+        val spawn = paths[pathIdx].spawnPoint
         val waveScale = 1f + (wave - 1) * 0.15f
 
         val boss = currentBoss
-        if (boss != null && enemiesRemaining > 0) {
+        if (boss != null) {
             val hp = (boss.baseHp + wave * 40f) * waveScale * enemyHpMult
             enemies.add(Enemy(
-                x = spawn.first, y = spawn.second,
+                x = spawn.x, y = spawn.y,
                 speed = boss.baseSpeed * enemySpeedMult,
                 hp = hp, maxHp = hp,
                 goldReward = ((boss.baseGold + wave * 10f) * waveScale * goldMult).toInt(),
                 damage = boss.baseDmg * waveScale * enemyDmgMult,
-                type = EnemyType.BOSS, bossType = boss, size = 55f
+                type = EnemyType.BOSS, bossType = boss, size = 55f,
+                pathIndex = pathIdx
             ))
-            enemiesRemaining--
             spawnBossMinions(boss, waveScale)
             return
         }
@@ -470,15 +687,16 @@ class GameEngine(context: Context) {
         val hp = baseHpVal * waveScale * enemyHpMult
         enemies.add(
             Enemy(
-                x = spawn.first,
-                y = spawn.second,
+                x = spawn.x,
+                y = spawn.y,
                 speed = (baseSpeed + (Math.random() * 20).toFloat()) * enemySpeedMult,
                 hp = hp,
                 maxHp = hp,
                 goldReward = (baseGold * waveScale * goldMult).toInt(),
                 damage = baseDmg * waveScale * enemyDmgMult,
                 type = type,
-                size = 30f
+                size = 30f,
+                pathIndex = pathIdx
             )
         )
     }
@@ -486,18 +704,184 @@ class GameEngine(context: Context) {
     private fun spawnBossMinions(boss: BossType, waveScale: Float) {
         val count = (boss.minionCount * spawnRateMult).toInt().coerceAtLeast(2)
         repeat(count) {
-            val sp = spawnPoints.random()
+            val pathIdx = if (paths.isNotEmpty()) paths.indices.random() else 0
+            val sp = if (paths.isNotEmpty()) paths[pathIdx].spawnPoint else PointF(screenW / 2, -40f)
             val mHp = (15f + wave * 3f) * waveScale * enemyHpMult
             enemies.add(Enemy(
-                x = sp.first + ((Math.random() - 0.5) * 80).toFloat(),
-                y = sp.second + ((Math.random() - 0.5) * 40).toFloat(),
+                x = sp.x + ((Math.random() - 0.5) * 80).toFloat(),
+                y = sp.y + ((Math.random() - 0.5) * 40).toFloat(),
                 speed = (70f + (Math.random() * 30).toFloat()) * enemySpeedMult,
                 hp = mHp, maxHp = mHp,
                 goldReward = ((2f + wave) * goldMult).toInt(),
                 damage = (4f + wave) * waveScale * enemyDmgMult,
                 type = boss.minionType,
-                size = 22f
+                size = 22f,
+                pathIndex = pathIdx
             ))
+        }
+    }
+
+    private fun executeBossAbility(boss: Enemy, dt: Float) {
+        val bt = boss.bossType ?: return
+        when (bt.ability) {
+            BossAbility.CHARGE -> {
+                boss.isCharging = true
+                boss.chargeTimer = 2f
+                floatingTexts.add(FloatingText(boss.x, boss.y - boss.size, "\u26A1 CHARGE!", bt.color, 1.2f, 28f))
+                shakeTimer = 0.2f; shakeIntensity = 6f
+            }
+            BossAbility.SUMMON -> {
+                val waveScale = 1f + (wave - 1) * 0.15f
+                repeat(3) {
+                    val pathIdx = if (paths.isNotEmpty()) paths.indices.random() else 0
+                    val mHp = (15f + wave * 3f) * waveScale * enemyHpMult
+                    enemies.add(Enemy(
+                        x = boss.x + ((Math.random() - 0.5) * 60).toFloat(),
+                        y = boss.y + ((Math.random() - 0.5) * 40).toFloat(),
+                        speed = (70f + (Math.random() * 30).toFloat()) * enemySpeedMult,
+                        hp = mHp, maxHp = mHp,
+                        goldReward = ((2f + wave) * goldMult).toInt(),
+                        damage = (4f + wave) * waveScale * enemyDmgMult,
+                        type = bt.minionType, size = 22f, pathIndex = pathIdx,
+                        waypointIndex = boss.waypointIndex.coerceAtMost(
+                            (paths.getOrNull(pathIdx)?.waypoints?.size ?: 1) - 1
+                        )
+                    ))
+                }
+                floatingTexts.add(FloatingText(boss.x, boss.y - boss.size, "\uD83D\uDC7E SUMMON!", bt.color, 1.2f, 28f))
+                repeat(10) {
+                    val angle = Math.random() * Math.PI * 2
+                    particles.add(Particle(boss.x, boss.y,
+                        (Math.cos(angle) * 100).toFloat(), (Math.sin(angle) * 100).toFloat(),
+                        0.5f, bt.color, 5f))
+                }
+            }
+            BossAbility.HEAL -> {
+                val healAmt = boss.maxHp * 0.15f
+                boss.hp = (boss.hp + healAmt).coerceAtMost(boss.maxHp)
+                floatingTexts.add(FloatingText(boss.x, boss.y - boss.size, "+${healAmt.toInt()} HP", 0xFF66BB6A.toInt(), 1.2f, 28f))
+                repeat(8) {
+                    val angle = Math.random() * Math.PI * 2
+                    particles.add(Particle(boss.x, boss.y,
+                        (Math.cos(angle) * 60).toFloat(), (Math.sin(angle) * 60 - 40).toFloat(),
+                        0.6f, 0xFF66BB6A.toInt(), 5f))
+                }
+            }
+            BossAbility.AOE_DAMAGE -> {
+                val range = 200f
+                towers.forEach { tower ->
+                    val dx = tower.x - boss.x; val dy = tower.y - boss.y
+                    if (dx * dx + dy * dy < range * range) {
+                        tower.fireTimer += 2f // Disable towers temporarily
+                    }
+                }
+                // Also damage base if in range
+                val dbx = baseX - boss.x; val dby = baseY - boss.y
+                if (dbx * dbx + dby * dby < range * range) {
+                    baseHp = (baseHp - 15f).coerceAtLeast(0f)
+                }
+                floatingTexts.add(FloatingText(boss.x, boss.y - boss.size, "\uD83D\uDD25 AOE!", 0xFFFF5722.toInt(), 1.2f, 32f))
+                shakeTimer = 0.3f; shakeIntensity = 10f
+                repeat(15) {
+                    val angle = Math.random() * Math.PI * 2
+                    val dist = Math.random() * range
+                    particles.add(Particle(
+                        boss.x + (Math.cos(angle) * dist).toFloat(),
+                        boss.y + (Math.sin(angle) * dist).toFloat(),
+                        0f, -40f, 0.6f, 0xFFFF5722.toInt(), 6f))
+                }
+            }
+            BossAbility.SHIELD -> {
+                boss.hp += boss.maxHp * 0.1f // Overshield
+                floatingTexts.add(FloatingText(boss.x, boss.y - boss.size, "\uD83D\uDEE1\uFE0F SHIELD!", 0xFF29B6F6.toInt(), 1.5f, 28f))
+                repeat(12) {
+                    val angle = Math.random() * Math.PI * 2
+                    particles.add(Particle(
+                        boss.x + (Math.cos(angle) * 40).toFloat(),
+                        boss.y + (Math.sin(angle) * 40).toFloat(),
+                        0f, 0f, 0.8f, 0xFF29B6F6.toInt(), 4f))
+                }
+            }
+            BossAbility.ROAR -> {
+                enemies.filter { it != boss && it.distanceTo(boss.x, boss.y) < 250f }.forEach { minion ->
+                    minion.hitFlash = 0.3f
+                }
+                floatingTexts.add(FloatingText(boss.x, boss.y - boss.size, "\uD83D\uDCA8 ROAR!", bt.color, 1.2f, 32f))
+                shakeTimer = 0.2f; shakeIntensity = 8f
+                // Damage player if nearby
+                if (player.distanceTo(boss.x, boss.y) < 200f) {
+                    player.hp = (player.hp - 15f).coerceAtLeast(0f)
+                    floatingTexts.add(FloatingText(player.x, player.y - 30f, "-15", 0xFFF44336.toInt(), 0.8f, 22f))
+                }
+            }
+            BossAbility.TELEPORT -> {
+                val path = paths.getOrNull(boss.pathIndex)
+                if (path != null && boss.waypointIndex < path.waypoints.size - 2) {
+                    boss.waypointIndex += 2
+                    val wp = path.waypoints[boss.waypointIndex]
+                    repeat(8) {
+                        val angle = Math.random() * Math.PI * 2
+                        particles.add(Particle(boss.x, boss.y,
+                            (Math.cos(angle) * 80).toFloat(), (Math.sin(angle) * 80).toFloat(),
+                            0.4f, 0xFF263238.toInt(), 5f))
+                    }
+                    boss.x = wp.x; boss.y = wp.y
+                    repeat(8) {
+                        val angle = Math.random() * Math.PI * 2
+                        particles.add(Particle(boss.x, boss.y,
+                            (Math.cos(angle) * 80).toFloat(), (Math.sin(angle) * 80).toFloat(),
+                            0.4f, 0xFF263238.toInt(), 5f))
+                    }
+                    floatingTexts.add(FloatingText(boss.x, boss.y - boss.size, "\uD83D\uDCA8 TELEPORT!", bt.color, 1f, 26f))
+                }
+            }
+            BossAbility.DRAIN -> {
+                val stolen = (10 + wave).coerceAtMost(gold)
+                if (stolen > 0) {
+                    gold -= stolen
+                    boss.hp = (boss.hp + stolen * 2f).coerceAtMost(boss.maxHp * 1.2f)
+                    floatingTexts.add(FloatingText(boss.x, boss.y - boss.size, "-${stolen}g DRAIN!", 0xFFE040FB.toInt(), 1.2f, 28f))
+                    floatingTexts.add(FloatingText(screenW / 2, screenH * 0.4f, "-${stolen} gold stolen!", 0xFFF44336.toInt(), 1.5f, 32f))
+                }
+            }
+            BossAbility.QUAKE -> {
+                shakeTimer = 1f; shakeIntensity = 20f
+                // Slow all towers
+                towers.forEach { it.fireTimer += 1.5f }
+                floatingTexts.add(FloatingText(boss.x, boss.y - boss.size, "\uD83C\uDF0B QUAKE!", bt.color, 1.5f, 32f))
+                repeat(20) {
+                    particles.add(Particle(
+                        (Math.random() * screenW).toFloat(), screenH * 0.8f,
+                        ((Math.random() - 0.5) * 40).toFloat(), -(Math.random() * 200 + 50).toFloat(),
+                        0.6f, 0xFF795548.toInt(), 4f))
+                }
+            }
+            BossAbility.SPLIT -> {
+                if (!boss.hasSplit && boss.hp < boss.maxHp * 0.5f) {
+                    boss.hasSplit = true
+                    val waveScale = 1f + (wave - 1) * 0.15f
+                    repeat(2) {
+                        val cloneHp = boss.hp * 0.3f
+                        enemies.add(Enemy(
+                            x = boss.x + ((Math.random() - 0.5) * 50).toFloat(),
+                            y = boss.y + ((Math.random() - 0.5) * 30).toFloat(),
+                            speed = boss.speed * 1.3f,
+                            hp = cloneHp, maxHp = cloneHp,
+                            goldReward = (boss.goldReward / 4),
+                            damage = boss.damage * 0.5f,
+                            type = bt.minionType, size = 30f,
+                            pathIndex = boss.pathIndex, waypointIndex = boss.waypointIndex
+                        ))
+                    }
+                    floatingTexts.add(FloatingText(boss.x, boss.y - boss.size, "\uD83E\uDDA0 SPLIT!", bt.color, 1.2f, 28f))
+                    repeat(12) {
+                        val angle = Math.random() * Math.PI * 2
+                        particles.add(Particle(boss.x, boss.y,
+                            (Math.cos(angle) * 120).toFloat(), (Math.sin(angle) * 120).toFloat(),
+                            0.5f, bt.color, 6f))
+                    }
+                }
+            }
         }
     }
 
@@ -507,8 +891,41 @@ class GameEngine(context: Context) {
         val distToBase = Math.sqrt(((x - baseX) * (x - baseX) + (y - baseY) * (y - baseY)).toDouble()).toFloat()
         if (distToBase < 60f) return false
 
+        // Block placement on/near enemy paths
+        for (gamePath in paths) {
+            val wps = gamePath.waypoints
+            for (i in 0 until wps.size - 1) {
+                val ax = wps[i].x; val ay = wps[i].y
+                val bx2 = wps[i + 1].x; val by2 = wps[i + 1].y
+                val segLenSq = (bx2 - ax) * (bx2 - ax) + (by2 - ay) * (by2 - ay)
+                val t = if (segLenSq < 0.01f) 0f else
+                    (((x - ax) * (bx2 - ax) + (y - ay) * (by2 - ay)) / segLenSq).coerceIn(0f, 1f)
+                val px = ax + t * (bx2 - ax)
+                val py = ay + t * (by2 - ay)
+                val dx = x - px; val dy = y - py
+                if (dx * dx + dy * dy < 50f * 50f) return false
+            }
+        }
+
+        // Block placement on/near river
+        for (i in 0 until riverWaypoints.size - 1) {
+            val ax = riverWaypoints[i].x; val ay = riverWaypoints[i].y
+            val bx2 = riverWaypoints[i + 1].x; val by2 = riverWaypoints[i + 1].y
+            val segLenSq = (bx2 - ax) * (bx2 - ax) + (by2 - ay) * (by2 - ay)
+            val t = if (segLenSq < 0.01f) 0f else
+                (((x - ax) * (bx2 - ax) + (y - ay) * (by2 - ay)) / segLenSq).coerceIn(0f, 1f)
+            val px = ax + t * (bx2 - ax)
+            val py = ay + t * (by2 - ay)
+            val dx = x - px; val dy = y - py
+            if (dx * dx + dy * dy < 40f * 40f) return false
+        }
+
         gold -= type.baseCost
-        towers.add(Tower(x, y, type = type))
+        towers.add(Tower(x, y, type = type, damage = type.baseDamage, range = type.baseRange, fireRate = type.baseFireRate))
+        if (towers.size >= 5) checkAchievement("5_towers")
+        if (towers.size >= 10) checkAchievement("10_towers")
+        val towerTypes = towers.map { it.type }.toSet()
+        if (towerTypes.size >= TowerType.entries.size) checkAchievement("all_tower_types")
         return true
     } }
 
@@ -517,6 +934,7 @@ class GameEngine(context: Context) {
         if (gold < cost) return false
         gold -= cost
         tower.upgrade()
+        if (tower.level >= 5) checkAchievement("max_tower")
         return true
     } }
 
@@ -526,6 +944,7 @@ class GameEngine(context: Context) {
         gold -= cost
         playerDamageLevel++
         player.attackDamage += 5f
+        checkUpgradeAll()
         return true
     } }
 
@@ -535,6 +954,7 @@ class GameEngine(context: Context) {
         gold -= cost
         playerSpeedLevel++
         player.speed += 30f
+        checkUpgradeAll()
         return true
     } }
 
@@ -545,6 +965,7 @@ class GameEngine(context: Context) {
         playerHpLevel++
         player.maxHp += 25f
         player.hp = player.maxHp
+        checkUpgradeAll()
         return true
     } }
 
@@ -564,6 +985,8 @@ class GameEngine(context: Context) {
         if (baseHp >= maxBaseHp) return false
         gold -= cost
         baseHp = (baseHp + 30f).coerceAtMost(maxBaseHp)
+        repairsThisRun++
+        if (repairsThisRun >= 3) checkAchievement("repaired_3")
         return true
     } }
 
@@ -646,6 +1069,7 @@ class GameEngine(context: Context) {
                 powerCooldowns[type] = type.cooldown
             }
         }
+        checkAchievement("use_power")
         return true
     } }
 
@@ -660,6 +1084,12 @@ class GameEngine(context: Context) {
         achievementBannerTimer = 3f
     }
 
+    private fun checkUpgradeAll() {
+        if (playerDamageLevel >= 2 && playerSpeedLevel >= 2 && playerHpLevel >= 2 && baseHpLevel >= 2) {
+            checkAchievement("upgrade_all")
+        }
+    }
+
     fun restart() { synchronized(lock) {
         enemies.clear()
         towers.clear()
@@ -672,6 +1102,7 @@ class GameEngine(context: Context) {
         maxBaseHp = 100f
         score = 0
         totalKills = 0
+        totalGoldEarned = 0
         gameOver = false
         waveInProgress = false
         enemiesRemaining = 0
@@ -693,6 +1124,14 @@ class GameEngine(context: Context) {
         newAchievement = null
         achievementBannerTimer = 0f
         showWaveBanner = false
+        diamondsEarnedThisRun = 0
+        bossesKilledThisRun = 0
+        repairsThisRun = 0
+        bestCombo = 0
+        isNewHighScore = false
+        isNewEndlessRecord = false
+        campaignVictory = false
+        val savedCampaign = campaignLevel
         player.apply {
             attackDamage = 10f
             speed = 300f
@@ -701,6 +1140,7 @@ class GameEngine(context: Context) {
             attackRange = 150f
             attackCooldown = 0.5f
         }
+        if (savedCampaign != null) applyCampaign(savedCampaign)
         init(screenW, screenH)
     } }
 }

@@ -38,9 +38,8 @@ data class Player(
         attackTimer = attackCooldown
     }
 
-    fun distanceTo(ex: Float, ey: Float): Float {
-        val dx = x - ex
-        val dy = y - ey
+    fun distanceTo(tx: Float, ty: Float): Float {
+        val dx = x - tx; val dy = y - ty
         return Math.sqrt((dx * dx + dy * dy).toDouble()).toFloat()
     }
 }

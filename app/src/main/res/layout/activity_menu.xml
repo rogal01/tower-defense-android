@@ -138,6 +138,18 @@
         android:gravity="center"
         android:layout_marginTop="4dp" />
 
+    <!-- Campaign button -->
+    <Button
+        android:id="@+id/btn_campaign"
+        android:layout_width="match_parent"
+        android:layout_height="52dp"
+        android:layout_marginTop="8dp"
+        android:text="@string/campaign"
+        android:textSize="18sp"
+        android:textStyle="bold"
+        android:backgroundTint="#FF9800"
+        android:textColor="@color/bg_dark" />
+
     <!-- Settings button -->
     <Button
         android:id="@+id/btn_settings"
@@ -159,6 +171,28 @@
         android:textSize="16sp"
         android:backgroundTint="#00E5FF"
         android:textColor="@color/bg_dark" />
+
+    <!-- Statistics button -->
+    <Button
+        android:id="@+id/btn_stats"
+        style="@style/Widget.MaterialComponents.Button.OutlinedButton"
+        android:layout_width="match_parent"
+        android:layout_height="48dp"
+        android:layout_marginTop="8dp"
+        android:text="@string/statistics"
+        android:textSize="16sp"
+        android:textColor="@color/text_secondary" />
+
+    <!-- Achievements button -->
+    <Button
+        android:id="@+id/btn_achievements"
+        style="@style/Widget.MaterialComponents.Button.OutlinedButton"
+        android:layout_width="match_parent"
+        android:layout_height="48dp"
+        android:layout_marginTop="8dp"
+        android:text="@string/achievements"
+        android:textSize="16sp"
+        android:textColor="@color/text_secondary" />
 
     <!-- Diamond counter -->
     <TextView

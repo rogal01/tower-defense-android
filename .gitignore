@@ -4,3 +4,15 @@ build/
 .idea/
 local.properties
 app/build/
+
+# Build output logs
+build_out.txt
+build_err.txt
+
+# OS generated files
+.DS_Store
+Thumbs.db
+
+# Signing
+*.jks
+*.keystore
