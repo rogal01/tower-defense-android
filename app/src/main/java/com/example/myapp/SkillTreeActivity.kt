@@ -103,6 +103,7 @@ class SkillTreeActivity : AppCompatActivity() {
                 setTextSize(TypedValue.COMPLEX_UNIT_SP, 14f)
                 setOnClickListener {
                     if (skillTree.upgrade(skill.id)) {
+                        SoundManager.play(SfxType.PLAYER_UPGRADE)
                         Toast.makeText(this@SkillTreeActivity,
                             "${skill.emoji} ${skill.name} upgraded!", Toast.LENGTH_SHORT).show()
                         buildSkillList()

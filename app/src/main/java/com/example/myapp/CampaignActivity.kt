@@ -63,6 +63,7 @@ class CampaignActivity : AppCompatActivity() {
                 isFocusable = isUnlocked
                 if (isUnlocked) {
                     setOnClickListener {
+                        SoundManager.play(SfxType.UI_CLICK)
                         val intent = Intent(this@CampaignActivity, MainActivity::class.java)
                         intent.putExtra("difficulty", MainMenuActivity.DIFFICULTY_NORMAL)
                         intent.putExtra("campaign_level", level.id)

@@ -6,6 +6,8 @@ import android.util.AttributeSet
 import android.view.MotionEvent
 import android.view.SurfaceHolder
 import android.view.SurfaceView
+import com.example.myapp.SoundManager
+import com.example.myapp.SfxType
 
 class GameView @JvmOverloads constructor(
     context: Context,
@@ -786,11 +788,13 @@ class GameView @JvmOverloads constructor(
 
             synchronized(engine.lock) {
                 if (engine.campaignVictory) {
+                    selectedTower = null
                     post { onCampaignVictory?.invoke() }
                     return true
                 }
 
                 if (engine.gameOver) {
+                    SoundManager.play(SfxType.UI_CLICK)
                     engine.restart()
                     gameOverFired = false
                     selectedTower = null
@@ -800,9 +804,9 @@ class GameView @JvmOverloads constructor(
                 // Tower placement mode
                 if (placementMode != null) {
                     if (engine.placeTower(tx, ty, placementMode!!)) {
+                        placementMode = null
                         post { onGoldChanged?.invoke(engine.gold) }
                     }
-                    placementMode = null
                     return true
                 }
 
@@ -810,6 +814,7 @@ class GameView @JvmOverloads constructor(
                 val tapped = engine.towers.find { it.distanceTo(tx, ty) < it.size + 20f }
                 if (tapped != null) {
                     selectedTower = tapped
+                    SoundManager.play(SfxType.UI_CLICK)
                     post { onTowerSelected?.invoke(tapped) }
                     return true
                 }

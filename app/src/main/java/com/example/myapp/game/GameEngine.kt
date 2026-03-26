@@ -3,6 +3,8 @@ package com.example.myapp.game
 import android.content.Context
 import android.content.SharedPreferences
 import android.graphics.PointF
+import com.example.myapp.SoundManager
+import com.example.myapp.SfxType
 
 // Floating text for damage numbers, gold, combos
 data class FloatingText(
@@ -361,6 +363,7 @@ class GameEngine(context: Context) {
         if (waveInProgress && enemies.isEmpty() && enemiesRemaining <= 0) {
             waveInProgress = false
             waveTimer = waveDelay
+            SoundManager.play(SfxType.WAVE_COMPLETE)
             val bonus = wave * 5 + skillTree.bonusWaveGold()
             gold += bonus
             totalGoldEarned += bonus
@@ -370,6 +373,7 @@ class GameEngine(context: Context) {
             val cl = campaignLevel
             if (cl != null && wave >= cl.targetWave) {
                 campaignVictory = true
+                SoundManager.play(SfxType.VICTORY)
                 prefs.edit().putBoolean("campaign_${cl.id}", true).apply()
                 skillTree.addDiamonds(cl.diamondReward)
                 diamondsEarnedThisRun += cl.diamondReward
@@ -398,6 +402,7 @@ class GameEngine(context: Context) {
             comboTimer -= dt
             if (comboTimer <= 0) {
                 if (comboCount >= 5) {
+                    SoundManager.play(SfxType.COMBO)
                     val bonus = (comboCount * 2)
                     gold += bonus
                     totalGoldEarned += bonus
@@ -417,6 +422,7 @@ class GameEngine(context: Context) {
                 nearest.hp -= player.attackDamage
                 nearest.hitFlash = 0.15f
                 player.attack()
+                SoundManager.play(SfxType.PLAYER_ATTACK)
                 projectiles.add(Projectile(player.x, player.y, nearest.x, nearest.y,
                     damage = 0f, color = 0xFF42A5F5.toInt()))
                 floatingTexts.add(FloatingText(nearest.x, nearest.y - nearest.size,
@@ -427,6 +433,7 @@ class GameEngine(context: Context) {
         val speedMult = if (freezeTimer > 0) 0.2f else 1f
         enemies.forEach { enemy ->
             val chargeBoost = if (enemy.isCharging) 3f else 1f
+            val roarBoost = enemy.roarSpeedBoost
             // Follow waypoints along assigned path
             val path = paths.getOrNull(enemy.pathIndex)
             val target = path?.waypoints?.getOrNull(enemy.waypointIndex)
@@ -435,8 +442,8 @@ class GameEngine(context: Context) {
                 val dy = target.y - enemy.y
                 val dist = Math.sqrt((dx * dx + dy * dy).toDouble()).toFloat()
                 if (dist > enemy.size * 0.5f) {
-                    enemy.x += (dx / dist) * enemy.speed * speedMult * chargeBoost * dt
-                    enemy.y += (dy / dist) * enemy.speed * speedMult * chargeBoost * dt
+                    enemy.x += (dx / dist) * enemy.speed * speedMult * chargeBoost * roarBoost * dt
+                    enemy.y += (dy / dist) * enemy.speed * speedMult * chargeBoost * roarBoost * dt
                 } else {
                     enemy.waypointIndex++
                 }
@@ -446,14 +453,19 @@ class GameEngine(context: Context) {
                 val dy = baseY - enemy.y
                 val dist = Math.sqrt((dx * dx + dy * dy).toDouble()).toFloat()
                 if (dist > enemy.size) {
-                    enemy.x += (dx / dist) * enemy.speed * speedMult * chargeBoost * dt
-                    enemy.y += (dy / dist) * enemy.speed * speedMult * chargeBoost * dt
+                    enemy.x += (dx / dist) * enemy.speed * speedMult * chargeBoost * roarBoost * dt
+                    enemy.y += (dy / dist) * enemy.speed * speedMult * chargeBoost * roarBoost * dt
                 }
             }
             if (enemy.hitFlash > 0) enemy.hitFlash -= dt
+            if (enemy.roarBoostTimer > 0) {
+                enemy.roarBoostTimer -= dt
+                if (enemy.roarBoostTimer <= 0f) enemy.roarSpeedBoost = 1f
+            }
             if (enemy.isAtBase(baseX, baseY)) {
-                baseHp -= enemy.damage * dt
-                enemy.hitFlash = 0.1f
+                baseHp -= enemy.damage
+                SoundManager.play(SfxType.BASE_HIT)
+                enemy.hp = 0f  // Remove enemy after dealing damage once
             }
         }
 
@@ -478,6 +490,7 @@ class GameEngine(context: Context) {
 
         val deadEnemies = enemies.filter { it.isDead() }
         deadEnemies.forEach { enemy ->
+            SoundManager.play(SfxType.ENEMY_DIE)
             val goldMultVal = if (goldBoostTimer > 0) 2 else 1
             val comboGold = (enemy.goldReward * comboMultiplier * goldMultVal * skillTree.goldBonusMultiplier()).toInt()
             gold += comboGold
@@ -518,6 +531,7 @@ class GameEngine(context: Context) {
                 val diamondDrop = (2 + wave / 5).coerceAtMost(10)
                 skillTree.addDiamonds(diamondDrop)
                 diamondsEarnedThisRun += diamondDrop
+                SoundManager.play(SfxType.DIAMOND_DROP)
                 floatingTexts.add(FloatingText(enemy.x, enemy.y - enemy.size - 20f,
                     "+${diamondDrop} \uD83D\uDC8E", 0xFF00E5FF.toInt(), 1.5f, 30f))
             } else {
@@ -526,6 +540,7 @@ class GameEngine(context: Context) {
                 if (Math.random() < dropChance) {
                     skillTree.addDiamonds(1)
                     diamondsEarnedThisRun += 1
+                    SoundManager.play(SfxType.DIAMOND_DROP)
                     floatingTexts.add(FloatingText(enemy.x, enemy.y - enemy.size - 20f,
                         "+1 \uD83D\uDC8E", 0xFF00E5FF.toInt(), 1.2f, 24f))
                 }
@@ -549,8 +564,8 @@ class GameEngine(context: Context) {
                 val inRange = enemies.filter { it.distanceTo(tower.x, tower.y) < tower.range }
                 val target = when (tower.targetingMode) {
                     TargetingMode.CLOSE -> inRange.minByOrNull { it.distanceTo(tower.x, tower.y) }
-                    TargetingMode.FIRST -> inRange.maxByOrNull { it.waypointIndex }
-                    TargetingMode.LAST -> inRange.minByOrNull { it.waypointIndex }
+                    TargetingMode.FIRST -> inRange.maxByOrNull { enemyPathProgress(it) }
+                    TargetingMode.LAST -> inRange.minByOrNull { enemyPathProgress(it) }
                     TargetingMode.STRONG -> inRange.maxByOrNull { it.hp }
                 }
                 if (target != null) {
@@ -558,6 +573,13 @@ class GameEngine(context: Context) {
                     val dmg = tower.damage * towerDmgMult
                     target.hp -= dmg
                     target.hitFlash = 0.15f
+                    SoundManager.play(when (tower.type) {
+                        TowerType.ARROW -> SfxType.ARROW_FIRE
+                        TowerType.MAGIC -> SfxType.MAGIC_FIRE
+                        TowerType.CANNON -> SfxType.CANNON_FIRE
+                        TowerType.POISON -> SfxType.POISON_FIRE
+                        TowerType.TESLA -> SfxType.TESLA_FIRE
+                    })
                     projectiles.add(Projectile(tower.x, tower.y, target.x, target.y,
                         damage = 0f,
                         color = when (tower.type) {
@@ -587,36 +609,37 @@ class GameEngine(context: Context) {
         if (baseHp <= 0) {
             baseHp = 0f
             gameOver = true
+            SoundManager.play(SfxType.GAME_OVER)
             isNewHighScore = score > highScore
             isNewEndlessRecord = isEndlessMode && wave > endlessHighWave
-            if (score > highScore) { highScore = score; prefs.edit().putInt("highScore", highScore).apply() }
-            if (wave > highWave) { highWave = wave; prefs.edit().putInt("highWave", highWave).apply() }
+            // Batch all SharedPreferences writes into a single editor
+            val editor = prefs.edit()
+            if (score > highScore) { highScore = score; editor.putInt("highScore", highScore) }
+            if (wave > highWave) { highWave = wave; editor.putInt("highWave", highWave) }
             if (difficulty == 1 && wave >= 10) {
-                prefs.edit().putBoolean("normal_beaten", true).apply()
+                editor.putBoolean("normal_beaten", true)
             }
             if (isEndlessMode && wave > endlessHighWave) {
                 endlessHighWave = wave
-                prefs.edit().putInt("endlessHighWave", endlessHighWave).apply()
+                editor.putInt("endlessHighWave", endlessHighWave)
             }
-            // Save lifetime stats
-            prefs.edit()
+            editor
                 .putInt("lifetime_kills", prefs.getInt("lifetime_kills", 0) + totalKills)
                 .putInt("lifetime_games", prefs.getInt("lifetime_games", 0) + 1)
                 .putInt("lifetime_waves", prefs.getInt("lifetime_waves", 0) + wave)
                 .putInt("lifetime_score", prefs.getInt("lifetime_score", 0) + score)
                 .putInt("lifetime_gold", prefs.getInt("lifetime_gold", 0) + totalGoldEarned)
                 .putInt("lifetime_towers", prefs.getInt("lifetime_towers", 0) + towers.size)
-                .putInt("lifetime_bosses", prefs.getInt("lifetime_bosses", 0) + (if (wave / 5 > 0) wave / 5 else 0))
-                .apply()
+                .putInt("lifetime_bosses", prefs.getInt("lifetime_bosses", 0) + bossesKilledThisRun)
             val best = prefs.getInt("lifetime_best_combo", 0)
-            if (bestCombo > best) prefs.edit().putInt("lifetime_best_combo", bestCombo).apply()
-            // Track favorite tower
+            if (bestCombo > best) editor.putInt("lifetime_best_combo", bestCombo)
             val towerCounts = towers.groupBy { it.type.name }.mapValues { it.value.size }
             val fav = towerCounts.maxByOrNull { it.value }
             if (fav != null) {
                 val key = "tower_count_${fav.key}"
-                prefs.edit().putInt(key, prefs.getInt(key, 0) + fav.value).apply()
+                editor.putInt(key, prefs.getInt(key, 0) + fav.value)
             }
+            editor.apply()
         }
     } }
 
@@ -625,6 +648,7 @@ class GameEngine(context: Context) {
         waveInProgress = true
         showWaveBanner = true
         waveBannerTimer = 1.5f
+        SoundManager.play(SfxType.WAVE_START)
         if (wave >= 5) checkAchievement("wave_5")
         if (wave >= 10) checkAchievement("wave_10")
         if (wave >= 20) checkAchievement("wave_20")
@@ -638,6 +662,7 @@ class GameEngine(context: Context) {
             currentBoss = bossPool.removeFirst()
             bossMinionsRemaining = currentBoss!!.minionCount
             enemiesRemaining = 1
+            SoundManager.play(SfxType.BOSS_APPEAR)
         } else {
             currentBoss = null
             bossMinionsRemaining = 0
@@ -658,7 +683,7 @@ class GameEngine(context: Context) {
                 x = spawn.x, y = spawn.y,
                 speed = boss.baseSpeed * enemySpeedMult,
                 hp = hp, maxHp = hp,
-                goldReward = ((boss.baseGold + wave * 10f) * waveScale * goldMult).toInt(),
+                goldReward = ((boss.baseGold + wave * 10f) * waveScale * goldMult).toInt().coerceAtLeast(1),
                 damage = boss.baseDmg * waveScale * enemyDmgMult,
                 type = EnemyType.BOSS, bossType = boss, size = 55f,
                 pathIndex = pathIdx
@@ -692,7 +717,7 @@ class GameEngine(context: Context) {
                 speed = (baseSpeed + (Math.random() * 20).toFloat()) * enemySpeedMult,
                 hp = hp,
                 maxHp = hp,
-                goldReward = (baseGold * waveScale * goldMult).toInt(),
+                goldReward = (baseGold * waveScale * goldMult).toInt().coerceAtLeast(1),
                 damage = baseDmg * waveScale * enemyDmgMult,
                 type = type,
                 size = 30f,
@@ -712,7 +737,7 @@ class GameEngine(context: Context) {
                 y = sp.y + ((Math.random() - 0.5) * 40).toFloat(),
                 speed = (70f + (Math.random() * 30).toFloat()) * enemySpeedMult,
                 hp = mHp, maxHp = mHp,
-                goldReward = ((2f + wave) * goldMult).toInt(),
+                goldReward = ((2f + wave) * goldMult).toInt().coerceAtLeast(1),
                 damage = (4f + wave) * waveScale * enemyDmgMult,
                 type = boss.minionType,
                 size = 22f,
@@ -727,6 +752,7 @@ class GameEngine(context: Context) {
             BossAbility.CHARGE -> {
                 boss.isCharging = true
                 boss.chargeTimer = 2f
+                SoundManager.play(SfxType.BOSS_CHARGE)
                 floatingTexts.add(FloatingText(boss.x, boss.y - boss.size, "\u26A1 CHARGE!", bt.color, 1.2f, 28f))
                 shakeTimer = 0.2f; shakeIntensity = 6f
             }
@@ -740,7 +766,7 @@ class GameEngine(context: Context) {
                         y = boss.y + ((Math.random() - 0.5) * 40).toFloat(),
                         speed = (70f + (Math.random() * 30).toFloat()) * enemySpeedMult,
                         hp = mHp, maxHp = mHp,
-                        goldReward = ((2f + wave) * goldMult).toInt(),
+                        goldReward = ((2f + wave) * goldMult).toInt().coerceAtLeast(1),
                         damage = (4f + wave) * waveScale * enemyDmgMult,
                         type = bt.minionType, size = 22f, pathIndex = pathIdx,
                         waypointIndex = boss.waypointIndex.coerceAtMost(
@@ -749,6 +775,7 @@ class GameEngine(context: Context) {
                     ))
                 }
                 floatingTexts.add(FloatingText(boss.x, boss.y - boss.size, "\uD83D\uDC7E SUMMON!", bt.color, 1.2f, 28f))
+                SoundManager.play(SfxType.BOSS_SUMMON)
                 repeat(10) {
                     val angle = Math.random() * Math.PI * 2
                     particles.add(Particle(boss.x, boss.y,
@@ -759,6 +786,7 @@ class GameEngine(context: Context) {
             BossAbility.HEAL -> {
                 val healAmt = boss.maxHp * 0.15f
                 boss.hp = (boss.hp + healAmt).coerceAtMost(boss.maxHp)
+                SoundManager.play(SfxType.BOSS_HEAL)
                 floatingTexts.add(FloatingText(boss.x, boss.y - boss.size, "+${healAmt.toInt()} HP", 0xFF66BB6A.toInt(), 1.2f, 28f))
                 repeat(8) {
                     val angle = Math.random() * Math.PI * 2
@@ -781,6 +809,7 @@ class GameEngine(context: Context) {
                     baseHp = (baseHp - 15f).coerceAtLeast(0f)
                 }
                 floatingTexts.add(FloatingText(boss.x, boss.y - boss.size, "\uD83D\uDD25 AOE!", 0xFFFF5722.toInt(), 1.2f, 32f))
+                SoundManager.play(SfxType.BOSS_AOE)
                 shakeTimer = 0.3f; shakeIntensity = 10f
                 repeat(15) {
                     val angle = Math.random() * Math.PI * 2
@@ -793,6 +822,7 @@ class GameEngine(context: Context) {
             }
             BossAbility.SHIELD -> {
                 boss.hp += boss.maxHp * 0.1f // Overshield
+                SoundManager.play(SfxType.BOSS_SHIELD)
                 floatingTexts.add(FloatingText(boss.x, boss.y - boss.size, "\uD83D\uDEE1\uFE0F SHIELD!", 0xFF29B6F6.toInt(), 1.5f, 28f))
                 repeat(12) {
                     val angle = Math.random() * Math.PI * 2
@@ -805,8 +835,11 @@ class GameEngine(context: Context) {
             BossAbility.ROAR -> {
                 enemies.filter { it != boss && it.distanceTo(boss.x, boss.y) < 250f }.forEach { minion ->
                     minion.hitFlash = 0.3f
+                    minion.roarSpeedBoost = 2.0f  // 2x speed for 3 seconds
+                    minion.roarBoostTimer = 3f
                 }
                 floatingTexts.add(FloatingText(boss.x, boss.y - boss.size, "\uD83D\uDCA8 ROAR!", bt.color, 1.2f, 32f))
+                SoundManager.play(SfxType.BOSS_ROAR)
                 shakeTimer = 0.2f; shakeIntensity = 8f
                 // Damage player if nearby
                 if (player.distanceTo(boss.x, boss.y) < 200f) {
@@ -833,6 +866,7 @@ class GameEngine(context: Context) {
                             0.4f, 0xFF263238.toInt(), 5f))
                     }
                     floatingTexts.add(FloatingText(boss.x, boss.y - boss.size, "\uD83D\uDCA8 TELEPORT!", bt.color, 1f, 26f))
+                    SoundManager.play(SfxType.BOSS_TELEPORT)
                 }
             }
             BossAbility.DRAIN -> {
@@ -841,6 +875,7 @@ class GameEngine(context: Context) {
                     gold -= stolen
                     boss.hp = (boss.hp + stolen * 2f).coerceAtMost(boss.maxHp * 1.2f)
                     floatingTexts.add(FloatingText(boss.x, boss.y - boss.size, "-${stolen}g DRAIN!", 0xFFE040FB.toInt(), 1.2f, 28f))
+                    SoundManager.play(SfxType.BOSS_DRAIN)
                     floatingTexts.add(FloatingText(screenW / 2, screenH * 0.4f, "-${stolen} gold stolen!", 0xFFF44336.toInt(), 1.5f, 32f))
                 }
             }
@@ -849,6 +884,7 @@ class GameEngine(context: Context) {
                 // Slow all towers
                 towers.forEach { it.fireTimer += 1.5f }
                 floatingTexts.add(FloatingText(boss.x, boss.y - boss.size, "\uD83C\uDF0B QUAKE!", bt.color, 1.5f, 32f))
+                SoundManager.play(SfxType.BOSS_QUAKE)
                 repeat(20) {
                     particles.add(Particle(
                         (Math.random() * screenW).toFloat(), screenH * 0.8f,
@@ -859,9 +895,9 @@ class GameEngine(context: Context) {
             BossAbility.SPLIT -> {
                 if (!boss.hasSplit && boss.hp < boss.maxHp * 0.5f) {
                     boss.hasSplit = true
-                    val waveScale = 1f + (wave - 1) * 0.15f
+                    val cloneHp = boss.hp * 0.3f
+                    boss.hp = boss.hp * 0.4f  // Boss loses 60% of remaining HP when splitting
                     repeat(2) {
-                        val cloneHp = boss.hp * 0.3f
                         enemies.add(Enemy(
                             x = boss.x + ((Math.random() - 0.5) * 50).toFloat(),
                             y = boss.y + ((Math.random() - 0.5) * 30).toFloat(),
@@ -874,6 +910,7 @@ class GameEngine(context: Context) {
                         ))
                     }
                     floatingTexts.add(FloatingText(boss.x, boss.y - boss.size, "\uD83E\uDDA0 SPLIT!", bt.color, 1.2f, 28f))
+                    SoundManager.play(SfxType.BOSS_SPLIT)
                     repeat(12) {
                         val angle = Math.random() * Math.PI * 2
                         particles.add(Particle(boss.x, boss.y,
@@ -883,6 +920,24 @@ class GameEngine(context: Context) {
                 }
             }
         }
+    }
+
+    /** Compute how far an enemy has progressed along its path (higher = closer to base) */
+    private fun enemyPathProgress(enemy: Enemy): Float {
+        val path = paths.getOrNull(enemy.pathIndex) ?: return enemy.waypointIndex.toFloat()
+        val wps = path.waypoints
+        val wpIdx = enemy.waypointIndex.coerceIn(0, wps.size - 1)
+        val wp = wps[wpIdx]
+        val dx = wp.x - enemy.x
+        val dy = wp.y - enemy.y
+        val distToWp = Math.sqrt((dx * dx + dy * dy).toDouble()).toFloat()
+        // Segment length for normalization (avoid div-by-zero)
+        val segLen = if (wpIdx > 0) {
+            val prev = wps[wpIdx - 1]
+            val sx = wp.x - prev.x; val sy = wp.y - prev.y
+            Math.sqrt((sx * sx + sy * sy).toDouble()).toFloat().coerceAtLeast(1f)
+        } else 100f
+        return wpIdx + (1f - (distToWp / segLen).coerceIn(0f, 1f))
     }
 
     fun placeTower(x: Float, y: Float, type: TowerType): Boolean { synchronized(lock) {
@@ -922,6 +977,7 @@ class GameEngine(context: Context) {
 
         gold -= type.baseCost
         towers.add(Tower(x, y, type = type, damage = type.baseDamage, range = type.baseRange, fireRate = type.baseFireRate))
+        SoundManager.play(SfxType.TOWER_PLACE)
         if (towers.size >= 5) checkAchievement("5_towers")
         if (towers.size >= 10) checkAchievement("10_towers")
         val towerTypes = towers.map { it.type }.toSet()
@@ -934,6 +990,7 @@ class GameEngine(context: Context) {
         if (gold < cost) return false
         gold -= cost
         tower.upgrade()
+        SoundManager.play(SfxType.TOWER_UPGRADE)
         if (tower.level >= 5) checkAchievement("max_tower")
         return true
     } }
@@ -944,6 +1001,7 @@ class GameEngine(context: Context) {
         gold -= cost
         playerDamageLevel++
         player.attackDamage += 5f
+        SoundManager.play(SfxType.PLAYER_UPGRADE)
         checkUpgradeAll()
         return true
     } }
@@ -954,6 +1012,7 @@ class GameEngine(context: Context) {
         gold -= cost
         playerSpeedLevel++
         player.speed += 30f
+        SoundManager.play(SfxType.PLAYER_UPGRADE)
         checkUpgradeAll()
         return true
     } }
@@ -965,6 +1024,7 @@ class GameEngine(context: Context) {
         playerHpLevel++
         player.maxHp += 25f
         player.hp = player.maxHp
+        SoundManager.play(SfxType.PLAYER_UPGRADE)
         checkUpgradeAll()
         return true
     } }
@@ -976,6 +1036,8 @@ class GameEngine(context: Context) {
         baseHpLevel++
         maxBaseHp += 30f
         baseHp = (baseHp + 30f).coerceAtMost(maxBaseHp)
+        SoundManager.play(SfxType.PLAYER_UPGRADE)
+        checkUpgradeAll()
         return true
     } }
 
@@ -985,6 +1047,7 @@ class GameEngine(context: Context) {
         if (baseHp >= maxBaseHp) return false
         gold -= cost
         baseHp = (baseHp + 30f).coerceAtMost(maxBaseHp)
+        SoundManager.play(SfxType.POWER_HEAL)
         repairsThisRun++
         if (repairsThisRun >= 3) checkAchievement("repaired_3")
         return true
@@ -1015,6 +1078,7 @@ class GameEngine(context: Context) {
                 }
                 floatingTexts.add(FloatingText(screenW / 2, screenH * 0.35f,
                     "FIREBALL!", 0xFFFF5722.toInt(), 1.5f, 44f))
+                SoundManager.play(SfxType.POWER_FIREBALL)
                 powerCooldowns[type] = type.cooldown
             }
             PowerType.FREEZE -> {
@@ -1030,6 +1094,7 @@ class GameEngine(context: Context) {
                 }
                 floatingTexts.add(FloatingText(screenW / 2, screenH * 0.35f,
                     "FREEZE!", 0xFF29B6F6.toInt(), 1.5f, 44f))
+                SoundManager.play(SfxType.POWER_FREEZE)
                 powerCooldowns[type] = type.cooldown
             }
             PowerType.HEAL -> {
@@ -1044,6 +1109,7 @@ class GameEngine(context: Context) {
                 }
                 floatingTexts.add(FloatingText(baseX, baseY - 60f,
                     "+50 HP!", 0xFF66BB6A.toInt(), 1.2f, 36f))
+                SoundManager.play(SfxType.POWER_HEAL)
                 powerCooldowns[type] = type.cooldown
             }
             PowerType.LIGHTNING -> {
@@ -1066,6 +1132,7 @@ class GameEngine(context: Context) {
                 shakeTimer = 0.2f; shakeIntensity = 8f
                 floatingTexts.add(FloatingText(screenW / 2, screenH * 0.35f,
                     "LIGHTNING!", 0xFFFFEB3B.toInt(), 1.5f, 44f))
+                SoundManager.play(SfxType.POWER_LIGHTNING)
                 powerCooldowns[type] = type.cooldown
             }
         }
@@ -1082,6 +1149,7 @@ class GameEngine(context: Context) {
         prefs.edit().putBoolean("ach_${id}", true).apply()
         newAchievement = ach
         achievementBannerTimer = 3f
+        SoundManager.play(SfxType.ACHIEVEMENT)
     }
 
     private fun checkUpgradeAll() {

@@ -18,10 +18,16 @@ data class Enemy(
     var bossAbilityCooldown: Float = 5f,
     var isCharging: Boolean = false,
     var chargeTimer: Float = 0f,
-    var hasSplit: Boolean = false
+    var hasSplit: Boolean = false,
+    var roarSpeedBoost: Float = 1f,
+    var roarBoostTimer: Float = 0f
 ) {
     fun update(dt: Float) {
         if (hitFlash > 0) hitFlash -= dt
+        if (roarBoostTimer > 0) {
+            roarBoostTimer -= dt
+            if (roarBoostTimer <= 0f) roarSpeedBoost = 1f
+        }
     }
 
     fun distanceTo(tx: Float, ty: Float): Float {

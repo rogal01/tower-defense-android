@@ -19,6 +19,8 @@ class MainActivity : AppCompatActivity() {
         setContentView(binding.root)
         supportActionBar?.hide()
 
+        SoundManager.init(this)
+
         val gameView = binding.gameView
         val engine = gameView.getEngine()
 

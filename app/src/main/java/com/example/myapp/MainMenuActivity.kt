@@ -20,15 +20,19 @@ class MainMenuActivity : AppCompatActivity() {
         setContentView(binding.root)
         supportActionBar?.hide()
 
+        SoundManager.init(this)
+
         loadHighScore()
         updateHardLock()
         highlightDifficulty(selectedDifficulty)
 
         binding.btnEasy.setOnClickListener {
+            SoundManager.play(SfxType.UI_CLICK)
             selectedDifficulty = DIFFICULTY_EASY
             highlightDifficulty(selectedDifficulty)
         }
         binding.btnNormal.setOnClickListener {
+            SoundManager.play(SfxType.UI_CLICK)
             selectedDifficulty = DIFFICULTY_NORMAL
             highlightDifficulty(selectedDifficulty)
         }
@@ -37,39 +41,47 @@ class MainMenuActivity : AppCompatActivity() {
                 Toast.makeText(this, "\uD83D\uDD12 Reach wave 10 on Normal to unlock!", Toast.LENGTH_SHORT).show()
                 return@setOnClickListener
             }
+            SoundManager.play(SfxType.UI_CLICK)
             selectedDifficulty = DIFFICULTY_HARD
             highlightDifficulty(selectedDifficulty)
         }
 
         binding.btnPlay.setOnClickListener {
+            SoundManager.play(SfxType.UI_CLICK)
             val intent = Intent(this, MainActivity::class.java)
             intent.putExtra(EXTRA_DIFFICULTY, selectedDifficulty)
             startActivity(intent)
         }
 
         binding.btnEndless.setOnClickListener {
+            SoundManager.play(SfxType.UI_CLICK)
             val intent = Intent(this, MainActivity::class.java)
             intent.putExtra(EXTRA_DIFFICULTY, DIFFICULTY_ENDLESS)
             startActivity(intent)
         }
 
         binding.btnSettings.setOnClickListener {
+            SoundManager.play(SfxType.UI_CLICK)
             startActivity(Intent(this, SettingsActivity::class.java))
         }
 
         binding.btnSkillTree.setOnClickListener {
+            SoundManager.play(SfxType.UI_CLICK)
             startActivity(Intent(this, SkillTreeActivity::class.java))
         }
 
         binding.btnStats.setOnClickListener {
+            SoundManager.play(SfxType.UI_CLICK)
             startActivity(Intent(this, StatsActivity::class.java))
         }
 
         binding.btnAchievements.setOnClickListener {
+            SoundManager.play(SfxType.UI_CLICK)
             startActivity(Intent(this, AchievementsActivity::class.java))
         }
 
         binding.btnCampaign.setOnClickListener {
+            SoundManager.play(SfxType.UI_CLICK)
             startActivity(Intent(this, CampaignActivity::class.java))
         }
     }
