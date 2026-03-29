@@ -9,7 +9,7 @@ import com.example.myapp.game.CampaignData
 import com.example.myapp.game.PowerType
 import com.example.myapp.game.TowerType
 
-class MainActivity : AppCompatActivity() {
+class MainActivity : ImmersiveActivity() {
 
     private lateinit var binding: ActivityMainBinding
 
@@ -39,6 +39,7 @@ class MainActivity : AppCompatActivity() {
             binding.btnTowerCannon.visibility = if (TowerType.CANNON in campaignLevel.allowedTowers) View.VISIBLE else View.GONE
             binding.btnTowerPoison.visibility = if (TowerType.POISON in campaignLevel.allowedTowers) View.VISIBLE else View.GONE
             binding.btnTowerTesla.visibility = if (TowerType.TESLA in campaignLevel.allowedTowers) View.VISIBLE else View.GONE
+            binding.btnTowerIce.visibility = if (TowerType.ICE in campaignLevel.allowedTowers) View.VISIBLE else View.GONE
 
             // Hide power buttons not allowed
             binding.btnPowerFireball.visibility = if (PowerType.FIREBALL in campaignLevel.allowedPowers) View.VISIBLE else View.GONE
@@ -117,6 +118,12 @@ class MainActivity : AppCompatActivity() {
                 Toast.makeText(this, "Tap to place ⚡ Tesla (${TowerType.TESLA.baseCost}g)", Toast.LENGTH_SHORT).show()
             } else Toast.makeText(this, "Not enough gold!", Toast.LENGTH_SHORT).show()
         }
+        binding.btnTowerIce.setOnClickListener {
+            if (engine.gold >= TowerType.ICE.baseCost) {
+                gameView.placementMode = TowerType.ICE
+                Toast.makeText(this, "Tap to place ❄️ Ice (${TowerType.ICE.baseCost}g) — Slows enemies!", Toast.LENGTH_SHORT).show()
+            } else Toast.makeText(this, "Not enough gold!", Toast.LENGTH_SHORT).show()
+        }
 
         // Power buttons
         binding.btnPowerFireball.setOnClickListener {
@@ -146,6 +153,19 @@ class MainActivity : AppCompatActivity() {
             if (engine.usePower(PowerType.LIGHTNING)) {
                 Toast.makeText(this, "⚡ Lightning! Chain damage!", Toast.LENGTH_SHORT).show()
             } else Toast.makeText(this, "Need ${PowerType.LIGHTNING.cost}g!", Toast.LENGTH_SHORT).show()
+        }
+
+        // Dash button
+        binding.btnDash.setOnClickListener {
+            if (engine.dashCooldown > 0) {
+                Toast.makeText(this, "Dash cooldown: ${engine.dashCooldown.toInt()}s", Toast.LENGTH_SHORT).show()
+                return@setOnClickListener
+            }
+            if (engine.playerDash(engine.player.targetX, engine.player.targetY)) {
+                Toast.makeText(this, "\uD83D\uDCA8 Dash! AoE damage!", Toast.LENGTH_SHORT).show()
+            } else {
+                Toast.makeText(this, "Can't dash right now!", Toast.LENGTH_SHORT).show()
+            }
         }
 
         // Repair base
@@ -197,12 +217,82 @@ class MainActivity : AppCompatActivity() {
 
         gameView.onTowerSelected = { tower ->
             binding.btnTarget.text = "\uD83C\uDFAF ${tower?.targetingMode?.label ?: "Close"}"
+            // Update ability button with tower's ability name
+            if (tower != null) {
+                binding.btnAbility.text = "\u2728 ${tower.type.abilityName}"
+            } else {
+                binding.btnAbility.text = "\u2728 Ability"
+            }
+        }
+
+        // Sell tower
+        binding.btnSell.setOnClickListener {
+            val selected = gameView.getSelectedTower()
+            if (selected != null) {
+                val value = (selected.sellValue() * (1f + engine.skillTree.sellValueBonus())).toInt()
+                engine.sellTower(selected)
+                gameView.clearSelectedTower()
+                Toast.makeText(this, "\uD83D\uDCB8 Sold for ${value}g!", Toast.LENGTH_SHORT).show()
+            } else Toast.makeText(this, "Tap a tower first!", Toast.LENGTH_SHORT).show()
+        }
+
+        // Tower ability
+        binding.btnAbility.setOnClickListener {
+            val selected = gameView.getSelectedTower()
+            if (selected != null) {
+                if (engine.activateTowerAbility(selected)) {
+                    Toast.makeText(this, "\u2728 ${selected.type.abilityName}!", Toast.LENGTH_SHORT).show()
+                } else {
+                    val remaining = selected.abilityTimer.toInt()
+                    Toast.makeText(this, "Cooldown: ${remaining}s", Toast.LENGTH_SHORT).show()
+                }
+            } else Toast.makeText(this, "Tap a tower first!", Toast.LENGTH_SHORT).show()
+        }
+
+        // Speed toggle
+        binding.btnSpeed.setOnClickListener {
+            engine.gameSpeed = when (engine.gameSpeed) {
+                1 -> 2
+                2 -> 3
+                else -> 1
+            }
+            binding.btnSpeed.text = "\u25B6\uFE0F ${engine.gameSpeed}x"
+            Toast.makeText(this, "Speed: ${engine.gameSpeed}x", Toast.LENGTH_SHORT).show()
+        }
+
+        // Pause
+        binding.btnPause.setOnClickListener {
+            engine.isPaused = !engine.isPaused
+            binding.btnPause.text = if (engine.isPaused) "\u25B6\uFE0F" else "\u23F8\uFE0F"
+        }
+
+        // Daily challenge setup
+        val isDaily = intent.getBooleanExtra("daily_challenge", false)
+        if (isDaily) {
+            engine.setupDailyChallenge()
+        }
+
+        // Map type from intent
+        val mapName = intent.getStringExtra("map_type")
+        if (mapName != null) {
+            try { engine.mapType = com.example.myapp.game.MapType.valueOf(mapName) } catch (_: Exception) {}
+        }
+
+        // Continue saved game if requested
+        val isContinue = intent.getBooleanExtra("continue_game", false)
+        if (isContinue) {
+            engine.loadGame()
         }
     }
 
     override fun onPause() {
         super.onPause()
         binding.gameView.pause()
+        // Auto-save if game is still running (not game over)
+        val engine = binding.gameView.getEngine()
+        if (!engine.gameOver && engine.wave > 0) {
+            engine.saveGame()
+        }
     }
 
     override fun onResume() {

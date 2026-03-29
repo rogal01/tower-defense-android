@@ -11,12 +11,12 @@ import java.nio.ByteOrder
 import kotlin.math.*
 
 enum class SfxType {
-    ARROW_FIRE, MAGIC_FIRE, CANNON_FIRE, POISON_FIRE, TESLA_FIRE,
+    ARROW_FIRE, MAGIC_FIRE, CANNON_FIRE, POISON_FIRE, TESLA_FIRE, ICE_FIRE,
     ENEMY_DIE, BOSS_APPEAR,
     POWER_FIREBALL, POWER_FREEZE, POWER_HEAL, POWER_LIGHTNING,
     WAVE_START, WAVE_COMPLETE, COMBO, ACHIEVEMENT,
     GAME_OVER, VICTORY,
-    TOWER_PLACE, TOWER_UPGRADE,
+    TOWER_PLACE, TOWER_UPGRADE, TOWER_SELL, TOWER_ABILITY,
     BASE_HIT, PLAYER_ATTACK,
     BOSS_CHARGE, BOSS_SUMMON, BOSS_HEAL, BOSS_AOE,
     BOSS_SHIELD, BOSS_ROAR, BOSS_TELEPORT, BOSS_DRAIN, BOSS_QUAKE, BOSS_SPLIT,
@@ -124,6 +124,7 @@ object SoundManager {
             SfxType.CANNON_FIRE -> boom(0.12, 120.0, 0.7)
             SfxType.POISON_FIRE -> noise(0.07, 400.0, 0.35)
             SfxType.TESLA_FIRE -> zap(0.08, 0.6)
+            SfxType.ICE_FIRE -> shimmer(0.08, 2200.0, 0.35)
             SfxType.ENEMY_DIE -> chirp(0.05, 800.0, 300.0, 0.4)
             SfxType.BOSS_APPEAR -> horn(0.3, 150.0, 0.6)
             SfxType.POWER_FIREBALL -> sweep(0.15, 200.0, 900.0, 0.6)
@@ -137,6 +138,8 @@ object SoundManager {
             SfxType.VICTORY -> chime(0.4, doubleArrayOf(523.0, 659.0, 784.0, 1047.0), 0.5)
             SfxType.TOWER_PLACE -> boom(0.06, 200.0, 0.45)
             SfxType.TOWER_UPGRADE -> sweep(0.12, 500.0, 1500.0, 0.4)
+            SfxType.TOWER_SELL -> chirp(0.08, 1200.0, 400.0, 0.35)
+            SfxType.TOWER_ABILITY -> sweep(0.15, 300.0, 1800.0, 0.55)
             SfxType.BASE_HIT -> boom(0.05, 80.0, 0.5)
             SfxType.PLAYER_ATTACK -> chirp(0.04, 900.0, 500.0, 0.35)
             SfxType.WAVE_COMPLETE -> chime(0.2, doubleArrayOf(523.0, 784.0), 0.35)

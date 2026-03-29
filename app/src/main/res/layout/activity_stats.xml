@@ -182,6 +182,14 @@
                 android:layout_marginTop="4dp" />
 
             <TextView
+                android:id="@+id/stat_boss_rush_record"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:textColor="@color/white"
+                android:textSize="16sp"
+                android:layout_marginTop="4dp" />
+
+            <TextView
                 android:id="@+id/stat_diamonds"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"

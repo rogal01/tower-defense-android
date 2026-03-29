@@ -22,14 +22,6 @@ data class Enemy(
     var roarSpeedBoost: Float = 1f,
     var roarBoostTimer: Float = 0f
 ) {
-    fun update(dt: Float) {
-        if (hitFlash > 0) hitFlash -= dt
-        if (roarBoostTimer > 0) {
-            roarBoostTimer -= dt
-            if (roarBoostTimer <= 0f) roarSpeedBoost = 1f
-        }
-    }
-
     fun distanceTo(tx: Float, ty: Float): Float {
         val dx = x - tx
         val dy = y - ty
@@ -42,10 +34,71 @@ data class Enemy(
 
     fun isDead(): Boolean = hp <= 0
 
+    /** Slow from ice towers — multiplier applied to speed (0.0 to 1.0) */
+    var iceSlowFactor: Float = 1f
+    /** Deep freeze timer — when > 0, enemy is near-stopped by ICE ability */
+    var deepFreezeTimer: Float = 0f
+    /** Regen rate from wave modifier (HP per second) */
+    var regenRate: Float = 0f
+    /** True if enemy reached the base — should not give rewards */
+    var reachedBase: Boolean = false
+    /** True if this is an elite enemy (crowned, extra HP/gold) */
+    var isElite: Boolean = false
+
     /** Display emoji — uses boss-specific emoji if it's a boss */
     val displayEmoji: String get() = bossType?.emoji ?: type.emoji
     /** Display color — uses boss-specific color if it's a boss */
     val displayColor: Int get() = bossType?.color ?: type.color
+}
+
+/** Damage resistance lookup — returns multiplier for enemy vs damage type.
+ *  > 1.0 = weak (takes MORE damage), < 1.0 = resistant (takes LESS) */
+object EnemyResistances {
+    fun getMultiplier(enemyType: EnemyType, damageType: DamageType): Float = when (enemyType) {
+        EnemyType.SKELETON -> when (damageType) {
+            DamageType.PHYSICAL -> 0.5f
+            DamageType.MAGIC -> 1.5f
+            DamageType.EXPLOSIVE -> 1.3f
+            else -> 1f
+        }
+        EnemyType.ORC -> when (damageType) {
+            DamageType.PHYSICAL -> 0.7f
+            DamageType.EXPLOSIVE -> 1.3f
+            DamageType.ICE -> 1.2f
+            else -> 1f
+        }
+        EnemyType.DEMON -> when (damageType) {
+            DamageType.ICE -> 1.5f
+            DamageType.POISON -> 0.5f
+            DamageType.MAGIC -> 0.8f
+            else -> 1f
+        }
+        EnemyType.DRAGON -> when (damageType) {
+            DamageType.PHYSICAL -> 0.6f
+            DamageType.ICE -> 1.4f
+            DamageType.MAGIC -> 1.2f
+            else -> 1f
+        }
+        EnemyType.SHADOW -> when (damageType) {
+            DamageType.PHYSICAL -> 0.3f
+            DamageType.MAGIC -> 1.5f
+            DamageType.ELECTRIC -> 1.3f
+            else -> 1f
+        }
+        EnemyType.GOLEM_SHARD -> when (damageType) {
+            DamageType.PHYSICAL -> 0.5f
+            DamageType.EXPLOSIVE -> 1.5f
+            DamageType.MAGIC -> 1.3f
+            else -> 1f
+        }
+        EnemyType.WISP -> when (damageType) {
+            DamageType.PHYSICAL -> 0.4f
+            DamageType.ICE -> 1.4f
+            DamageType.ELECTRIC -> 0.5f
+            else -> 1f
+        }
+        else -> 1f
+    }
 }
 
 enum class EnemyType(val emoji: String, val color: Int) {

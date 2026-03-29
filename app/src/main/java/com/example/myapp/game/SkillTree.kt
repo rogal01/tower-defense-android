@@ -43,6 +43,20 @@ class SkillTree(context: Context) {
         Skill("attack_range",   "Eagle Eye",       "+15 starting attack range",         "\uD83D\uDC41\uFE0F", 4, 5, 4)
     )
 
+    /** Page 2 skills — unlocked after prestige 1 */
+    val prestigeSkills: List<Skill> = listOf(
+        Skill("ice_power",      "Frost Mastery",   "+10% ice tower slow per level",     "\u2744\uFE0F",  5, 6, 4),
+        Skill("ability_cd",     "Quick Cast",      "-5% ability cooldown per level",    "\u2728",        5, 5, 3),
+        Skill("sell_bonus",     "Haggler",         "+10% tower sell value per level",   "\uD83D\uDCB8",  5, 4, 2),
+        Skill("resist_pierce",  "Armor Break",     "+5% resistance pierce per level",   "\uD83D\uDDE1\uFE0F", 5, 7, 5),
+        Skill("wave_modifier",  "Lucky Waves",     "Better wave modifier chances",      "\uD83C\uDF40",  3, 8, 6),
+        Skill("prestige_gold",  "Midas Touch",     "+5% gold per prestige level",       "\uD83D\uDC51",  5, 5, 4)
+    )
+
+    /** Prestige level — resets skill tree page 1 for permanent bonuses */
+    var prestigeLevel: Int = 0
+        private set
+
     /** Current level for each skill id (0 = not purchased) */
     val levels = mutableMapOf<String, Int>()
 
@@ -52,7 +66,11 @@ class SkillTree(context: Context) {
 
     fun load() {
         diamonds = prefs.getInt("diamonds", 0)
+        prestigeLevel = prefs.getInt("prestige_level", 0)
         skills.forEach { skill ->
+            levels[skill.id] = prefs.getInt("skill_${skill.id}", 0)
+        }
+        prestigeSkills.forEach { skill ->
             levels[skill.id] = prefs.getInt("skill_${skill.id}", 0)
         }
     }
@@ -60,6 +78,7 @@ class SkillTree(context: Context) {
     fun save() {
         val editor = prefs.edit()
         editor.putInt("diamonds", diamonds)
+        editor.putInt("prestige_level", prestigeLevel)
         levels.forEach { (id, lvl) -> editor.putInt("skill_$id", lvl) }
         editor.apply()
     }
@@ -68,14 +87,16 @@ class SkillTree(context: Context) {
 
     fun getLevel(id: String): Int = levels[id] ?: 0
 
+    private fun findSkill(id: String): Skill? = skills.find { it.id == id } ?: prestigeSkills.find { it.id == id }
+
     fun canUpgrade(id: String): Boolean {
-        val skill = skills.find { it.id == id } ?: return false
+        val skill = findSkill(id) ?: return false
         val lvl = getLevel(id)
         return lvl < skill.maxLevel && diamonds >= skill.cost(lvl)
     }
 
     fun upgrade(id: String): Boolean {
-        val skill = skills.find { it.id == id } ?: return false
+        val skill = findSkill(id) ?: return false
         val lvl = getLevel(id)
         if (lvl >= skill.maxLevel) return false
         val cost = skill.cost(lvl)
@@ -91,6 +112,26 @@ class SkillTree(context: Context) {
         save()
     }
 
+    /** Check if all page 1 skills are maxed */
+    fun allPage1Maxed(): Boolean = skills.all { getLevel(it.id) >= it.maxLevel }
+
+    /** Prestige cost in diamonds */
+    fun prestigeCost(): Int = 50 + prestigeLevel * 30
+
+    /** Can prestige? Requires all page 1 maxed + enough diamonds */
+    fun canPrestige(): Boolean = allPage1Maxed() && diamonds >= prestigeCost()
+
+    /** Prestige: resets page 1 skills, increments prestige level */
+    fun prestige(): Boolean {
+        if (!canPrestige()) return false
+        diamonds -= prestigeCost()
+        prestigeLevel++
+        // Reset page 1 skills
+        skills.forEach { levels[it.id] = 0 }
+        save()
+        return true
+    }
+
     // ---- Gameplay effects (queried by GameEngine) ----
 
     fun bonusStartGold(): Int       = getLevel("start_gold") * 15
@@ -99,8 +140,17 @@ class SkillTree(context: Context) {
     fun bonusPlayerSpeed(): Float   = getLevel("player_speed") * 20f
     fun bonusPlayerHp(): Float      = getLevel("player_hp") * 15f
     fun towerDamageMultiplier(): Float = 1f + getLevel("tower_damage") * 0.08f
-    fun goldBonusMultiplier(): Float   = 1f + getLevel("gold_bonus") * 0.10f
+    fun goldBonusMultiplier(): Float   = (1f + getLevel("gold_bonus") * 0.10f) * (1f + getLevel("prestige_gold") * 0.05f)
     fun diamondDropBonus(): Float      = getLevel("diamond_luck") * 0.05f
     fun bonusWaveGold(): Int        = getLevel("wave_bonus") * 3
     fun bonusAttackRange(): Float   = getLevel("attack_range") * 15f
+
+    // Page 2 effects
+    fun iceSlowBonus(): Float       = getLevel("ice_power") * 0.10f
+    fun abilityCooldownReduction(): Float = getLevel("ability_cd") * 0.05f
+    fun sellValueBonus(): Float     = getLevel("sell_bonus") * 0.10f
+    fun resistancePierce(): Float   = getLevel("resist_pierce") * 0.05f
+
+    /** Prestige gives a permanent multiplier to all damage */
+    fun prestigeDamageMultiplier(): Float = 1f + prestigeLevel * 0.05f
 }

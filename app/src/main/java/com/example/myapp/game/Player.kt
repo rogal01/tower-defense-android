@@ -22,12 +22,25 @@ data class Player(
     }
 
     fun update(dt: Float) {
-        val dx = targetX - x
-        val dy = targetY - y
-        val dist = Math.sqrt((dx * dx + dy * dy).toDouble()).toFloat()
-        if (dist > 5f) {
-            x += (dx / dist) * speed * dt
-            y += (dy / dist) * speed * dt
+        // Sub-step to prevent glitching at high game speeds
+        val maxStep = 0.02f
+        var remaining = dt
+        while (remaining > 0f) {
+            val step = remaining.coerceAtMost(maxStep)
+            remaining -= step
+            val dx = targetX - x
+            val dy = targetY - y
+            val dist = Math.sqrt((dx * dx + dy * dy).toDouble()).toFloat()
+            if (dist > 5f) {
+                val move = speed * step
+                if (move >= dist) {
+                    x = targetX
+                    y = targetY
+                } else {
+                    x += (dx / dist) * move
+                    y += (dy / dist) * move
+                }
+            }
         }
         if (attackTimer > 0) attackTimer -= dt
     }

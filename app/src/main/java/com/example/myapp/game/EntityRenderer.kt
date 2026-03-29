@@ -903,6 +903,7 @@ object EntityRenderer {
             TowerType.CANNON -> drawTowerCannon(canvas, x, y, s)
             TowerType.POISON -> drawTowerPoison(canvas, x, y, s)
             TowerType.TESLA -> drawTowerTesla(canvas, x, y, s)
+            TowerType.ICE -> drawTowerIce(canvas, x, y, s)
         }
     }
 
@@ -1024,6 +1025,43 @@ object EntityRenderer {
         c.drawLine(x - s * 0.3f, y - s * 0.8f, x - s * 0.15f, y - s * 0.65f, strokePaint)
         c.drawLine(x + s * 0.3f, y - s * 0.8f, x + s * 0.15f, y - s * 0.65f, strokePaint)
         c.drawLine(x, y - s * 0.9f, x, y - s * 0.75f, strokePaint)
+    }
+
+    private fun drawTowerIce(c: Canvas, x: Float, y: Float, s: Float) {
+        // Frozen stone base
+        paint.color = 0xFF546E7A.toInt()
+        c.drawRect(x - s * 0.35f, y + s * 0.15f, x + s * 0.35f, y + s * 0.5f, paint)
+        // Ice crystal — hexagonal shape
+        paint.color = 0xFF81D4FA.toInt()
+        path.reset()
+        path.moveTo(x, y - s * 0.85f)              // top point
+        path.lineTo(x + s * 0.25f, y - s * 0.5f)
+        path.lineTo(x + s * 0.25f, y - s * 0.1f)
+        path.lineTo(x, y + s * 0.15f)               // bottom point
+        path.lineTo(x - s * 0.25f, y - s * 0.1f)
+        path.lineTo(x - s * 0.25f, y - s * 0.5f)
+        path.close()
+        c.drawPath(path, paint)
+        // Crystal shine
+        paint.color = 0xFFE1F5FE.toInt()
+        path.reset()
+        path.moveTo(x - s * 0.1f, y - s * 0.7f)
+        path.lineTo(x + s * 0.05f, y - s * 0.5f)
+        path.lineTo(x - s * 0.15f, y - s * 0.35f)
+        path.close()
+        c.drawPath(path, paint)
+        // Frost particles around crystal
+        paint.color = 0xFFB3E5FC.toInt()
+        c.drawCircle(x - s * 0.35f, y - s * 0.45f, s * 0.05f, paint)
+        c.drawCircle(x + s * 0.35f, y - s * 0.55f, s * 0.04f, paint)
+        c.drawCircle(x - s * 0.3f, y - s * 0.7f, s * 0.035f, paint)
+        c.drawCircle(x + s * 0.28f, y - s * 0.2f, s * 0.04f, paint)
+        // Snowflake cross inside
+        strokePaint.color = 0xFFFFFFFF.toInt()
+        strokePaint.strokeWidth = 1.5f
+        c.drawLine(x, y - s * 0.65f, x, y - s * 0.05f, strokePaint)
+        c.drawLine(x - s * 0.18f, y - s * 0.5f, x + s * 0.18f, y - s * 0.2f, strokePaint)
+        c.drawLine(x + s * 0.18f, y - s * 0.5f, x - s * 0.18f, y - s * 0.2f, strokePaint)
     }
 
     // ========== BASE ==========

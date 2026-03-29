@@ -10,7 +10,7 @@ import android.widget.TextView
 import androidx.appcompat.app.AppCompatActivity
 import com.example.myapp.databinding.ActivityAchievementsBinding
 
-class AchievementsActivity : AppCompatActivity() {
+class AchievementsActivity : ImmersiveActivity() {
 
     private lateinit var binding: ActivityAchievementsBinding
 
@@ -35,7 +35,7 @@ class AchievementsActivity : AppCompatActivity() {
         AchievementDef("5_bosses", "Boss Hunter", "Kill 5 bosses in one run", "\uD83D\uDC09"),
         AchievementDef("5_towers", "Architect", "Place 5 towers", "\uD83C\uDFD7\uFE0F"),
         AchievementDef("10_towers", "Fortress", "Place 10 towers", "\uD83C\uDFF0"),
-        AchievementDef("all_tower_types", "Arsenal", "Place all 5 tower types", "\uD83C\uDFAF"),
+        AchievementDef("all_tower_types", "Arsenal", "Place all tower types", "\uD83C\uDFAF"),
         AchievementDef("use_power", "Sorcerer", "Use a power for the first time", "\u2728"),
         AchievementDef("max_tower", "Master Builder", "Upgrade a tower to level 5", "\u2B06\uFE0F"),
         AchievementDef("rich", "Rich", "Have 500 gold at once", "\uD83D\uDCB0"),
@@ -44,7 +44,16 @@ class AchievementsActivity : AppCompatActivity() {
         AchievementDef("diamond_10", "Diamond Hoarder", "Earn 10 diamonds in a run", "\uD83D\uDC8E"),
         AchievementDef("repaired_3", "Mechanic", "Repair the base 3 times in a run", "\uD83D\uDD27"),
         AchievementDef("upgrade_all", "Well Rounded", "Buy all 4 player upgrades", "\uD83C\uDF96\uFE0F"),
-        AchievementDef("endless_10", "Endurance", "Reach wave 10 in endless mode", "\u267E\uFE0F")
+        AchievementDef("endless_10", "Endurance", "Reach wave 10 in endless mode", "\u267E\uFE0F"),
+        AchievementDef("kills_1000", "Genocide", "Kill 1000 enemies in one run", "\uD83D\uDC7B"),
+        AchievementDef("wave_100", "Centurion", "Reach wave 100", "\u2694\uFE0F"),
+        AchievementDef("no_damage", "Untouchable", "Complete a wave without base taking damage", "\uD83D\uDEE1\uFE0F"),
+        AchievementDef("speed_demon", "Speed Demon", "Beat wave 10 on 3x speed", "\uD83D\uDCA8"),
+        AchievementDef("10_bosses", "Boss Legend", "Kill 10 bosses in one run", "\uD83D\uDC32"),
+        AchievementDef("diamond_50", "Diamond Mine", "Earn 50 diamonds in one run", "\uD83D\uDC8E"),
+        AchievementDef("gold_hoarder", "Gold Hoarder", "Have 2000 gold at once", "\uD83C\uDFE6"),
+        AchievementDef("all_powers", "Elementalist", "Use all 4 powers in one run", "\uD83C\uDF0A"),
+        AchievementDef("survivor_1hp", "Last Stand", "Win a wave with base at 1 HP", "\u2764\uFE0F")
     )
 
     override fun onCreate(savedInstanceState: Bundle?) {

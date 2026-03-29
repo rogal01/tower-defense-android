@@ -13,7 +13,7 @@ import androidx.appcompat.app.AppCompatActivity
 import com.example.myapp.databinding.ActivityCampaignBinding
 import com.example.myapp.game.CampaignData
 
-class CampaignActivity : AppCompatActivity() {
+class CampaignActivity : ImmersiveActivity() {
 
     private lateinit var binding: ActivityCampaignBinding
 

@@ -9,10 +9,11 @@ import com.example.myapp.databinding.ActivityMenuBinding
 import com.example.myapp.game.CampaignData
 import com.example.myapp.game.SkillTree
 
-class MainMenuActivity : AppCompatActivity() {
+class MainMenuActivity : ImmersiveActivity() {
 
     private lateinit var binding: ActivityMenuBinding
     private var selectedDifficulty: Int = DIFFICULTY_NORMAL
+    private var selectedMapType: String = "CLASSIC"
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -50,6 +51,19 @@ class MainMenuActivity : AppCompatActivity() {
             SoundManager.play(SfxType.UI_CLICK)
             val intent = Intent(this, MainActivity::class.java)
             intent.putExtra(EXTRA_DIFFICULTY, selectedDifficulty)
+            intent.putExtra("map_type", selectedMapType)
+            startActivity(intent)
+        }
+
+        binding.btnContinue.setOnClickListener {
+            SoundManager.play(SfxType.UI_CLICK)
+            val prefs = getSharedPreferences("tower_defense_save", Context.MODE_PRIVATE)
+            val savedMap = prefs.getString("save_map", "CLASSIC") ?: "CLASSIC"
+            val savedDiff = prefs.getInt("save_difficulty", DIFFICULTY_NORMAL)
+            val intent = Intent(this, MainActivity::class.java)
+            intent.putExtra(EXTRA_DIFFICULTY, savedDiff)
+            intent.putExtra("map_type", savedMap)
+            intent.putExtra("continue_game", true)
             startActivity(intent)
         }
 
@@ -57,6 +71,7 @@ class MainMenuActivity : AppCompatActivity() {
             SoundManager.play(SfxType.UI_CLICK)
             val intent = Intent(this, MainActivity::class.java)
             intent.putExtra(EXTRA_DIFFICULTY, DIFFICULTY_ENDLESS)
+            intent.putExtra("map_type", selectedMapType)
             startActivity(intent)
         }
 
@@ -84,6 +99,42 @@ class MainMenuActivity : AppCompatActivity() {
             SoundManager.play(SfxType.UI_CLICK)
             startActivity(Intent(this, CampaignActivity::class.java))
         }
+
+        // Boss Rush
+        binding.btnBossRush.setOnClickListener {
+            SoundManager.play(SfxType.UI_CLICK)
+            val intent = Intent(this, MainActivity::class.java)
+            intent.putExtra(EXTRA_DIFFICULTY, DIFFICULTY_BOSS_RUSH)
+            intent.putExtra("map_type", selectedMapType)
+            startActivity(intent)
+        }
+
+        // Daily challenge
+        binding.btnDaily.setOnClickListener {
+            SoundManager.play(SfxType.UI_CLICK)
+            val intent = Intent(this, MainActivity::class.java)
+            intent.putExtra(EXTRA_DIFFICULTY, DIFFICULTY_NORMAL)
+            intent.putExtra("daily_challenge", true)
+            intent.putExtra("map_type", selectedMapType)
+            startActivity(intent)
+        }
+
+        // Map selection
+        binding.btnMapClassic.setOnClickListener {
+            SoundManager.play(SfxType.UI_CLICK)
+            selectedMapType = "CLASSIC"
+            highlightMap()
+        }
+        binding.btnMapValley.setOnClickListener {
+            SoundManager.play(SfxType.UI_CLICK)
+            selectedMapType = "VALLEY"
+            highlightMap()
+        }
+        binding.btnMapCrossroads.setOnClickListener {
+            SoundManager.play(SfxType.UI_CLICK)
+            selectedMapType = "CROSSROADS"
+            highlightMap()
+        }
     }
 
     override fun onResume() {
@@ -92,6 +143,13 @@ class MainMenuActivity : AppCompatActivity() {
         updateHardLock()
         loadDiamonds()
         loadCampaignProgress()
+        updateContinueButton()
+    }
+
+    private fun updateContinueButton() {
+        val prefs = getSharedPreferences("tower_defense_save", Context.MODE_PRIVATE)
+        val hasSave = prefs.getBoolean("has_save", false)
+        binding.btnContinue.visibility = if (hasSave) android.view.View.VISIBLE else android.view.View.GONE
     }
 
     private fun loadDiamonds() {
@@ -141,6 +199,12 @@ class MainMenuActivity : AppCompatActivity() {
         } else {
             binding.textEndlessRecord.text = ""
         }
+        val bossRushHighWave = prefs.getInt("bossRushHighWave", 0)
+        if (bossRushHighWave > 0) {
+            binding.textBossRushRecord.text = "💀 Boss Rush Record: $bossRushHighWave bosses"
+        } else {
+            binding.textBossRushRecord.text = ""
+        }
     }
 
     private fun highlightDifficulty(difficulty: Int) {
@@ -157,11 +221,18 @@ class MainMenuActivity : AppCompatActivity() {
         }
     }
 
+    private fun highlightMap() {
+        binding.btnMapClassic.alpha = if (selectedMapType == "CLASSIC") 1f else 0.4f
+        binding.btnMapValley.alpha = if (selectedMapType == "VALLEY") 1f else 0.4f
+        binding.btnMapCrossroads.alpha = if (selectedMapType == "CROSSROADS") 1f else 0.4f
+    }
+
     companion object {
         const val EXTRA_DIFFICULTY = "difficulty"
         const val DIFFICULTY_EASY = 0
         const val DIFFICULTY_NORMAL = 1
         const val DIFFICULTY_HARD = 2
         const val DIFFICULTY_ENDLESS = 3
+        const val DIFFICULTY_BOSS_RUSH = 4
     }
 }

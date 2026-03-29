@@ -7,7 +7,7 @@ import com.example.myapp.databinding.ActivityStatsBinding
 import com.example.myapp.game.SkillTree
 import com.example.myapp.game.TowerType
 
-class StatsActivity : AppCompatActivity() {
+class StatsActivity : ImmersiveActivity() {
 
     private lateinit var binding: ActivityStatsBinding
 
@@ -39,7 +39,7 @@ class StatsActivity : AppCompatActivity() {
         // Favorite tower
         var favName = "None yet"
         var favCount = 0
-        for (tt in TowerType.values()) {
+        for (tt in TowerType.entries) {
             val count = prefs.getInt("tower_count_${tt.name}", 0)
             if (count > favCount) { favCount = count; favName = "${tt.emoji} ${tt.name}" }
         }
@@ -60,11 +60,13 @@ class StatsActivity : AppCompatActivity() {
         val highScore = prefs.getInt("highScore", 0)
         val highWave = prefs.getInt("highWave", 0)
         val endlessHigh = prefs.getInt("endlessHighWave", 0)
+        val bossRushHigh = prefs.getInt("bossRushHighWave", 0)
         val diamonds = SkillTree(this).diamonds
 
         binding.statHighScore.text = "\u2B50 High Score: $highScore"
         binding.statHighWave.text = "\u2694\uFE0F Best Wave: $highWave"
         binding.statEndlessRecord.text = "\u267E\uFE0F Endless Record: Wave $endlessHigh"
+        binding.statBossRushRecord.text = "\uD83D\uDC80 Boss Rush Record: $bossRushHigh bosses"
         binding.statDiamonds.text = "\uD83D\uDC8E Diamonds: $diamonds"
     }
 }

@@ -1,5 +1,14 @@
 package com.example.myapp.game
 
+enum class DamageType {
+    PHYSICAL,   // Arrow
+    MAGIC,      // Magic
+    EXPLOSIVE,  // Cannon
+    POISON,     // Poison
+    ELECTRIC,   // Tesla
+    ICE         // Ice
+}
+
 enum class TargetingMode(val label: String) {
     CLOSE("Close"),
     FIRST("First"),
@@ -19,10 +28,12 @@ data class Tower(
     var fireTimer: Float = 0f,
     val size: Float = 35f,
     val type: TowerType = TowerType.ARROW,
-    var targetingMode: TargetingMode = TargetingMode.CLOSE
+    var targetingMode: TargetingMode = TargetingMode.CLOSE,
+    var abilityTimer: Float = 0f
 ) {
     fun update(dt: Float) {
         if (fireTimer > 0) fireTimer -= dt
+        if (abilityTimer > 0) abilityTimer -= dt
     }
 
     fun canFire(): Boolean = fireTimer <= 0f
@@ -45,12 +56,30 @@ data class Tower(
         range += 15f
         fireRate *= 1.15f
     }
+
+    fun sellValue(): Int = (type.baseCost * 0.6f).toInt() + (level - 1) * 15
+
+    fun canUseAbility(): Boolean = abilityTimer <= 0f
+
+    fun useAbility() {
+        abilityTimer = type.abilityCooldown
+    }
 }
 
-enum class TowerType(val emoji: String, val baseCost: Int, val baseDamage: Float, val baseRange: Float, val baseFireRate: Float) {
-    ARROW("\uD83C\uDFF9", 30, 8f, 200f, 1.2f),
-    MAGIC("\uD83E\uDDE8", 60, 14f, 220f, 0.8f),
-    CANNON("\uD83D\uDCA3", 100, 30f, 180f, 0.5f),
-    POISON("\u2620\uFE0F", 80, 6f, 210f, 1.0f),
-    TESLA("\u26A1", 120, 20f, 250f, 0.7f)
+enum class TowerType(
+    val emoji: String,
+    val baseCost: Int,
+    val baseDamage: Float,
+    val baseRange: Float,
+    val baseFireRate: Float,
+    val damageType: DamageType = DamageType.PHYSICAL,
+    val abilityCooldown: Float = 30f,
+    val abilityName: String = ""
+) {
+    ARROW("\uD83C\uDFF9", 30, 8f, 200f, 1.2f, DamageType.PHYSICAL, 25f, "Volley"),
+    MAGIC("\uD83E\uDDE8", 60, 14f, 220f, 0.8f, DamageType.MAGIC, 30f, "Arcane Blast"),
+    CANNON("\uD83D\uDCA3", 100, 30f, 180f, 0.5f, DamageType.EXPLOSIVE, 35f, "Napalm"),
+    POISON("\u2620\uFE0F", 80, 6f, 210f, 1.0f, DamageType.POISON, 28f, "Plague"),
+    TESLA("\u26A1", 120, 20f, 250f, 0.7f, DamageType.ELECTRIC, 32f, "Overcharge"),
+    ICE("\u2744\uFE0F", 70, 0f, 230f, 0f, DamageType.ICE, 25f, "Deep Freeze")
 }

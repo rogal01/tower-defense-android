@@ -110,7 +110,7 @@ object CampaignData {
             enemyHpMult = 0.9f, enemyDmgMult = 0.8f,
             goldMult = 1.1f,
             diamondReward = 4,
-            hint = "All 5 tower types are now available!"
+            hint = "All 6 tower types are now available — try ICE to slow enemies!"
         ),
         CampaignLevel(
             id = 7,
