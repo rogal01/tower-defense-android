@@ -1,8 +1,5 @@
 package com.example.myapp.game
 
-import android.content.Context
-import android.content.SharedPreferences
-
 /** A single node in the persistent skill tree — purchased with diamonds across runs */
 data class Skill(
     val id: String,
@@ -20,10 +17,7 @@ data class Skill(
  * Persistent meta-progression skill tree.
  * Diamonds are earned in-game (enemy/boss drops) and spent here between runs.
  */
-class SkillTree(context: Context) {
-
-    private val prefs: SharedPreferences =
-        context.getSharedPreferences("tower_defense_save", Context.MODE_PRIVATE)
+class SkillTree(private val prefs: GamePreferences) {
 
     // ---- Currency ----
     var diamonds: Int = 0
@@ -129,8 +123,10 @@ class SkillTree(context: Context) {
         // Reset page 1 skills
         skills.forEach { levels[it.id] = 0 }
         save()
+        prestigeAchieved = true
         return true
     }
+    var prestigeAchieved: Boolean = false
 
     // ---- Gameplay effects (queried by GameEngine) ----
 

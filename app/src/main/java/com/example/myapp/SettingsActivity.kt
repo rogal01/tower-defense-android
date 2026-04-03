@@ -1,21 +1,71 @@
 package com.example.myapp
 
 import android.content.Context
+import android.content.Intent
 import android.os.Bundle
 import android.widget.SeekBar
+import android.widget.Toast
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import com.example.myapp.databinding.ActivitySettingsBinding
+import org.json.JSONObject
 
 class SettingsActivity : ImmersiveActivity() {
 
     private lateinit var binding: ActivitySettingsBinding
+
+    private val exportLauncher = registerForActivityResult(ActivityResultContracts.CreateDocument("application/json")) { uri ->
+        uri ?: return@registerForActivityResult
+        try {
+            val prefs = getSharedPreferences("tower_defense_prefs", Context.MODE_PRIVATE)
+            val json = JSONObject()
+            for ((k, v) in prefs.all) {
+                when (v) {
+                    is Int -> json.put(k, v)
+                    is Boolean -> json.put(k, v)
+                    is Long -> json.put(k, v)
+                    is Float -> json.put(k, v.toDouble())
+                    is String -> json.put(k, v)
+                }
+            }
+            contentResolver.openOutputStream(uri)?.use { it.write(json.toString(2).toByteArray()) }
+            Toast.makeText(this, "✅ Save exported!", Toast.LENGTH_SHORT).show()
+        } catch (e: Exception) {
+            Toast.makeText(this, "❌ Export failed", Toast.LENGTH_SHORT).show()
+        }
+    }
+
+    private val importLauncher = registerForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+        uri ?: return@registerForActivityResult
+        try {
+            val text = contentResolver.openInputStream(uri)?.bufferedReader()?.readText() ?: return@registerForActivityResult
+            val json = JSONObject(text)
+            val prefs = getSharedPreferences("tower_defense_prefs", Context.MODE_PRIVATE)
+            val editor = prefs.edit()
+            editor.clear()
+            for (key in json.keys()) {
+                when (val v = json.get(key)) {
+                    is Int -> editor.putInt(key, v)
+                    is Boolean -> editor.putBoolean(key, v)
+                    is Long -> editor.putLong(key, v)
+                    is Double -> editor.putFloat(key, v.toFloat())
+                    is String -> editor.putString(key, v)
+                }
+            }
+            editor.apply()
+            Toast.makeText(this, "✅ Save imported!", Toast.LENGTH_SHORT).show()
+        } catch (e: Exception) {
+            Toast.makeText(this, "❌ Import failed", Toast.LENGTH_SHORT).show()
+        }
+    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         binding = ActivitySettingsBinding.inflate(layoutInflater)
         setContentView(binding.root)
         supportActionBar?.hide()
+        GameStrings.init(this)
 
         val prefs = getSharedPreferences("tower_defense_settings", Context.MODE_PRIVATE)
 
@@ -56,16 +106,24 @@ class SettingsActivity : ImmersiveActivity() {
 
         binding.btnBack.setOnClickListener { finish() }
 
+        binding.btnExportSave.setOnClickListener {
+            exportLauncher.launch("tower_defense_save.json")
+        }
+
+        binding.btnImportSave.setOnClickListener {
+            importLauncher.launch(arrayOf("application/json"))
+        }
+
         binding.btnReset.setOnClickListener {
             AlertDialog.Builder(this)
-                .setTitle("Reset Progress")
-                .setMessage("This will erase all high scores and achievements. Are you sure?")
-                .setPositiveButton("Reset") { _, _ ->
-                    getSharedPreferences("tower_defense_save", Context.MODE_PRIVATE)
+                .setTitle(GameStrings.resetTitle)
+                .setMessage(GameStrings.resetMessage)
+                .setPositiveButton(GameStrings.resetBtn) { _, _ ->
+                    getSharedPreferences("tower_defense_prefs", Context.MODE_PRIVATE)
                         .edit().clear().apply()
                     finish()
                 }
-                .setNegativeButton("Cancel", null)
+                .setNegativeButton(GameStrings.btnCancel, null)
                 .show()
         }
     }

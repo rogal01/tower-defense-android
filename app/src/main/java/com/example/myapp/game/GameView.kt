@@ -2,12 +2,19 @@ package com.example.myapp.game
 
 import android.content.Context
 import android.graphics.*
+import android.os.BatteryManager
+import android.os.Build
+import android.os.VibrationEffect
+import android.os.Vibrator
+import android.os.VibratorManager
 import android.util.AttributeSet
+import android.view.HapticFeedbackConstants
 import android.view.MotionEvent
 import android.view.SurfaceHolder
 import android.view.SurfaceView
+import com.example.myapp.AndroidGameAudio
+import com.example.myapp.GameStrings
 import com.example.myapp.SoundManager
-import com.example.myapp.SfxType
 
 class GameView @JvmOverloads constructor(
     context: Context,
@@ -16,7 +23,14 @@ class GameView @JvmOverloads constructor(
 
     private var gameThread: Thread? = null
     @Volatile private var running = false
-    private val engine = GameEngine(context)
+    private val engine = GameEngine(
+        AndroidGamePreferences(context.getSharedPreferences("tower_defense_prefs", Context.MODE_PRIVATE)),
+        AndroidGameAudio()
+    )
+    init {
+        GameEngineHolder.engine = engine
+        GameStrings.init(context)
+    }
 
     var onGoldChanged: ((Int) -> Unit)? = null
     var onWaveChanged: ((Int) -> Unit)? = null
@@ -24,20 +38,82 @@ class GameView @JvmOverloads constructor(
     var onDiamondsChanged: ((Int) -> Unit)? = null
     var onTowerSelected: ((Tower?) -> Unit)? = null
     var onCampaignVictory: (() -> Unit)? = null
+    var onMilestoneBuff: (() -> Unit)? = null
     @Volatile private var gameOverFired = false
+    @Volatile private var milestoneDialogShown = false
     private var lastFpsTime = System.nanoTime()
     private var frameCount = 0
     private var displayFps = 0
 
     // Paints
-    // Static terrain colors
-    private val grassColor = 0xFF3A7D3A.toInt()
-    private val grassLightColor = 0xFF4CAF50.toInt()
-    private val pathColor = 0xFF8D6E63.toInt()
-    private val pathEdgeColor = 0xFF6D4C41.toInt()
-    private val trunkColor = 0xFF795548.toInt()
-    private val rockColor = 0xFF757575.toInt()
-    private val rockHighlightColor = 0xFF9E9E9E.toInt()
+    // Static terrain colors — overridden per mapType in updateThemeColors()
+    private var grassColor = 0xFF3A7D3A.toInt()
+    private var grassLightColor = 0xFF4CAF50.toInt()
+    private var pathColor = 0xFF8D6E63.toInt()
+    private var pathEdgeColor = 0xFF6D4C41.toInt()
+    private var trunkColor = 0xFF795548.toInt()
+    private var rockColor = 0xFF757575.toInt()
+    private var rockHighlightColor = 0xFF9E9E9E.toInt()
+
+    /** Update terrain palette based on map theme */
+    private fun updateThemeColors() {
+        when (engine.mapType) {
+            MapType.DESERT -> {
+                grassColor = 0xFFC2A04E.toInt()       // sandy
+                grassLightColor = 0xFFD4B86A.toInt()   // light sand
+                pathColor = 0xFFB89A5A.toInt()         // dusty trail
+                pathEdgeColor = 0xFF9E8040.toInt()     // dark sand
+                trunkColor = 0xFF6D4C41.toInt()        // dry wood
+                rockColor = 0xFFA08060.toInt()         // sandstone
+                rockHighlightColor = 0xFFC0A080.toInt()
+            }
+            MapType.SNOW -> {
+                grassColor = 0xFFE0E8F0.toInt()        // snowy ground
+                grassLightColor = 0xFFF0F4F8.toInt()   // fresh snow
+                pathColor = 0xFFB0B8C0.toInt()         // icy path
+                pathEdgeColor = 0xFF90989F.toInt()     // darker ice
+                trunkColor = 0xFF5D4037.toInt()        // cold bark
+                rockColor = 0xFFA0A8B0.toInt()         // frozen rock
+                rockHighlightColor = 0xFFC8D0D8.toInt()
+            }
+            MapType.LAVA -> {
+                grassColor = 0xFF3E2723.toInt()        // charred ground
+                grassLightColor = 0xFF4E342E.toInt()   // dark volcanic soil
+                pathColor = 0xFF5D4037.toInt()         // scorched path
+                pathEdgeColor = 0xFF3E2723.toInt()     // burnt edge
+                trunkColor = 0xFF424242.toInt()        // charcoal trunks
+                rockColor = 0xFF616161.toInt()         // volcanic rock
+                rockHighlightColor = 0xFFFF6F00.toInt() // glowing lava highlight
+            }
+            MapType.ENCHANTED -> {
+                grassColor = 0xFF1B5E20.toInt()        // deep enchanted green
+                grassLightColor = 0xFF2E7D32.toInt()   // magical forest green
+                pathColor = 0xFF7E57C2.toInt()         // mystical purple path
+                pathEdgeColor = 0xFF5E35B1.toInt()     // deep purple edge
+                trunkColor = 0xFF6D4C41.toInt()        // ancient bark
+                rockColor = 0xFF7E57C2.toInt()         // enchanted stone
+                rockHighlightColor = 0xFFE040FB.toInt() // magical glow
+            }
+            MapType.VOLCANO -> {
+                grassColor = 0xFF2E2E2E.toInt()        // dark volcanic ash
+                grassLightColor = 0xFF424242.toInt()   // lighter ash
+                pathColor = 0xFF4E342E.toInt()         // scorched trail
+                pathEdgeColor = 0xFF3E2723.toInt()     // dark lava crust
+                trunkColor = 0xFF37474F.toInt()        // charred wood
+                rockColor = 0xFF455A64.toInt()         // basalt
+                rockHighlightColor = 0xFFFF6D00.toInt() // lava glow
+            }
+            else -> {
+                grassColor = 0xFF3A7D3A.toInt()
+                grassLightColor = 0xFF4CAF50.toInt()
+                pathColor = 0xFF8D6E63.toInt()
+                pathEdgeColor = 0xFF6D4C41.toInt()
+                trunkColor = 0xFF795548.toInt()
+                rockColor = 0xFF757575.toInt()
+                rockHighlightColor = 0xFF9E9E9E.toInt()
+            }
+        }
+    }
     // Terrain paints (pre-allocated)
     private val terrainPaint = Paint().apply { isAntiAlias = true }
     private val pathPaint = Paint().apply { isAntiAlias = true; style = Paint.Style.STROKE; strokeCap = Paint.Cap.ROUND; strokeJoin = Paint.Join.ROUND }
@@ -47,8 +123,6 @@ class GameView @JvmOverloads constructor(
     private data class Decoration(val x: Float, val y: Float, val type: Int, val scale: Float, val seed: Int)
     private var decorations: List<Decoration> = emptyList()
     private var pathCache: List<Path> = emptyList()
-    private var riverPathCache: Path = Path()
-    private var bridgePositions: List<PointF> = emptyList()
     private var waterPhase: Float = 0f
     // Diamond display paint
     private val diamondPaint = Paint().apply {
@@ -107,10 +181,10 @@ class GameView @JvmOverloads constructor(
     // Pre-allocated paints for wave banner, game over, combos, achievements (avoid GC in render loop)
     private val bannerBgPaint = Paint().apply { color = 0xCC000000.toInt() }
     private val waveBannerPaint = Paint().apply {
-        color = 0xFFFFD700.toInt(); textSize = 72f; isAntiAlias = true; textAlign = Paint.Align.CENTER; typeface = Typeface.DEFAULT_BOLD
+        color = 0xFFFFD700.toInt(); textSize = 90f; isAntiAlias = true; textAlign = Paint.Align.CENTER; typeface = Typeface.DEFAULT_BOLD
     }
     private val waveBannerSubPaint = Paint().apply {
-        color = 0xFFBDBDBD.toInt(); textSize = 34f; isAntiAlias = true; textAlign = Paint.Align.CENTER; typeface = Typeface.DEFAULT_BOLD
+        color = 0xFFEEEEEE.toInt(); textSize = 44f; isAntiAlias = true; textAlign = Paint.Align.CENTER; typeface = Typeface.DEFAULT_BOLD
     }
     private val achBgPaint = Paint().apply { color = 0xDD1B2838.toInt() }
     private val achBorderPaint = Paint().apply {
@@ -144,10 +218,31 @@ class GameView @JvmOverloads constructor(
 
     // Tower placement mode
     var placementMode: TowerType? = null
+    var blockadePlacementMode: Boolean = false
+    var trapPlacementMode: TrapType? = null
     private var selectedTower: Tower? = null
+    // Long-press tower stats
+    private var longPressDownTime: Long = 0L
+    private var longPressDownX: Float = 0f
+    private var longPressDownY: Float = 0f
+    private var towerStatsPopup: Tower? = null
+    private var placementTouchX = -1f
+    private var placementTouchY = -1f
+    // Victory celebration
+    private data class Confetti(var x: Float, var y: Float, var vx: Float, var vy: Float,
+                                var life: Float, val color: Int, val size: Float, var rotation: Float, val spin: Float)
+    private val confettiParticles = mutableListOf<Confetti>()
+    private var victoryAnimTimer: Float = 0f
+    private var victoryScoreDisplay: Int = 0
+    private var victoryTriggered: Boolean = false
     // Path arrow drawing
     private val arrowPaint = Paint().apply { isAntiAlias = true; style = Paint.Style.FILL }
     private val arrowPath = Path()
+
+    // Battery saver / adaptive performance
+    private var batterySaverOn = false
+    private var lastBatteryCheck = 0L
+    private val frameMs: Long get() = if (batterySaverOn) 33L else 16L  // 30 vs 60 fps
 
     init {
         holder.addCallback(this)
@@ -158,6 +253,7 @@ class GameView @JvmOverloads constructor(
 
     override fun surfaceCreated(holder: SurfaceHolder) {
         engine.init(width.toFloat(), height.toFloat())
+        updateThemeColors()
         generateTerrain()
         startGameThread()
     }
@@ -177,6 +273,7 @@ class GameView @JvmOverloads constructor(
         onDiamondsChanged = null
         onTowerSelected = null
         onCampaignVictory = null
+        onMilestoneBuff = null
     }
 
     override fun run() {
@@ -189,6 +286,67 @@ class GameView @JvmOverloads constructor(
             val gameDt = dt * engine.gameSpeed
             engine.update(gameDt)
             waterPhase = (waterPhase + dt * 1.8f) % 1000f
+
+            // Victory celebration confetti
+            if (engine.campaignVictory || engine.gameOver) {
+                if (!victoryTriggered && engine.campaignVictory) {
+                    victoryTriggered = true
+                    victoryAnimTimer = 0f
+                    victoryScoreDisplay = 0
+                    // Spawn initial burst of confetti
+                    val w = holder.surfaceFrame.width().toFloat()
+                    repeat(80) {
+                        confettiParticles.add(Confetti(
+                            x = (Math.random() * w).toFloat(),
+                            y = -20f - (Math.random() * 200).toFloat(),
+                            vx = ((Math.random() - 0.5) * 120).toFloat(),
+                            vy = (100 + Math.random() * 200).toFloat(),
+                            life = 3f + (Math.random() * 2).toFloat(),
+                            color = listOf(0xFFFF1744.toInt(), 0xFFFFD700.toInt(), 0xFF00E676.toInt(),
+                                0xFF2979FF.toInt(), 0xFFFF9100.toInt(), 0xFFE040FB.toInt(),
+                                0xFF00BCD4.toInt(), 0xFFFFEB3B.toInt()).random(),
+                            size = 6f + (Math.random() * 6).toFloat(),
+                            rotation = (Math.random() * 360).toFloat(),
+                            spin = ((Math.random() - 0.5) * 400).toFloat()
+                        ))
+                    }
+                }
+                victoryAnimTimer += dt
+                // Animated score counter
+                if (victoryScoreDisplay < engine.score) {
+                    victoryScoreDisplay = (victoryScoreDisplay + (engine.score * dt * 2).toInt().coerceAtLeast(1)).coerceAtMost(engine.score)
+                }
+                // Ongoing confetti trickle
+                if (engine.campaignVictory && confettiParticles.size < 120 && Math.random() < dt * 15) {
+                    val w = holder.surfaceFrame.width().toFloat()
+                    confettiParticles.add(Confetti(
+                        x = (Math.random() * w).toFloat(), y = -10f,
+                        vx = ((Math.random() - 0.5) * 80).toFloat(),
+                        vy = (80 + Math.random() * 150).toFloat(),
+                        life = 3f + (Math.random() * 2).toFloat(),
+                        color = listOf(0xFFFF1744.toInt(), 0xFFFFD700.toInt(), 0xFF00E676.toInt(),
+                            0xFF2979FF.toInt(), 0xFFFF9100.toInt(), 0xFFE040FB.toInt()).random(),
+                        size = 5f + (Math.random() * 5).toFloat(),
+                        rotation = (Math.random() * 360).toFloat(),
+                        spin = ((Math.random() - 0.5) * 300).toFloat()
+                    ))
+                }
+            } else {
+                if (victoryTriggered) {
+                    victoryTriggered = false
+                    confettiParticles.clear()
+                }
+            }
+            // Update confetti
+            confettiParticles.forEach { c ->
+                c.x += c.vx * dt
+                c.y += c.vy * dt
+                c.vy += 40f * dt  // gravity
+                c.vx *= 0.99f     // air drag
+                c.rotation += c.spin * dt
+                c.life -= dt
+            }
+            confettiParticles.removeAll { it.life <= 0 || it.y > (holder.surfaceFrame.height() + 50) }
 
             val canvas = holder.lockCanvas()
             if (canvas != null) {
@@ -206,6 +364,7 @@ class GameView @JvmOverloads constructor(
             val isGameOver: Boolean
             val scoreSnap: Int
             val isVictory: Boolean
+            val isMilestonePending: Boolean
             synchronized(engine.lock) {
                 goldSnap = engine.gold
                 waveSnap = engine.wave
@@ -213,22 +372,49 @@ class GameView @JvmOverloads constructor(
                 isGameOver = engine.gameOver
                 scoreSnap = engine.score
                 isVictory = engine.campaignVictory
+                isMilestonePending = engine.endlessMilestonePending
             }
             post {
                 onGoldChanged?.invoke(goldSnap)
                 onWaveChanged?.invoke(waveSnap)
                 onDiamondsChanged?.invoke(diamondSnap)
+                // Haptic feedback
+                val haptic = engine.hapticPending
+                if (haptic > 0) {
+                    engine.hapticPending = 0
+                    if (haptic == 2) {
+                        performHapticFeedback(HapticFeedbackConstants.LONG_PRESS)
+                    } else {
+                        performHapticFeedback(HapticFeedbackConstants.VIRTUAL_KEY)
+                    }
+                }
                 if (isGameOver && !gameOverFired) {
                     gameOverFired = true
                     onGameOver?.invoke(scoreSnap, waveSnap)
                 }
+                if (isMilestonePending && !milestoneDialogShown) {
+                    milestoneDialogShown = true
+                    onMilestoneBuff?.invoke()
+                }
+                if (!isMilestonePending) {
+                    milestoneDialogShown = false
+                }
                 // Victory overlay is drawn; player taps to continue (handled in onTouchEvent)
             }
 
-            // Cap at ~60 fps
+            // Battery saver check (every 30s)
+            val nowMs = System.currentTimeMillis()
+            if (nowMs - lastBatteryCheck > 30_000) {
+                lastBatteryCheck = nowMs
+                val bm = context.getSystemService(Context.BATTERY_SERVICE) as? BatteryManager
+                val level = bm?.getIntProperty(BatteryManager.BATTERY_PROPERTY_CAPACITY) ?: 100
+                batterySaverOn = level <= 15
+            }
+
+            // Cap at ~60 fps (or 30 in battery saver)
             val frameTime = (System.nanoTime() - now) / 1_000_000
-            if (frameTime < 16) {
-                Thread.sleep(16 - frameTime)
+            if (frameTime < frameMs) {
+                Thread.sleep(frameMs - frameTime)
             }
         }
     }
@@ -332,10 +518,20 @@ class GameView @JvmOverloads constructor(
         canvas.drawOval(width * 0.60f, height * 0.03f, width * 0.75f, height * 0.075f, paint)
         canvas.drawOval(width * 0.38f, height * 0.06f, width * 0.52f, height * 0.095f, paint)
 
-        // === LUSH GREEN TERRAIN ===
+        // === TERRAIN (theme-aware) ===
         val groundTop = height * 0.12f
-        val terrTop = if (night) 0xFF2E5A2E.toInt() else 0xFF66BB6A.toInt()
-        val terrBot = if (night) 0xFF1B4D1B.toInt() else 0xFF388E3C.toInt()
+        val isDesert = engine.mapType == MapType.DESERT
+        val isSnow = engine.mapType == MapType.SNOW
+        val terrTop = if (night) {
+            if (isDesert) 0xFF5A4820.toInt() else if (isSnow) 0xFF506070.toInt() else 0xFF2E5A2E.toInt()
+        } else {
+            if (isDesert) 0xFFD4B86A.toInt() else if (isSnow) 0xFFE0E8F0.toInt() else 0xFF66BB6A.toInt()
+        }
+        val terrBot = if (night) {
+            if (isDesert) 0xFF3D3010.toInt() else if (isSnow) 0xFF3A4A5A.toInt() else 0xFF1B4D1B.toInt()
+        } else {
+            if (isDesert) 0xFFA08040.toInt() else if (isSnow) 0xFFB0C0D0.toInt() else 0xFF388E3C.toInt()
+        }
         terrainPaint.shader = LinearGradient(
             0f, groundTop, 0f, height.toFloat(),
             terrTop, terrBot, Shader.TileMode.CLAMP
@@ -350,20 +546,26 @@ class GameView @JvmOverloads constructor(
             val hy = groundTop + 20f + hillRng.nextFloat() * (height - groundTop - 60f)
             val hw = 80f + hillRng.nextFloat() * 150f
             val hh = 25f + hillRng.nextFloat() * 40f
-            terrainPaint.color = if (hillRng.nextBoolean()) 0xFF4CAF50.toInt() else 0xFF2E7D32.toInt()
+            terrainPaint.color = if (isDesert) {
+                if (hillRng.nextBoolean()) 0xFFC0A050.toInt() else 0xFFB09030.toInt()
+            } else if (isSnow) {
+                if (hillRng.nextBoolean()) 0xFFD0D8E0.toInt() else 0xFFB8C4D0.toInt()
+            } else {
+                if (hillRng.nextBoolean()) 0xFF4CAF50.toInt() else 0xFF2E7D32.toInt()
+            }
             terrainPaint.alpha = 30 + hillRng.nextInt(25)
             canvas.drawOval(hx - hw, hy - hh / 2, hx + hw, hy + hh / 2, terrainPaint)
         }
         terrainPaint.alpha = 255
 
         // Castle hill mound
-        terrainPaint.color = 0xFF4CAF50.toInt()
+        terrainPaint.color = if (isDesert) 0xFFB89A50.toInt() else if (isSnow) 0xFFC8D4E0.toInt() else 0xFF4CAF50.toInt()
         terrainPaint.alpha = 80
         canvas.drawOval(
             engine.baseX - 130f, engine.baseY - 25f,
             engine.baseX + 130f, engine.baseY + 55f, terrainPaint
         )
-        terrainPaint.color = 0xFF66BB6A.toInt()
+        terrainPaint.color = if (isDesert) 0xFFC4A860.toInt() else if (isSnow) 0xFFD8E0E8.toInt() else 0xFF66BB6A.toInt()
         terrainPaint.alpha = 50
         canvas.drawOval(
             engine.baseX - 95f, engine.baseY - 12f,
@@ -372,26 +574,60 @@ class GameView @JvmOverloads constructor(
         terrainPaint.alpha = 255
 
         // === DIRT PATHS WITH LAYERED DETAIL ===
-        for (p in pathCache) {
+        // Per-path tint offsets for visual distinction at overlaps
+        val pathTints = intArrayOf(0, 15, -15, 25, -25, 10, -10, 20)
+        for ((idx, p) in pathCache.withIndex()) {
+            val tint = pathTints[idx % pathTints.size]
             pathPaint.style = Paint.Style.STROKE
             // Grass border around path
-            pathPaint.color = 0xFF2E7D32.toInt()
+            pathPaint.color = if (isDesert) 0xFF9E8040.toInt() else if (isSnow) 0xFF90A0B0.toInt() else 0xFF2E7D32.toInt()
             pathPaint.strokeWidth = 58f
             canvas.drawPath(p, pathPaint)
             // Dark dirt edge
-            pathPaint.color = pathEdgeColor
+            pathPaint.color = adjustBrightness(pathEdgeColor, tint)
             pathPaint.strokeWidth = 48f
             canvas.drawPath(p, pathPaint)
             // Main dirt fill
-            pathPaint.color = pathColor
+            pathPaint.color = adjustBrightness(pathColor, tint)
             pathPaint.strokeWidth = 36f
             canvas.drawPath(p, pathPaint)
-            // Lighter center tread
-            pathPaint.color = 0xFFBCAAA4.toInt()
+            // Center lane lines — dashed pattern per path index
+            val centerColor = if (isDesert) 0xFFD4BA80.toInt() else if (isSnow) 0xFFD0D8E0.toInt() else 0xFFBCAAA4.toInt()
+            pathPaint.color = adjustBrightness(centerColor, tint)
             pathPaint.strokeWidth = 14f
-            pathPaint.alpha = 60
+            pathPaint.alpha = 70
             canvas.drawPath(p, pathPaint)
             pathPaint.alpha = 255
+        }
+
+        // === PATH WEAR — darken paths based on wave progress ===
+        if (engine.wave > 1) {
+            val wearAlpha = (engine.wave * 2).coerceAtMost(40)
+            for (p in pathCache) {
+                pathPaint.style = Paint.Style.STROKE
+                pathPaint.color = 0x000000 or (wearAlpha shl 24)
+                pathPaint.strokeWidth = 32f
+                canvas.drawPath(p, pathPaint)
+            }
+            // Scuff marks on well-worn paths
+            if (engine.wave >= 10) {
+                val scuffRng = java.util.Random(engine.wave.toLong())
+                for (gamePath in engine.paths) {
+                    val wps = gamePath.waypoints
+                    for (i in 0 until wps.size - 1) {
+                        val ax = wps[i].x; val ay = wps[i].y
+                        val bpx = wps[i + 1].x; val bpy = wps[i + 1].y
+                        val scuffCount = (engine.wave / 5).coerceAtMost(8)
+                        repeat(scuffCount) {
+                            val t = scuffRng.nextFloat()
+                            val sx = ax + t * (bpx - ax) + (scuffRng.nextFloat() - 0.5f) * 18f
+                            val sy = ay + t * (bpy - ay) + (scuffRng.nextFloat() - 0.5f) * 18f
+                            paint.color = 0x22000000
+                            canvas.drawCircle(sx, sy, 3f + scuffRng.nextFloat() * 4f, paint)
+                        }
+                    }
+                }
+            }
         }
 
         // Pebbles/cobblestones scattered on paths
@@ -416,13 +652,35 @@ class GameView @JvmOverloads constructor(
         }
         terrainPaint.alpha = 255
 
+        // === PATH HIGHLIGHTING (placement mode) ===
+        if (placementMode != null) {
+            // Red highlight: can't place towers on paths
+            for (p in pathCache) {
+                pathPaint.style = Paint.Style.STROKE
+                pathPaint.color = 0x66FF1744.toInt()
+                pathPaint.strokeWidth = 52f
+                canvas.drawPath(p, pathPaint)
+                pathPaint.color = 0x44FF0000.toInt()
+                pathPaint.strokeWidth = 36f
+                canvas.drawPath(p, pathPaint)
+            }
+        } else if (trapPlacementMode != null) {
+            // Green highlight: can only place traps near paths
+            for (p in pathCache) {
+                pathPaint.style = Paint.Style.STROKE
+                pathPaint.color = 0x6600E676.toInt()
+                pathPaint.strokeWidth = 52f
+                canvas.drawPath(p, pathPaint)
+                pathPaint.color = 0x4400C853.toInt()
+                pathPaint.strokeWidth = 36f
+                canvas.drawPath(p, pathPaint)
+            }
+        }
+
         // === PATH DIRECTION ARROWS (between waves) ===
         if (!engine.waveInProgress && !engine.gameOver && !engine.campaignVictory && engine.wave > 0) {
             drawPathArrows(canvas)
         }
-
-        // === ANIMATED RIVER ===
-        drawRiver(canvas)
 
         // Grass blade tufts across the field
         val turfRng = java.util.Random(99L)
@@ -430,7 +688,7 @@ class GameView @JvmOverloads constructor(
             val tx = turfRng.nextFloat() * width
             val ty = groundTop + turfRng.nextFloat() * (height - groundTop)
             val ts = 3f + turfRng.nextFloat() * 6f
-            terrainPaint.color = if (turfRng.nextBoolean()) grassLightColor else 0xFF81C784.toInt()
+            terrainPaint.color = if (turfRng.nextBoolean()) grassLightColor else grassColor
             terrainPaint.alpha = 70 + turfRng.nextInt(60)
             canvas.drawLine(tx, ty, tx - ts * 0.5f, ty - ts, terrainPaint)
             canvas.drawLine(tx, ty, tx + ts * 0.3f, ty - ts * 0.8f, terrainPaint)
@@ -446,10 +704,10 @@ class GameView @JvmOverloads constructor(
         repeat(30) {
             val tx = treeSeed.nextFloat() * width
             val ts = 6f + treeSeed.nextFloat() * 10f
-            terrainPaint.color = 0xFF2E7D32.toInt()
+            terrainPaint.color = if (isDesert) 0xFF8B7535.toInt() else if (isSnow) 0xFF4A5A5A.toInt() else 0xFF2E7D32.toInt()
             terrainPaint.alpha = 35 + treeSeed.nextInt(25)
             canvas.drawCircle(tx, gtop + 10f, ts, terrainPaint)
-            terrainPaint.color = 0xFF388E3C.toInt()
+            terrainPaint.color = if (isDesert) 0xFF9E8040.toInt() else if (isSnow) 0xFF5A6A6A.toInt() else 0xFF388E3C.toInt()
             canvas.drawCircle(tx - ts * 0.3f, gtop + 6f, ts * 0.7f, terrainPaint)
         }
         terrainPaint.alpha = 255
@@ -457,10 +715,145 @@ class GameView @JvmOverloads constructor(
         // Decorations (trees, rocks, bushes, flowers)
         drawDecorations(canvas)
 
+        // === VOLCANO CRATER VISUAL ===
+        if (engine.mapType == MapType.VOLCANO) {
+            val vcx = engine.volcanoCenterX
+            val vcy = engine.volcanoCenterY
+            val vTime = System.currentTimeMillis() / 1000.0
+            val erupting = engine.volcanoErupting
+            // Volcano cone (dark rock)
+            terrainPaint.color = 0xFF37474F.toInt()
+            val conePath = Path()
+            conePath.moveTo(vcx, vcy - 90f)
+            conePath.lineTo(vcx - 110f, vcy + 60f)
+            conePath.lineTo(vcx + 110f, vcy + 60f)
+            conePath.close()
+            canvas.drawPath(conePath, terrainPaint)
+            // Darker top
+            terrainPaint.color = 0xFF263238.toInt()
+            val topPath = Path()
+            topPath.moveTo(vcx, vcy - 90f)
+            topPath.lineTo(vcx - 55f, vcy - 25f)
+            topPath.lineTo(vcx + 55f, vcy - 25f)
+            topPath.close()
+            canvas.drawPath(topPath, terrainPaint)
+            // Crater opening
+            terrainPaint.color = 0xFF1A1A1A.toInt()
+            canvas.drawOval(vcx - 30f, vcy - 75f, vcx + 30f, vcy - 55f, terrainPaint)
+            // Lava glow in crater
+            val gAlpha = if (erupting) 200 else (100 + (50 * Math.sin(vTime * 2.0)).toInt())
+            paint.color = 0xFFFF3D00.toInt()
+            paint.alpha = gAlpha.coerceIn(0, 255)
+            canvas.drawOval(vcx - 22f, vcy - 72f, vcx + 22f, vcy - 58f, paint)
+            paint.color = 0xFFFFAB00.toInt()
+            paint.alpha = (gAlpha * 0.6f).toInt().coerceIn(0, 255)
+            canvas.drawOval(vcx - 14f, vcy - 69f, vcx + 14f, vcy - 61f, paint)
+            // Lava drips on sides
+            for (i in 0..3) {
+                val drx = vcx + (-35f + i * 22f)
+                val dry = vcy - 50f + (15f * Math.sin(vTime + i * 1.5).toFloat())
+                paint.color = 0xCCFF6D00.toInt()
+                canvas.drawCircle(drx, dry, 4f + 2f * Math.sin(vTime * 1.5 + i).toFloat(), paint)
+            }
+            // Eruption visual: intense glow + red overlay
+            if (erupting) {
+                paint.color = 0x22FF1744.toInt()
+                canvas.drawRect(0f, 0f, width.toFloat(), height.toFloat(), paint)
+                paint.color = 0x44FF6D00.toInt()
+                canvas.drawCircle(vcx, vcy - 65f, 120f, paint)
+                paint.color = 0x33FF3D00.toInt()
+                canvas.drawCircle(vcx, vcy - 65f, 180f, paint)
+            }
+            paint.alpha = 255
+        }
+
+        // === TRAP RENDERING ===
+        for (trap in engine.traps) {
+            if (trap.isSpent()) continue
+            val tx = trap.x; val ty = trap.y; val ts = trap.size
+            when (trap.type) {
+                TrapType.SPIKE -> {
+                    // Metal spikes on ground
+                    terrainPaint.color = 0xFF757575.toInt()
+                    canvas.drawCircle(tx, ty, ts * 0.7f, terrainPaint)
+                    terrainPaint.color = 0xFFBDBDBD.toInt()
+                    for (a in 0 until 6) {
+                        val ang = a * 60.0 * Math.PI / 180.0
+                        val sx = tx + (Math.cos(ang) * ts * 0.55f).toFloat()
+                        val sy = ty + (Math.sin(ang) * ts * 0.55f).toFloat()
+                        canvas.drawCircle(sx, sy, 2.5f, terrainPaint)
+                    }
+                    terrainPaint.color = 0xFF424242.toInt()
+                    canvas.drawCircle(tx, ty, ts * 0.3f, terrainPaint)
+                }
+                TrapType.TAR -> {
+                    // Brown tar puddle
+                    terrainPaint.color = 0xFF3E2723.toInt()
+                    canvas.drawOval(tx - ts * 0.8f, ty - ts * 0.5f, tx + ts * 0.8f, ty + ts * 0.5f, terrainPaint)
+                    terrainPaint.color = 0xFF4E342E.toInt()
+                    canvas.drawOval(tx - ts * 0.5f, ty - ts * 0.3f, tx + ts * 0.5f, ty + ts * 0.3f, terrainPaint)
+                    // Tar bubbles
+                    val tTime = System.currentTimeMillis() / 1000.0
+                    terrainPaint.color = 0xFF5D4037.toInt()
+                    for (b in 0..2){
+                        val bx = tx + (-6f + b * 6f) + (Math.sin(tTime + b) * 2f).toFloat()
+                        val by = ty + (-3f + b * 2f)
+                        canvas.drawCircle(bx, by, 2f + Math.sin(tTime * 2 + b).toFloat(), terrainPaint)
+                    }
+                }
+                TrapType.MINE -> {
+                    // Circular mine device
+                    terrainPaint.color = 0xFF616161.toInt()
+                    canvas.drawCircle(tx, ty, ts * 0.6f, terrainPaint)
+                    terrainPaint.color = 0xFF424242.toInt()
+                    canvas.drawCircle(tx, ty, ts * 0.4f, terrainPaint)
+                    // Red blinking light
+                    val blink = (System.currentTimeMillis() / 500) % 2 == 0L
+                    terrainPaint.color = if (blink) 0xFFFF1744.toInt() else 0xFF880000.toInt()
+                    canvas.drawCircle(tx, ty, 3f, terrainPaint)
+                }
+            }
+            // Uses indicator
+            if (trap.type != TrapType.MINE) {
+                paint.color = 0xDDFFFFFF.toInt()
+                paint.textSize = 12f
+                paint.textAlign = Paint.Align.CENTER
+                canvas.drawText("${trap.uses}", tx, ty + ts + 10f, paint)
+                paint.textAlign = Paint.Align.CENTER
+            }
+        }
+
+        // === SUPPLY DROP RENDERING ===
+        for (drop in engine.supplyDrops) {
+            val dx = drop.x; val dy = drop.y; val ds = drop.size
+            // Pulsing glow
+            val pulse = (System.currentTimeMillis() % 1000) / 1000f
+            val glowAlpha = (80 + 40 * kotlin.math.sin(pulse * Math.PI * 2).toFloat()).toInt()
+            paint.color = android.graphics.Color.argb(glowAlpha, 255, 215, 0)
+            canvas.drawCircle(dx, dy, ds * 1.2f, paint)
+            // Box
+            paint.color = 0xFF795548.toInt()
+            canvas.drawRect(dx - ds * 0.5f, dy - ds * 0.4f, dx + ds * 0.5f, dy + ds * 0.4f, paint)
+            // Gold cross on box
+            paint.color = 0xFFFFD700.toInt()
+            canvas.drawRect(dx - ds * 0.08f, dy - ds * 0.3f, dx + ds * 0.08f, dy + ds * 0.3f, paint)
+            canvas.drawRect(dx - ds * 0.3f, dy - ds * 0.08f, dx + ds * 0.3f, dy + ds * 0.08f, paint)
+            // Amount text
+            paint.color = 0xFFFFD700.toInt()
+            paint.textSize = 14f
+            paint.textAlign = Paint.Align.CENTER
+            canvas.drawText("+${drop.goldAmount}g", dx, dy - ds - 4f, paint)
+            // Lifetime bar
+            val lifeRatio = (drop.lifetime / 8f).coerceIn(0f, 1f)
+            paint.color = 0xFF388E3C.toInt()
+            canvas.drawRect(dx - ds * 0.5f, dy + ds * 0.5f, dx - ds * 0.5f + ds * lifeRatio, dy + ds * 0.5f + 3f, paint)
+        }
+
         // Soft horizon transition
+        val horizonColor = skyBot
         terrainPaint.shader = LinearGradient(
             0f, groundTop - 8f, 0f, groundTop + 25f,
-            0xFF87CEEB.toInt(), 0x0087CEEB, Shader.TileMode.CLAMP
+            horizonColor, horizonColor and 0x00FFFFFF, Shader.TileMode.CLAMP
         )
         canvas.drawRect(0f, groundTop - 8f, width.toFloat(), groundTop + 25f, terrainPaint)
         terrainPaint.shader = null
@@ -530,6 +923,35 @@ class GameView @JvmOverloads constructor(
             }
             synergyCounts[i] = count.coerceAtMost(3)
         }
+        // Draw blockades
+        for (blockade in engine.blockades) {
+            if (blockade.isDead()) continue
+            // Brown wooden blockade body
+            paint.color = 0xFF8D6E63.toInt()
+            canvas.drawRoundRect(
+                blockade.x - blockade.size, blockade.y - blockade.size * 0.6f,
+                blockade.x + blockade.size, blockade.y + blockade.size * 0.6f,
+                6f, 6f, paint
+            )
+            // Cross-beam lines
+            paint.color = 0xFF6D4C41.toInt()
+            paint.strokeWidth = 3f
+            paint.style = Paint.Style.STROKE
+            canvas.drawLine(blockade.x - blockade.size + 4f, blockade.y - blockade.size * 0.5f,
+                blockade.x + blockade.size - 4f, blockade.y + blockade.size * 0.5f, paint)
+            canvas.drawLine(blockade.x - blockade.size + 4f, blockade.y + blockade.size * 0.5f,
+                blockade.x + blockade.size - 4f, blockade.y - blockade.size * 0.5f, paint)
+            paint.style = Paint.Style.FILL
+            // HP bar
+            val hpRatio = blockade.hp / blockade.maxHp
+            val barW = blockade.size * 1.6f
+            val barY = blockade.y - blockade.size * 0.6f - 8f
+            paint.color = 0xFF333333.toInt()
+            canvas.drawRoundRect(blockade.x - barW / 2, barY - 4f, blockade.x + barW / 2, barY + 4f, 2f, 2f, paint)
+            paint.color = if (hpRatio > 0.5f) 0xFF66BB6A.toInt() else if (hpRatio > 0.25f) 0xFFFFB300.toInt() else 0xFFFF5252.toInt()
+            canvas.drawRoundRect(blockade.x - barW / 2, barY - 4f, blockade.x - barW / 2 + barW * hpRatio, barY + 4f, 2f, 2f, paint)
+        }
+
         for ((idx, tower) in engine.towers.withIndex()) {
             val synergyCount = synergyCounts[idx] ?: 0
             // Synergy glow ring
@@ -541,6 +963,11 @@ class GameView @JvmOverloads constructor(
                     TowerType.POISON -> 0x66BB6A
                     TowerType.TESLA -> 0x29B6F6
                     TowerType.ICE -> 0x81D4FA
+                    TowerType.FLAME -> 0xFF5722
+                    TowerType.NECRO -> 0x9C27B0
+                    TowerType.BALLISTA -> 0xFFD54F
+                    TowerType.VORTEX -> 0x7E57C2
+                    TowerType.HEALER -> 0x66BB6A
                 }
                 val glowAlpha = (0x15 * synergyCount).coerceAtMost(0x44)
                 paint.color = (glowAlpha shl 24) or synergyColor
@@ -560,10 +987,25 @@ class GameView @JvmOverloads constructor(
                 canvas.drawCircle(tower.x, tower.y, tower.size + 8f, paint)
             }
             val tScale = depthFactor(tower.y)
+            // Recoil animation: quick scale bounce on fire
+            val recoilScale = if (tower.recoilTimer > 0) {
+                val t = (tower.recoilTimer / 0.15f).coerceIn(0f, 1f)
+                1f + 0.12f * t  // expand 12% then shrink back
+            } else 1f
             canvas.save()
-            canvas.scale(tScale, tScale, tower.x, tower.y)
+            canvas.scale(tScale * recoilScale, tScale * recoilScale, tower.x, tower.y)
             EntityRenderer.drawTower(canvas, tower, tower == selectedTower)
             canvas.restore()
+            // Muzzle flash on fire
+            if (tower.recoilTimer > 0.08f) {
+                paint.color = 0x55FFFFFF
+                canvas.drawCircle(tower.x, tower.y - tower.size * 0.4f, tower.size * 0.5f, paint)
+            }
+            // Thorns jam indicator — red flash on jammed towers
+            if (tower.thornJamTimer > 0) {
+                paint.color = 0x44FF5252
+                canvas.drawCircle(tower.x, tower.y, tower.size + 6f, paint)
+            }
             // Ice tower aura ring
             if (tower.type == TowerType.ICE) {
                 paint.color = 0x2281D4FA
@@ -590,15 +1032,51 @@ class GameView @JvmOverloads constructor(
                 canvas.drawRoundRect(tower.x - 30f, my - 12f, tower.x + 30f, my + 6f, 4f, 4f, paint)
                 canvas.drawText(modeText, tower.x, my + 2f, lvlPaint)
             }
+            // Mastery star badge
+            val mLvl = engine.masteryLevel(tower.type)
+            if (mLvl > 0) {
+                val starColor = when (mLvl) {
+                    1 -> 0xFFCD7F32.toInt()  // bronze
+                    2 -> 0xFFC0C0C0.toInt()  // silver
+                    3 -> 0xFFFFD700.toInt()  // gold
+                    4 -> 0xFF00BCD4.toInt()  // diamond
+                    else -> 0xFFE040FB.toInt() // master purple
+                }
+                val sy = tower.y + tower.size + 4f
+                paint.color = starColor
+                canvas.drawText("★".repeat(mLvl.coerceAtMost(3)), tower.x, sy, lvlPaint)
+            }
         }
 
         // Enemies (with perspective scale — further up = slightly smaller)
         for (enemy in engine.enemies) {
             val depthScale = depthFactor(enemy.y)
+            // Death animation: shrink + fade
+            val deathAlpha: Int
+            val deathScale: Float
+            if (enemy.deathProcessed && enemy.deathAnimTimer > 0f) {
+                val t = (enemy.deathAnimTimer / 0.4f).coerceIn(0f, 1f)
+                deathScale = t * 0.7f + 0.3f  // shrink from 100% to 30%
+                deathAlpha = (255 * t).toInt()
+            } else {
+                deathScale = 1f
+                deathAlpha = 255
+            }
+            // Skip drawing if fully faded
+            if (deathAlpha <= 0) continue
             canvas.save()
-            canvas.scale(depthScale, depthScale, enemy.x, enemy.y)
+            canvas.scale(depthScale * deathScale, depthScale * deathScale, enemy.x, enemy.y)
+            if (deathAlpha < 255) {
+                val layerPaint = Paint().apply { alpha = deathAlpha }
+                canvas.saveLayerAlpha(enemy.x - enemy.size * 2, enemy.y - enemy.size * 2,
+                    enemy.x + enemy.size * 2, enemy.y + enemy.size * 2, deathAlpha)
+            }
             EntityRenderer.drawEnemy(canvas, enemy, engine.freezeTimer > 0)
+            if (deathAlpha < 255) canvas.restore()
             canvas.restore()
+
+            // Skip decorations for dying enemies
+            if (enemy.deathProcessed) continue
 
             // Elite crown above enemy
             if (enemy.isElite) {
@@ -614,9 +1092,22 @@ class GameView @JvmOverloads constructor(
                 cp.lineTo(enemy.x + 8f, crownY + 6f)
                 cp.close()
                 canvas.drawPath(cp, paint)
-                // Elite glow ring
-                paint.color = 0x33FFD700
+                // Elite glow ring (ability-colored)
+                val glowColor = if (enemy.eliteAbility != com.example.myapp.game.EliteAbility.NONE)
+                    (enemy.eliteAbility.color and 0x00FFFFFF) or 0x33000000 else 0x33FFD700
+                paint.color = glowColor
                 canvas.drawCircle(enemy.x, enemy.y, enemy.size + 6f, paint)
+                // Elite ability label below enemy
+                if (enemy.eliteAbility != com.example.myapp.game.EliteAbility.NONE) {
+                    lvlPaint.color = enemy.eliteAbility.color
+                    canvas.drawText(enemy.eliteAbility.label, enemy.x, enemy.y + enemy.size + 16f, lvlPaint)
+                }
+            }
+
+            // Burn effect — orange tint on burning enemies
+            if (enemy.burnTimer > 0) {
+                paint.color = 0x44FF5722
+                canvas.drawCircle(enemy.x, enemy.y, enemy.size + 3f, paint)
             }
 
             // HP bar — rounded with color gradient
@@ -712,25 +1203,18 @@ class GameView @JvmOverloads constructor(
         canvas.drawCircle(engine.player.x, engine.player.y, engine.player.attackRange, paint)
         paint.style = Paint.Style.FILL
 
-        // Player HP bar — rounded
-        val phRatio = (engine.player.hp / engine.player.maxHp).coerceIn(0f, 1f)
-        val pBarW = 60f
-        val pBarH = 7f
-        val pBarX = engine.player.x - pBarW / 2
-        val pBarY = engine.player.y - engine.player.size - 16f
-        paint.color = 0x88000000.toInt()
-        canvas.drawRoundRect(pBarX - 1f, pBarY - 1f, pBarX + pBarW + 1f, pBarY + pBarH + 1f, 4f, 4f, paint)
-        canvas.drawRoundRect(pBarX, pBarY, pBarX + pBarW, pBarY + pBarH, 4f, 4f, hpBarBgPaint)
-        canvas.drawRoundRect(pBarX, pBarY, pBarX + pBarW * phRatio, pBarY + pBarH, 4f, 4f, playerHpBarPaint)
+        // Player HP bar removed — focus on base health only
 
         // Dash cooldown indicator under player
         if (engine.dashCooldown > 0) {
             val dashRatio = (1f - engine.dashCooldown / engine.dashCooldownMax).coerceIn(0f, 1f)
-            val dBarY = pBarY + pBarH + 3f
+            val dBarW = 50f
+            val dBarX = engine.player.x - dBarW / 2f
+            val dBarY = engine.player.y + engine.player.size + 6f
             paint.color = 0x88000000.toInt()
-            canvas.drawRoundRect(pBarX, dBarY, pBarX + pBarW, dBarY + 4f, 2f, 2f, paint)
+            canvas.drawRoundRect(dBarX, dBarY, dBarX + dBarW, dBarY + 4f, 2f, 2f, paint)
             paint.color = 0xFF00BFA5.toInt()
-            canvas.drawRoundRect(pBarX, dBarY, pBarX + pBarW * dashRatio, dBarY + 4f, 2f, 2f, paint)
+            canvas.drawRoundRect(dBarX, dBarY, dBarX + dBarW * dashRatio, dBarY + 4f, 2f, 2f, paint)
         }
 
         // Floating texts (with outline for readability)
@@ -750,17 +1234,37 @@ class GameView @JvmOverloads constructor(
         // Wave info at top (with outline for readability)
         val endlessTag = if (engine.isEndlessMode) "\u267E\uFE0F " else ""
         val rushTag = if (engine.isBossRush) "\uD83D\uDC80 " else ""
+        val randTag = if (engine.isRandomizerMode) "\uD83C\uDFB2 " else ""
         if (!engine.waveInProgress && engine.wave > 0 && !engine.gameOver) {
             val countdown = engine.waveTimer.toInt() + 1
-            val wText = "${rushTag}${endlessTag}Next wave in ${countdown}s"
+            val wText = "${rushTag}${endlessTag}${randTag}Next wave in ${countdown}s"
             drawOutlinedText(canvas, wText, width / 2f, 80f, waveTextPaint)
             if (engine.isBossRush) {
                 drawOutlinedText(canvas, "Boss ${engine.bossRushWave} defeated", width / 2f, 50f, previewTextPaint)
             }
+            // Between-wave gameplay tip
+            val tips = arrayOf(
+                "💡 Same-type towers near each other get synergy bonuses!",
+                "💡 Save gold between waves — you earn 5% interest!",
+                "💡 Match tower damage types to enemy weaknesses.",
+                "💡 Use Ice towers to slow enemies for other towers.",
+                "💡 Upgrade towers for +40% damage, +15 range per level.",
+                "💡 Dash through enemies for free AoE damage!",
+                "💡 Sell unused towers to recover 60% of their cost.",
+                "💡 Night waves give enemies +20% HP — prepare extra!",
+                "💡 Boss waves arrive every 5th wave — save abilities!",
+                "💡 Tap a tower to change targeting: Close/First/Last/Strong."
+            )
+            val tipIdx = engine.wave % tips.size
+            previewTextPaint.color = 0xFFB0BEC5.toInt()
+            val savedAlign = previewTextPaint.textAlign
+            previewTextPaint.textAlign = Paint.Align.CENTER
+            canvas.drawText(tips[tipIdx], width / 2f, height - 40f, previewTextPaint)
+            previewTextPaint.textAlign = savedAlign
         } else if (engine.waveInProgress) {
             val modTag = if (engine.currentWaveModifier != WaveModifier.NONE) " ${engine.currentWaveModifier.emoji}" else ""
             val bossName = if (engine.isBossRush && engine.currentBoss != null) " \u2014 ${engine.currentBoss!!.displayName}" else ""
-            val wText = "${rushTag}${endlessTag}Wave ${engine.wave}$modTag$bossName  \u2694\uFE0F  ${engine.enemies.size} enemies"
+            val wText = "${rushTag}${endlessTag}${randTag}Wave ${engine.wave}$modTag$bossName  \u2694\uFE0F  ${engine.enemies.size} enemies"
             drawOutlinedText(canvas, wText, width / 2f, 80f, waveTextPaint)
 
             // Wave progress bar — thin bar under wave text
@@ -792,19 +1296,27 @@ class GameView @JvmOverloads constructor(
 
         // Wave banner overlay
         if (engine.showWaveBanner) {
-            canvas.drawRect(0f, height * 0.32f, width.toFloat(), height * 0.60f, bannerBgPaint)
+            canvas.drawRect(0f, height * 0.28f, width.toFloat(), height * 0.68f, bannerBgPaint)
             val isBoss = engine.wave % engine.bossInterval == 0
             val bossLabel = engine.currentBoss?.let { "${it.emoji} ${it.displayName}" }
             val waveLabel = if (isBoss && bossLabel != null) "$bossLabel" else "\u2694\uFE0F WAVE ${engine.wave} \u2694\uFE0F"
-            drawOutlinedText(canvas, waveLabel, width / 2f, height * 0.44f, waveBannerPaint)
-            // Show enemy breakdown
+            drawOutlinedText(canvas, waveLabel, width / 2f, height * 0.40f, waveBannerPaint)
+            // Enemy count line
             val preview = engine.nextWavePreview
             val totalEnemies = engine.totalEnemiesThisWave
             if (isBoss) {
-                drawOutlinedText(canvas, "Wave ${engine.wave}", width / 2f, height * 0.50f, waveBannerSubPaint)
+                drawOutlinedText(canvas, "⚠️ Boss Wave", width / 2f, height * 0.47f, waveBannerSubPaint)
             }
             if (totalEnemies > 0) {
-                drawOutlinedText(canvas, "$totalEnemies enemies incoming", width / 2f, height * 0.55f, waveBannerSubPaint)
+                drawOutlinedText(canvas, "$totalEnemies enemies incoming", width / 2f, height * 0.54f, waveBannerSubPaint)
+            }
+            // Enemy type breakdown
+            if (preview != null && preview.enemies.isNotEmpty()) {
+                val typeLinePaint = Paint().apply {
+                    color = 0xFFCCCCCC.toInt(); textSize = 36f; isAntiAlias = true; textAlign = Paint.Align.CENTER; typeface = Typeface.DEFAULT
+                }
+                val line = preview.enemies.entries.joinToString("  ") { (type, count) -> "${type.emoji}×$count" }
+                drawOutlinedText(canvas, line, width / 2f, height * 0.61f, typeLinePaint)
             }
         }
 
@@ -829,56 +1341,129 @@ class GameView @JvmOverloads constructor(
             drawOutlinedText(canvas, "\uD83C\uDF19 Night — enemies +20% HP", 10f, 178f, previewLabelPaint)
         }
 
-        // Wave preview panel (between waves, bottom-left area above controls)
+        // Wave preview panel — ENHANCED DANGER PREVIEW
         val preview = engine.nextWavePreview
         if (preview != null && !engine.waveInProgress && !engine.gameOver) {
             val pvX = 10f
             val pvY = height * 0.62f
-            val pvW = width * 0.58f
-            val hasModifier = preview.modifier != WaveModifier.NONE
-            val modExtra = if (hasModifier) 28f else 0f
-            val pvH = if (preview.isBoss) (90f + modExtra) else (55f + preview.enemies.size * 24f + modExtra).coerceAtMost(160f)
-            // Panel background with subtle border
-            canvas.drawRoundRect(pvX, pvY, pvX + pvW, pvY + pvH, 12f, 12f, previewBgPaint)
-            paint.color = 0x33FFFFFF
-            paint.style = Paint.Style.STROKE
-            paint.strokeWidth = 1f
-            canvas.drawRoundRect(pvX, pvY, pvX + pvW, pvY + pvH, 12f, 12f, paint)
-            paint.style = Paint.Style.FILL
-            // Header
-            val headerY = pvY + 22f
-            previewLabelPaint.color = 0xFFFFD54F.toInt()
-            previewLabelPaint.textSize = 16f
-            canvas.drawText("\u2694\uFE0F Wave ${engine.wave + 1} Preview", pvX + 12f, headerY, previewLabelPaint)
-            // Separator line
-            paint.color = 0x44FFFFFF
-            canvas.drawRect(pvX + 10f, headerY + 6f, pvX + pvW - 10f, headerY + 7f, paint)
-            // Modifier tag at top if present
-            var contentY = headerY + 24f
-            if (hasModifier) {
-                paint.color = 0x44FFAB00
-                canvas.drawRoundRect(pvX + 8f, contentY - 14f, pvX + pvW - 8f, contentY + 10f, 6f, 6f, paint)
-                previewTextPaint.color = 0xFFFFAB00.toInt()
-                canvas.drawText("${preview.modifier.emoji} ${preview.modifier.displayName}: ${preview.modifier.description}", pvX + 14f, contentY + 4f, previewTextPaint)
-                contentY += 26f
+            val pvW = width * 0.82f
+
+            // --- Threat analysis ---
+            val playerTowerTypes = engine.towers.map { it.type }.toSet()
+            val enemyTypes = preview.enemies.keys
+            val warnings = mutableListOf<Pair<String, Int>>()
+            when (preview.modifier) {
+                WaveModifier.FAST, WaveModifier.BOSS_RALLY ->
+                    if (TowerType.ICE !in playerTowerTypes && TowerType.VORTEX !in playerTowerTypes)
+                        warnings.add("⚠️ Fast enemies — no slow towers!" to 0xFFFF3D3D.toInt())
+                WaveModifier.ARMORED ->
+                    if (TowerType.CANNON !in playerTowerTypes && TowerType.BALLISTA !in playerTowerTypes)
+                        warnings.add("⚠️ Armored — no armor-piercing!" to 0xFFFF9100.toInt())
+                WaveModifier.SWARM ->
+                    if (TowerType.CANNON !in playerTowerTypes && TowerType.TESLA !in playerTowerTypes && TowerType.FLAME !in playerTowerTypes)
+                        warnings.add("⚠️ Swarm — no AoE damage!" to 0xFFFF9100.toInt())
+                WaveModifier.REGEN ->
+                    if (TowerType.POISON !in playerTowerTypes && TowerType.FLAME !in playerTowerTypes)
+                        warnings.add("⚠️ Regen enemies — DoT towers needed!" to 0xFFFFAB00.toInt())
+                else -> {}
             }
-            if (preview.isBoss && preview.bossType != null) {
-                previewTextPaint.color = preview.bossType.color
-                previewTextPaint.textSize = 15f
-                canvas.drawText("${preview.bossType.emoji} ${preview.bossType.displayName}", pvX + 14f, contentY + 4f, previewTextPaint)
-                previewTextPaint.textSize = 13f
-                previewTextPaint.color = 0xFFBDBDBD.toInt()
-                canvas.drawText("\u26A0\uFE0F ${preview.bossType.ability.name.replace('_', ' ')} + minions", pvX + 14f, contentY + 22f, previewTextPaint)
-            } else {
+            if (EnemyType.ARMORED_GOLEM in enemyTypes &&
+                TowerType.CANNON !in playerTowerTypes && TowerType.BALLISTA !in playerTowerTypes &&
+                warnings.none { "armor" in it.first.lowercase() })
+                warnings.add("⚠️ Armored Golem — needs heavy firepower!" to 0xFFFF9100.toInt())
+            if ((EnemyType.FAST_SKELETON in enemyTypes || EnemyType.BAT in enemyTypes) &&
+                TowerType.ICE !in playerTowerTypes && TowerType.VORTEX !in playerTowerTypes &&
+                warnings.none { "fast" in it.first.lowercase() || "slow" in it.first.lowercase() })
+                warnings.add("⚠️ Fast units — no slow towers!" to 0xFFFF3D3D.toInt())
+            val hpRatio = engine.baseHp / engine.maxBaseHp
+            if (hpRatio < 0.35f)
+                warnings.add(0, "🔴 Base CRITICAL — defend now!" to 0xFFFF1744.toInt())
+            else if (hpRatio < 0.55f)
+                warnings.add(0, "🟡 Base damaged — repair if possible" to 0xFFFFAB00.toInt())
+            if (preview.isBoss)
+                warnings.add(0, "💀 BOSS incoming — focus fire!" to 0xFFE91E63.toInt())
+
+            val borderColor = when {
+                warnings.any { it.second == 0xFFFF1744.toInt() || it.second == 0xFFFF3D3D.toInt() } -> 0xFFFF3D3D.toInt()
+                warnings.any { it.second == 0xFFE91E63.toInt() } -> 0xFFE91E63.toInt()
+                warnings.isNotEmpty() -> 0xFFFF9100.toInt()
+                else -> 0xFF4CAF50.toInt()
+            }
+            val hasModifier = preview.modifier != WaveModifier.NONE
+            val modExtra = if (hasModifier) 36f else 0f
+            val warnExtra = warnings.size * 28f
+            val contentLines = if (preview.isBoss) 2 else preview.enemies.size
+            val pvH = (84f + modExtra + contentLines * 28f + warnExtra).coerceAtMost(300f).coerceAtLeast(100f)
+
+            // Panel background
+            canvas.drawRoundRect(pvX, pvY, pvX + pvW, pvY + pvH, 14f, 14f, previewBgPaint)
+            // Colored left-border threat stripe
+            paint.color = borderColor; paint.style = Paint.Style.FILL
+            canvas.drawRoundRect(pvX, pvY, pvX + 7f, pvY + pvH, 14f, 14f, paint)
+            // Outer border
+            paint.color = borderColor; paint.style = Paint.Style.STROKE; paint.strokeWidth = 2f
+            canvas.drawRoundRect(pvX, pvY, pvX + pvW, pvY + pvH, 14f, 14f, paint)
+            paint.style = Paint.Style.FILL; paint.strokeWidth = 1f
+
+            // Header
+            val headerY = pvY + 26f
+            previewLabelPaint.color = 0xFFFFD54F.toInt(); previewLabelPaint.textSize = 20f
+            canvas.drawText("⚔️ Wave ${engine.wave + 1} Preview", pvX + 16f, headerY, previewLabelPaint)
+            if (!preview.isBoss) {
                 val totalCount = preview.enemies.values.sum()
-                previewTextPaint.color = 0xFFBDBDBD.toInt()
-                canvas.drawText("$totalCount enemies:", pvX + 14f, contentY + 4f, previewTextPaint)
-                contentY += 20f
+                previewLabelPaint.color = 0xFFBDBDBD.toInt(); previewLabelPaint.textSize = 15f
+                previewLabelPaint.textAlign = Paint.Align.RIGHT
+                canvas.drawText("$totalCount enemies", pvX + pvW - 14f, headerY, previewLabelPaint)
+                previewLabelPaint.textAlign = Paint.Align.LEFT
+            }
+            paint.color = 0x55FFFFFF
+            canvas.drawRect(pvX + 10f, headerY + 8f, pvX + pvW - 10f, headerY + 9f, paint)
+            var contentY = headerY + 30f
+
+            // Modifier tag
+            if (hasModifier) {
+                paint.color = 0x55FFAB00
+                canvas.drawRoundRect(pvX + 8f, contentY - 18f, pvX + pvW - 8f, contentY + 12f, 8f, 8f, paint)
+                previewTextPaint.color = 0xFFFFAB00.toInt(); previewTextPaint.textSize = 16f
+                canvas.drawText("${preview.modifier.emoji} ${preview.modifier.displayName}: ${preview.modifier.description}", pvX + 16f, contentY + 4f, previewTextPaint)
+                contentY += 36f
+            }
+
+            // Enemy list / boss info
+            if (preview.isBoss && preview.bossType != null) {
+                val bt = preview.bossType!!
+                previewTextPaint.color = bt.color; previewTextPaint.textSize = 18f
+                canvas.drawText("${bt.emoji} ${bt.displayName}", pvX + 16f, contentY + 4f, previewTextPaint)
+                previewTextPaint.textSize = 15f; previewTextPaint.color = 0xFFBDBDBD.toInt()
+                canvas.drawText("  ⚡ ${bt.ability.name.replace('_', ' ')} + minions", pvX + 16f, contentY + 26f, previewTextPaint)
+                contentY += 52f
+            } else {
+                previewTextPaint.textSize = 17f
                 for ((type, count) in preview.enemies) {
+                    if (contentY > pvY + pvH - warnExtra - 16f) break
+                    val isThreat = (type == EnemyType.ARMORED_GOLEM &&
+                                   TowerType.CANNON !in playerTowerTypes && TowerType.BALLISTA !in playerTowerTypes) ||
+                                   ((type == EnemyType.FAST_SKELETON || type == EnemyType.BAT) &&
+                                   TowerType.ICE !in playerTowerTypes && TowerType.VORTEX !in playerTowerTypes)
+                    previewTextPaint.color = if (isThreat) 0xFFFF7043.toInt() else type.color
+                    canvas.drawText("${type.emoji} ${type.name.replace('_', ' ')} ×$count${if (isThreat) " ⚠️" else ""}",
+                        pvX + 22f, contentY, previewTextPaint)
+                    contentY += 28f
+                }
+            }
+
+            // Warning lines
+            if (warnings.isNotEmpty()) {
+                paint.color = 0x44FFFFFF
+                canvas.drawRect(pvX + 10f, contentY + 2f, pvX + pvW - 10f, contentY + 3f, paint)
+                contentY += 14f
+                for ((msg, col) in warnings) {
                     if (contentY > pvY + pvH - 8f) break
-                    previewTextPaint.color = type.color
-                    canvas.drawText("${type.emoji} ${type.name} \u00D7$count", pvX + 22f, contentY, previewTextPaint)
-                    contentY += 22f
+                    paint.color = (col and 0x00FFFFFF) or 0x33000000
+                    canvas.drawRoundRect(pvX + 8f, contentY - 18f, pvX + pvW - 8f, contentY + 8f, 6f, 6f, paint)
+                    previewLabelPaint.color = col; previewLabelPaint.textSize = 16f
+                    canvas.drawText(msg, pvX + 14f, contentY, previewLabelPaint)
+                    contentY += 28f
                 }
             }
         }
@@ -889,13 +1474,45 @@ class GameView @JvmOverloads constructor(
             val abY = height * 0.25f
             canvas.drawRoundRect(width * 0.1f, abY, width * 0.9f, abY + 70f, 12f, 12f, achBgPaint)
             canvas.drawRoundRect(width * 0.1f, abY, width * 0.9f, abY + 70f, 12f, 12f, achBorderPaint)
-            drawOutlinedText(canvas, "${ach.emoji} Achievement Unlocked!", width / 2f, abY + 28f, achievePaint)
+            drawOutlinedText(canvas, "${ach.emoji} ${GameStrings.achievementUnlocked}", width / 2f, abY + 28f, achievePaint)
             drawOutlinedText(canvas, "${ach.title} — ${ach.description}", width / 2f, abY + 55f, achDescPaint)
         }
 
         // Placement mode indicator
         if (placementMode != null) {
-            drawOutlinedText(canvas, "Tap to place ${placementMode!!.emoji} tower", width / 2f, 160f, placeTextPaint)
+            drawOutlinedText(canvas, GameStrings.placeTower(placementMode!!.emoji, placementMode!!.name), width / 2f, 160f, placeTextPaint)
+            // Range ring: semi-transparent fill + dashed border at touch position
+            if (placementTouchX >= 0) {
+                val r = placementMode!!.baseRange
+                paint.color = 0x1A00C8FF
+                paint.style = Paint.Style.FILL
+                canvas.drawCircle(placementTouchX, placementTouchY, r, paint)
+                paint.color = 0xBB00C8FF.toInt()
+                paint.style = Paint.Style.STROKE
+                paint.strokeWidth = 3f
+                canvas.drawCircle(placementTouchX, placementTouchY, r, paint)
+                // Cross-hair at center
+                paint.strokeWidth = 2f
+                paint.color = 0xAA00C8FF.toInt()
+                canvas.drawLine(placementTouchX - 14f, placementTouchY, placementTouchX + 14f, placementTouchY, paint)
+                canvas.drawLine(placementTouchX, placementTouchY - 14f, placementTouchX, placementTouchY + 14f, paint)
+                paint.style = Paint.Style.FILL
+                paint.strokeWidth = 1f
+            }
+        } else if (blockadePlacementMode) {
+            drawOutlinedText(canvas, GameStrings.placeBlockade, width / 2f, 160f, placeTextPaint)
+        } else if (trapPlacementMode != null) {
+            val tName = when (trapPlacementMode!!) {
+                TrapType.SPIKE -> "Spike"
+                TrapType.TAR -> "Tar"
+                TrapType.MINE -> "Mine"
+            }
+            val tEmoji = when (trapPlacementMode!!) {
+                TrapType.SPIKE -> "\uD83D\uDDE1\uFE0F"
+                TrapType.TAR -> "\uD83D\uDFE4"
+                TrapType.MINE -> "\uD83D\uDCA3"
+            }
+            drawOutlinedText(canvas, "Place $tEmoji $tName on path", width / 2f, 160f, placeTextPaint)
         }
 
         // FPS display
@@ -903,25 +1520,203 @@ class GameView @JvmOverloads constructor(
             paint.color = 0xAAFFFFFF.toInt()
             paint.textSize = 20f
             paint.textAlign = Paint.Align.RIGHT
-            canvas.drawText("$displayFps FPS", width - 10f, height - 20f, paint)
+            canvas.drawText(GameStrings.fpsFmt(displayFps), width - 10f, height - 20f, paint)
             paint.textAlign = Paint.Align.CENTER
         }
 
         canvas.restore() // End screen shake
 
+        // === BOSS SPAWN FLASH ===
+        if (engine.bossFlashTimer > 0) {
+            val flashAlpha = (255 * (engine.bossFlashTimer / 0.4f).coerceIn(0f, 1f)).toInt()
+            paint.color = (flashAlpha shl 24) or 0xFFFFFF
+            canvas.drawRect(0f, 0f, width.toFloat(), height.toFloat(), paint)
+        }
+
+        // === WEATHER EFFECTS ===
+        if (engine.weatherType > 0 && !engine.gameOver && !engine.isPaused) {
+            val t = System.currentTimeMillis()
+            val rng = java.util.Random(t / 50)
+            val count = ((40 * engine.weatherIntensity) * (if (batterySaverOn) 0.5f else 1f)).toInt()
+            if (engine.weatherType == 1) {
+                // Rain
+                paint.color = 0x336688AA
+                paint.strokeWidth = 1.5f
+                for (i in 0 until count) {
+                    val rx = rng.nextFloat() * width
+                    val ry = (t / 4f + i * 37f) % (height + 60f) - 30f
+                    canvas.drawLine(rx, ry, rx - 3f, ry + 18f, paint)
+                }
+                paint.strokeWidth = 1f
+            } else if (engine.weatherType == 2) {
+                // Snow
+                paint.color = 0x55FFFFFF
+                for (i in 0 until count) {
+                    val sx = (rng.nextFloat() * width + Math.sin((t / 2000.0) + i).toFloat() * 20f) % width
+                    val sy = (t / 8f + i * 47f) % (height + 40f) - 20f
+                    val sr = 2f + rng.nextFloat() * 3f
+                    canvas.drawCircle(sx, sy, sr, paint)
+                }
+            }
+        }
+
+        // === SUBTLE VIGNETTE for atmospheric depth ===
+        if (!engine.gameOver && !engine.campaignVictory) {
+            val vignetteAlpha = if (engine.isNight) 50 else 25
+            paint.color = (vignetteAlpha shl 24)
+            val cornerSize = width * 0.35f
+            // Top-left
+            paint.shader = android.graphics.RadialGradient(0f, 0f, cornerSize, 0xFF000000.toInt(), 0x00000000, Shader.TileMode.CLAMP)
+            canvas.drawRect(0f, 0f, cornerSize, cornerSize, paint)
+            // Top-right
+            paint.shader = android.graphics.RadialGradient(width.toFloat(), 0f, cornerSize, 0xFF000000.toInt(), 0x00000000, Shader.TileMode.CLAMP)
+            canvas.drawRect(width - cornerSize, 0f, width.toFloat(), cornerSize, paint)
+            // Bottom-left
+            paint.shader = android.graphics.RadialGradient(0f, height.toFloat(), cornerSize, 0xFF000000.toInt(), 0x00000000, Shader.TileMode.CLAMP)
+            canvas.drawRect(0f, height - cornerSize, cornerSize, height.toFloat(), paint)
+            // Bottom-right
+            paint.shader = android.graphics.RadialGradient(width.toFloat(), height.toFloat(), cornerSize, 0xFF000000.toInt(), 0x00000000, Shader.TileMode.CLAMP)
+            canvas.drawRect(width - cornerSize, height - cornerSize, width.toFloat(), height.toFloat(), paint)
+            paint.shader = null
+        }
+
+        // === KILL STREAK BORDER GLOW ===
+        if (engine.comboCount >= 5 && !engine.gameOver && !engine.isPaused) {
+            val streakIntensity = ((engine.comboCount - 5).coerceAtMost(25) / 25f)
+            val glowAlpha = (40 + streakIntensity * 80).toInt()
+            val glowWidth = 12f + streakIntensity * 20f
+            val pulseT = System.currentTimeMillis() / 1000.0
+            val pulse = (0.7f + 0.3f * Math.sin(pulseT * 3.0).toFloat())
+            val finalAlpha = (glowAlpha * pulse).toInt().coerceIn(0, 255)
+            // Choose color based on streak level
+            val glowColor = when {
+                engine.comboCount >= 20 -> 0xFFFF1744.toInt()  // Red for insane streaks
+                engine.comboCount >= 12 -> 0xFFFF9100.toInt()  // Orange for high streaks
+                else -> 0xFFFFD600.toInt()                      // Yellow for moderate
+            }
+            paint.color = glowColor
+            paint.alpha = finalAlpha
+            // Draw border glow (4 edges)
+            canvas.drawRect(0f, 0f, glowWidth, height.toFloat(), paint)               // Left
+            canvas.drawRect(width - glowWidth, 0f, width.toFloat(), height.toFloat(), paint) // Right
+            canvas.drawRect(0f, 0f, width.toFloat(), glowWidth, paint)               // Top
+            canvas.drawRect(0f, height - glowWidth, width.toFloat(), height.toFloat(), paint) // Bottom
+            paint.alpha = 255
+        }
+
+        // === BOUNTY BOARD HUD (collapsible) ===
+        val bounties = engine.activeBounties
+        if (bounties.isNotEmpty() && !engine.gameOver && !engine.isPaused) {
+            val bx = 8f
+            val headerY = height * 0.35f
+            val bw = 240f
+            val headerH = 28f
+            val bCardH = 50f
+            val arrow = if (bountyCollapsed) "▶" else "▼"
+            // Header bar with tap-to-toggle arrow
+            paint.color = 0xCC1B2838.toInt()
+            canvas.drawRoundRect(bx, headerY, bx + bw, headerY + headerH, 8f, 8f, paint)
+            bountyHeaderRect.set(bx, headerY, bx + bw, headerY + headerH)
+            paint.color = 0xFFFFD54F.toInt()
+            paint.textSize = 16f
+            paint.textAlign = Paint.Align.LEFT
+            canvas.drawText("$arrow \uD83C\uDFAF Bounties (${bounties.size})", bx + 10f, headerY + 20f, paint)
+
+            if (!bountyCollapsed) {
+                var by = headerY + headerH + 4f
+                for (bounty in bounties) {
+                    paint.color = if (bounty.completed) 0xCC2E7D32.toInt() else 0xCC1B2838.toInt()
+                    canvas.drawRoundRect(bx, by, bx + bw, by + bCardH, 8f, 8f, paint)
+                    // Border
+                    paint.color = if (bounty.completed) 0xFF4CAF50.toInt() else 0x44FFFFFF
+                    paint.style = Paint.Style.STROKE
+                    paint.strokeWidth = 1.5f
+                    canvas.drawRoundRect(bx, by, bx + bw, by + bCardH, 8f, 8f, paint)
+                    paint.style = Paint.Style.FILL
+                    // Emoji + desc
+                    paint.color = Color.WHITE
+                    paint.textSize = 14f
+                    val desc = if (bounty.description.length > 26) bounty.description.substring(0, 26) + ".." else bounty.description
+                    canvas.drawText("${bounty.emoji} $desc", bx + 8f, by + 18f, paint)
+                    // Progress bar
+                    val progW = bw - 16f
+                    val progRatio = if (bounty.target > 0) (bounty.progress.toFloat() / bounty.target).coerceIn(0f, 1f) else 1f
+                    paint.color = 0x44FFFFFF
+                    canvas.drawRoundRect(bx + 8f, by + 24f, bx + 8f + progW, by + 34f, 4f, 4f, paint)
+                    paint.color = if (bounty.completed) 0xFF4CAF50.toInt() else 0xFFFFAB00.toInt()
+                    canvas.drawRoundRect(bx + 8f, by + 24f, bx + 8f + progW * progRatio, by + 34f, 4f, 4f, paint)
+                    // Progress text
+                    paint.color = 0xDDFFFFFF.toInt()
+                    paint.textSize = 11f
+                    canvas.drawText("${bounty.progress}/${bounty.target}", bx + progW - 10f, by + 33f, paint)
+                    // Reward
+                    if (bounty.completed) {
+                        paint.color = 0xFFFFD700.toInt()
+                        paint.textSize = 12f
+                        canvas.drawText("\u2714\uFE0F Done!", bx + 8f, by + bCardH - 3f, paint)
+                    } else {
+                        paint.color = 0xFF00E5FF.toInt()
+                        paint.textSize = 11f
+                        canvas.drawText("\uD83D\uDC8E${bounty.rewardDiamonds} \uD83E\uDE99${bounty.rewardGold}", bx + 8f, by + bCardH - 3f, paint)
+                    }
+                    by += bCardH + 4f
+                }
+            }
+            paint.textAlign = Paint.Align.CENTER
+            paint.textSize = 36f
+        }
+
         // Pause overlay
         if (engine.isPaused && !engine.gameOver && !engine.campaignVictory) {
             canvas.drawRect(0f, 0f, width.toFloat(), height.toFloat(), overlayPaint)
-            drawOutlinedText(canvas, "\u23F8\uFE0F PAUSED", width / 2f, height / 2f - 100f, gameOverPaint)
+            drawOutlinedText(canvas, GameStrings.paused, width / 2f, height / 2f - 100f, gameOverPaint)
             // Run summary
             val summaryPaint = scoreDisplayPaint
-            drawOutlinedText(canvas, "Wave: ${engine.wave}  |  Score: ${engine.score}", width / 2f, height / 2f - 30f, summaryPaint)
-            drawOutlinedText(canvas, "Kills: ${engine.totalKills}  |  Gold: ${engine.gold}", width / 2f, height / 2f + 15f, summaryPaint)
-            drawOutlinedText(canvas, "Towers: ${engine.towers.size}  |  Combo Best: ${engine.bestCombo}x", width / 2f, height / 2f + 55f, summaryPaint)
+            drawOutlinedText(canvas, GameStrings.pauseWaveScore(engine.wave, engine.score), width / 2f, height / 2f - 30f, summaryPaint)
+            drawOutlinedText(canvas, GameStrings.pauseKillsGold(engine.totalKills, engine.gold), width / 2f, height / 2f + 15f, summaryPaint)
+            drawOutlinedText(canvas, GameStrings.pauseTowersCombo(engine.towers.size, engine.bestCombo), width / 2f, height / 2f + 55f, summaryPaint)
             if (engine.diamondsEarnedThisRun > 0) {
-                drawOutlinedText(canvas, "\uD83D\uDC8E ${engine.diamondsEarnedThisRun} Diamonds", width / 2f, height / 2f + 95f, goDiamondPaint)
+                drawOutlinedText(canvas, GameStrings.pauseDiamonds(engine.diamondsEarnedThisRun), width / 2f, height / 2f + 95f, goDiamondPaint)
             }
-            drawOutlinedText(canvas, "Tap \u25B6\uFE0F to resume", width / 2f, height / 2f + 140f, goldTextPaint)
+            drawOutlinedText(canvas, GameStrings.tapResume, width / 2f, height / 2f + 140f, goldTextPaint)
+        }
+
+        // Tower stats popup (long-press)
+        val statsT = towerStatsPopup
+        if (statsT != null) {
+            val px = statsT.x.coerceIn(130f, width - 130f)
+            val py = (statsT.y - statsT.size - 120f).coerceAtLeast(40f)
+            val cardW = 240f
+            val cardH = 120f
+            // Card background
+            paint.color = 0xDD1B2838.toInt()
+            canvas.drawRoundRect(px - cardW / 2, py, px + cardW / 2, py + cardH, 12f, 12f, paint)
+            // Border
+            paint.color = 0xFFFFD700.toInt()
+            paint.style = Paint.Style.STROKE
+            paint.strokeWidth = 2f
+            canvas.drawRoundRect(px - cardW / 2, py, px + cardW / 2, py + cardH, 12f, 12f, paint)
+            paint.style = Paint.Style.FILL
+            // Tower name
+            val statsPaint = Paint().apply {
+                color = 0xFFFFFFFF.toInt(); textSize = 18f; isAntiAlias = true; textAlign = Paint.Align.CENTER; typeface = Typeface.DEFAULT_BOLD
+            }
+            canvas.drawText("${statsT.type.emoji} ${statsT.type.name} Lv${statsT.level}", px, py + 22f, statsPaint)
+            statsPaint.typeface = Typeface.DEFAULT
+            statsPaint.textSize = 15f
+            // DPS
+            val effectiveDps = statsT.damage * statsT.fireRate
+            canvas.drawText("${GameStrings.towerDps}: %.1f".format(effectiveDps), px, py + 44f, statsPaint)
+            // Kills
+            statsPaint.color = 0xFFFFD700.toInt()
+            canvas.drawText("${GameStrings.towerKills}: ${statsT.totalKills}", px, py + 64f, statsPaint)
+            // Total damage
+            statsPaint.color = 0xFFFF8A65.toInt()
+            canvas.drawText("${GameStrings.towerDamage}: ${statsT.totalDamageDealt.toInt()}", px, py + 84f, statsPaint)
+            // Ability status
+            statsPaint.color = if (statsT.canUseAbility()) 0xFF4CAF50.toInt() else 0xFF9E9E9E.toInt()
+            val abText = if (statsT.canUseAbility()) "${statsT.type.abilityName}: ${GameStrings.abilityReady}" else "${statsT.type.abilityName}: ${statsT.abilityTimer.toInt()}s"
+            canvas.drawText(abText, px, py + 104f, statsPaint)
         }
 
         // Game over overlay (drawn outside shake)
@@ -929,65 +1724,111 @@ class GameView @JvmOverloads constructor(
             canvas.drawRect(0f, 0f, width.toFloat(), height.toFloat(), overlayPaint)
 
             if (engine.isBossRush) {
-                drawOutlinedText(canvas, "\uD83D\uDC80 BOSS RUSH OVER", width / 2f, height / 2f - 80f, gameOverPaint)
+                drawOutlinedText(canvas, GameStrings.bossRushOver, width / 2f, height / 2f - 80f, gameOverPaint)
             } else if (engine.isEndlessMode) {
-                drawOutlinedText(canvas, "ENDLESS OVER", width / 2f, height / 2f - 80f, gameOverPaint)
+                drawOutlinedText(canvas, GameStrings.endlessOver, width / 2f, height / 2f - 80f, gameOverPaint)
+            } else if (engine.isRandomizerMode) {
+                drawOutlinedText(canvas, GameStrings.randomizerOver, width / 2f, height / 2f - 80f, gameOverPaint)
             } else {
-                drawOutlinedText(canvas, "GAME OVER", width / 2f, height / 2f - 80f, gameOverPaint)
+                drawOutlinedText(canvas, GameStrings.gameOver, width / 2f, height / 2f - 80f, gameOverPaint)
             }
 
             if (engine.isBossRush) {
-                drawOutlinedText(canvas, "Bosses defeated: ${engine.bossRushWave}  |  Score: ${engine.score}", width / 2f, height / 2f - 10f, scoreDisplayPaint)
+                drawOutlinedText(canvas, GameStrings.bossesDefeatedScore(engine.bossRushWave, engine.score), width / 2f, height / 2f - 10f, scoreDisplayPaint)
             } else {
-                drawOutlinedText(canvas, "Wave: ${engine.wave}  |  Score: ${engine.score}", width / 2f, height / 2f - 10f, scoreDisplayPaint)
+                drawOutlinedText(canvas, GameStrings.waveScore(engine.wave, engine.score), width / 2f, height / 2f - 10f, scoreDisplayPaint)
             }
-            drawOutlinedText(canvas, "Kills: ${engine.totalKills}  |  Best Combo: ${engine.bestCombo}x", width / 2f, height / 2f + 35f, scoreDisplayPaint)
+            drawOutlinedText(canvas, GameStrings.killsCombo(engine.totalKills, engine.bestCombo), width / 2f, height / 2f + 35f, scoreDisplayPaint)
+
+            // Score breakdown
+            if (engine.scoreFromKills > 0) {
+                scoreDisplayPaint.textSize = 18f
+                drawOutlinedText(canvas, "Kills: ${engine.scoreFromKills}   +Combo: ${engine.scoreFromCombos}", width / 2f, height / 2f + 57f, scoreDisplayPaint)
+                scoreDisplayPaint.textSize = 22f
+            }
 
             // Diamonds earned this run
             if (engine.diamondsEarnedThisRun > 0) {
-                drawOutlinedText(canvas, "\uD83D\uDC8E +${engine.diamondsEarnedThisRun} Diamonds earned!", width / 2f, height / 2f + 70f, goDiamondPaint)
+                drawOutlinedText(canvas, GameStrings.diamondsEarnedLong(engine.diamondsEarnedThisRun), width / 2f, height / 2f + 82f, goDiamondPaint)
             }
 
             if (engine.isBossRush) {
                 if (engine.isNewBossRushRecord) {
-                    drawOutlinedText(canvas, "\u2B50 NEW BOSS RUSH RECORD! \u2B50", width / 2f, height / 2f + 110f, goNewBestPaint)
+                    drawOutlinedText(canvas, GameStrings.newBossRushRecord, width / 2f, height / 2f + 122f, goNewBestPaint)
                 } else {
-                    drawOutlinedText(canvas, "Boss Rush Record: ${engine.bossRushHighWave} bosses", width / 2f, height / 2f + 110f, goHighScorePaint)
+                    drawOutlinedText(canvas, GameStrings.bossRushRecord(engine.bossRushHighWave), width / 2f, height / 2f + 122f, goHighScorePaint)
                 }
             } else if (engine.isEndlessMode) {
                 if (engine.isNewEndlessRecord) {
-                    drawOutlinedText(canvas, "\u2B50 NEW ENDLESS RECORD! \u2B50", width / 2f, height / 2f + 110f, goNewBestPaint)
+                    drawOutlinedText(canvas, GameStrings.newEndlessRecord, width / 2f, height / 2f + 122f, goNewBestPaint)
                 } else {
-                    drawOutlinedText(canvas, "Endless Record: Wave ${engine.endlessHighWave}", width / 2f, height / 2f + 110f, goHighScorePaint)
+                    drawOutlinedText(canvas, GameStrings.endlessRecord(engine.endlessHighWave), width / 2f, height / 2f + 122f, goHighScorePaint)
                 }
             } else {
                 if (engine.isNewHighScore) {
-                    drawOutlinedText(canvas, "\u2B50 NEW HIGH SCORE! \u2B50", width / 2f, height / 2f + 110f, goNewBestPaint)
+                    drawOutlinedText(canvas, GameStrings.newHighScore, width / 2f, height / 2f + 122f, goNewBestPaint)
                 } else {
-                    drawOutlinedText(canvas, "High Score: ${engine.highScore}  |  Best Wave: ${engine.highWave}", width / 2f, height / 2f + 110f, goHighScorePaint)
+                    drawOutlinedText(canvas, GameStrings.highScoreRecord(engine.highScore, engine.highWave), width / 2f, height / 2f + 122f, goHighScorePaint)
                 }
             }
 
-            drawOutlinedText(canvas, "Tap to restart", width / 2f, height / 2f + 160f, goldTextPaint)
+            drawOutlinedText(canvas, GameStrings.tapRestart, width / 2f, height / 2f + 175f, goldTextPaint)
         }
 
         // Campaign victory overlay
         if (engine.campaignVictory) {
             canvas.drawRect(0f, 0f, width.toFloat(), height.toFloat(), overlayPaint)
+
+            // Confetti behind text
+            for (c in confettiParticles) {
+                canvas.save()
+                canvas.rotate(c.rotation, c.x, c.y)
+                paint.color = c.color
+                paint.alpha = (255 * (c.life / 5f).coerceIn(0.3f, 1f)).toInt()
+                canvas.drawRect(c.x - c.size / 2, c.y - c.size / 4, c.x + c.size / 2, c.y + c.size / 4, paint)
+                paint.alpha = 255
+                canvas.restore()
+            }
+
             val cl = engine.campaignLevel
-            drawOutlinedText(canvas, "⭐ VICTORY! ⭐", width / 2f, height / 2f - 80f, victoryPaint)
+            // Victory title with pulse effect
+            val pulseScale = 1f + 0.05f * Math.sin((victoryAnimTimer * 3).toDouble()).toFloat()
+            canvas.save()
+            canvas.scale(pulseScale, pulseScale, width / 2f, height / 2f - 80f)
+            drawOutlinedText(canvas, GameStrings.victory, width / 2f, height / 2f - 80f, victoryPaint)
+            canvas.restore()
             if (cl != null) {
                 drawOutlinedText(canvas, cl.title, width / 2f, height / 2f - 20f, scoreDisplayPaint)
             }
-            drawOutlinedText(canvas, "Wave: ${engine.wave}  |  Score: ${engine.score}", width / 2f, height / 2f + 30f, scoreDisplayPaint)
-            if (engine.diamondsEarnedThisRun > 0) {
-                drawOutlinedText(canvas, "\uD83D\uDC8E +${engine.diamondsEarnedThisRun} Diamonds!", width / 2f, height / 2f + 70f, goDiamondPaint)
+            // Star rating display — animate stars appearing one by one
+            val stars = engine.campaignStars
+            val shownStars = ((victoryAnimTimer * 2).toInt()).coerceAtMost(stars)
+            val starText = "⭐".repeat(shownStars) + "☆".repeat(3 - shownStars)
+            drawOutlinedText(canvas, starText, width / 2f, height / 2f + 20f, gameOverPaint)
+            // Animated score counter
+            drawOutlinedText(canvas, GameStrings.scoreFmt(victoryScoreDisplay), width / 2f, height / 2f + 60f, scoreDisplayPaint)
+            if (cl != null) {
+                val nextThreshold = when {
+                    stars < 2 -> "⭐⭐ at ${cl.star2Score}"
+                    stars < 3 -> "⭐⭐⭐ at ${cl.star3Score}"
+                    else -> GameStrings.maxStars
+                }
+                drawOutlinedText(canvas, nextThreshold, width / 2f, height / 2f + 85f, goldTextPaint)
             }
-            drawOutlinedText(canvas, "Tap to continue", width / 2f, height / 2f + 130f, goldTextPaint)
+            if (engine.diamondsEarnedThisRun > 0) {
+                drawOutlinedText(canvas, GameStrings.diamondsEarned(engine.diamondsEarnedThisRun), width / 2f, height / 2f + 120f, goDiamondPaint)
+            }
+            // Total campaign stars earned so far
+            val totalStars = engine.totalCampaignStars
+            val maxStars = engine.totalCampaignLevels * 3
+            drawOutlinedText(canvas, "⭐ $totalStars / $maxStars total", width / 2f, height / 2f + 145f, scoreDisplayPaint)
+            drawOutlinedText(canvas, GameStrings.tapContinue, width / 2f, height / 2f + 185f, goldTextPaint)
         }
     }
 
     private var isDraggingPlayer = false
+    private var bountyCollapsed = false
+    private var bountyHeaderRect = android.graphics.RectF()
 
     override fun onTouchEvent(event: MotionEvent): Boolean {
         val tx = event.x
@@ -996,9 +1837,27 @@ class GameView @JvmOverloads constructor(
         when (event.action) {
             MotionEvent.ACTION_DOWN -> {
                 isDraggingPlayer = false
+                longPressDownTime = System.currentTimeMillis()
+                longPressDownX = tx
+                longPressDownY = ty
+                // Track placement touch position for range ring preview
+                if (placementMode != null) { placementTouchX = tx; placementTouchY = ty }
+                // Dismiss stats popup on any tap
+                if (towerStatsPopup != null) {
+                    towerStatsPopup = null
+                    return true
+                }
+                // Toggle bounty board collapse
+                if (bountyHeaderRect.contains(tx, ty) && engine.activeBounties.isNotEmpty()) {
+                    bountyCollapsed = !bountyCollapsed
+                    return true
+                }
                 synchronized(engine.lock) {
                     if (engine.campaignVictory) {
                         selectedTower = null
+                        placementMode = null
+                        blockadePlacementMode = false
+                        trapPlacementMode = null
                         post { onCampaignVictory?.invoke() }
                         return true
                     }
@@ -1007,7 +1866,11 @@ class GameView @JvmOverloads constructor(
                         SoundManager.play(SfxType.UI_CLICK)
                         engine.restart()
                         gameOverFired = false
+                        milestoneDialogShown = false
                         selectedTower = null
+                        placementMode = null
+                        blockadePlacementMode = false
+                        trapPlacementMode = null
                         return true
                     }
 
@@ -1017,6 +1880,24 @@ class GameView @JvmOverloads constructor(
                             placementMode = null
                             post { onGoldChanged?.invoke(engine.gold) }
                         }
+                        return true
+                    }
+
+                    // Blockade placement mode
+                    if (blockadePlacementMode) {
+                        if (engine.placeBlockade(tx, ty)) {
+                            post { onGoldChanged?.invoke(engine.gold) }
+                        }
+                        blockadePlacementMode = false
+                        return true
+                    }
+
+                    // Trap placement mode
+                    if (trapPlacementMode != null) {
+                        if (engine.placeTrap(tx, ty, trapPlacementMode!!)) {
+                            post { onGoldChanged?.invoke(engine.gold) }
+                        }
+                        trapPlacementMode = null
                         return true
                     }
 
@@ -1031,6 +1912,12 @@ class GameView @JvmOverloads constructor(
                     selectedTower = null
                     post { onTowerSelected?.invoke(null) }
 
+                    // Try to collect a supply drop
+                    if (engine.collectSupplyDrop(tx, ty)) {
+                        post { onGoldChanged?.invoke(engine.gold) }
+                        return true
+                    }
+
                     // Move player (if alive and not on water)
                     if (engine.player.hp > 0 && !engine.isPointOnRiver(tx, ty)) {
                         engine.player.moveTo(tx, ty)
@@ -1040,6 +1927,27 @@ class GameView @JvmOverloads constructor(
                 return true
             }
             MotionEvent.ACTION_MOVE -> {
+                if (placementMode != null) { placementTouchX = tx; placementTouchY = ty }
+                // Long-press detection: held >500ms near a tower without moving much
+                if (longPressDownTime > 0 && towerStatsPopup == null) {
+                    val dx = tx - longPressDownX
+                    val dy = ty - longPressDownY
+                    val moved = Math.sqrt((dx * dx + dy * dy).toDouble())
+                    if (moved > 30f) {
+                        longPressDownTime = 0L // moved too far, cancel long press
+                    } else if (System.currentTimeMillis() - longPressDownTime > 500) {
+                        synchronized(engine.lock) {
+                            val heldTower = engine.towers.find { it.distanceTo(longPressDownX, longPressDownY) < it.size + 20f }
+                            if (heldTower != null) {
+                                towerStatsPopup = heldTower
+                                longPressDownTime = 0L
+                                isDraggingPlayer = false
+                                return true
+                            }
+                        }
+                        longPressDownTime = 0L
+                    }
+                }
                 if (isDraggingPlayer) {
                     synchronized(engine.lock) {
                         if (engine.player.hp > 0 && !engine.isPointOnRiver(tx, ty)) {
@@ -1062,6 +1970,7 @@ class GameView @JvmOverloads constructor(
     }
 
     fun resume() {
+        milestoneDialogShown = false // Re-trigger milestone dialog if pending
         if (holder.surface.isValid) {
             startGameThread()
         }
@@ -1085,6 +1994,17 @@ class GameView @JvmOverloads constructor(
 
     fun getSelectedTower(): Tower? = selectedTower
     fun clearSelectedTower() { selectedTower = null; onTowerSelected?.invoke(null) }
+
+    fun resetGameOverState() {
+        gameOverFired = false
+        milestoneDialogShown = false
+        selectedTower = null
+        placementMode = null
+        blockadePlacementMode = false
+        trapPlacementMode = null
+        placementTouchX = -1f
+        placementTouchY = -1f
+    }
 
     /** Smoothly interpolate between two colors */
     private fun lerpColor(c1: Int, c2: Int, t: Float): Int {
@@ -1124,31 +2044,7 @@ class GameView @JvmOverloads constructor(
         }
         pathCache = canvasPaths
 
-        // Build river canvas path
-        riverPathCache = buildSmoothPath(engine.riverWaypoints)
-
-        // Compute bridge positions: where each enemy path crosses the river
-        val bridges = mutableListOf<PointF>()
-        val rw = engine.riverWaypoints
-        if (rw.size >= 2) {
-            for (gamePath in engine.paths) {
-                val wps = gamePath.waypoints
-                for (i in 0 until wps.size - 1) {
-                    val ay = wps[i].y; val bpy = wps[i + 1].y
-                    // Find segment that crosses the river Y band
-                    val riverY = h * 0.33f
-                    if ((ay < riverY && bpy > riverY) || (ay > riverY && bpy < riverY)) {
-                        val t = (riverY - ay) / (bpy - ay)
-                        val cx = wps[i].x + t * (wps[i + 1].x - wps[i].x)
-                        bridges.add(PointF(cx, riverY))
-                        break
-                    }
-                }
-            }
-        }
-        bridgePositions = bridges
-
-        // Generate decorations avoiding paths and river
+        // Generate decorations avoiding paths
         val decos = mutableListOf<Decoration>()
         val rng = java.util.Random(77L)
         val groundTop = h * 0.12f
@@ -1176,9 +2072,6 @@ class GameView @JvmOverloads constructor(
                 if (onPath) break
             }
             if (onPath) return@repeat
-            // Skip near river
-            val riverY = h * 0.33f
-            if (Math.abs(dy - riverY) < 35f) return@repeat
             val type = rng.nextInt(8)
             val scale = 0.7f + rng.nextFloat() * 0.6f
             decos.add(Decoration(dx, dy, type, scale, rng.nextInt()))
@@ -1187,7 +2080,7 @@ class GameView @JvmOverloads constructor(
     }
 
     /** Build a smooth Canvas Path through waypoints using quadratic curves */
-    private fun buildSmoothPath(waypoints: List<PointF>): Path {
+    private fun buildSmoothPath(waypoints: List<GamePoint>): Path {
         val p = Path()
         if (waypoints.size < 2) return p
         p.moveTo(waypoints[0].x, waypoints[0].y)
@@ -1209,21 +2102,25 @@ class GameView @JvmOverloads constructor(
 
     /** Draw terrain decorations — trees, rocks, bushes, flowers */
     private fun drawDecorations(canvas: Canvas) {
+        val t = System.currentTimeMillis() / 1000.0
         for (d in decorations) {
             val x = d.x; val y = d.y; val s = d.scale
+            // Per-decoration wind sway offset based on seed
+            val windPhase = t * 1.2 + d.seed * 0.7
+            val sway = (Math.sin(windPhase) * 2.5 * s).toFloat()
             when (d.type) {
-                0 -> { // Tree
+                0 -> { // Tree (sway canopy)
                     terrainPaint.color = trunkColor
                     canvas.drawRect(x - 3f * s, y - 8f * s, x + 3f * s, y + 12f * s, terrainPaint)
                     shadowPaint.alpha = 25
                     canvas.drawOval(x - 10f * s, y + 8f * s, x + 10f * s, y + 14f * s, shadowPaint)
                     terrainPaint.color = grassColor
-                    canvas.drawCircle(x, y - 8f * s, 12f * s, terrainPaint)
+                    canvas.drawCircle(x + sway, y - 8f * s, 12f * s, terrainPaint)
                     terrainPaint.color = grassLightColor
-                    canvas.drawCircle(x - 3f * s, y - 12f * s, 8f * s, terrainPaint)
-                    canvas.drawCircle(x + 4f * s, y - 6f * s, 7f * s, terrainPaint)
+                    canvas.drawCircle(x - 3f * s + sway * 1.2f, y - 12f * s, 8f * s, terrainPaint)
+                    canvas.drawCircle(x + 4f * s + sway * 0.8f, y - 6f * s, 7f * s, terrainPaint)
                 }
-                1 -> { // Rock
+                1 -> { // Rock (static)
                     shadowPaint.alpha = 20
                     canvas.drawOval(x - 8f * s, y + 3f * s, x + 8f * s, y + 7f * s, shadowPaint)
                     terrainPaint.color = rockColor
@@ -1238,18 +2135,19 @@ class GameView @JvmOverloads constructor(
                     terrainPaint.color = rockHighlightColor
                     canvas.drawCircle(x - 2f * s, y - 4f * s, 2f * s, terrainPaint)
                 }
-                2 -> { // Bush
+                2 -> { // Bush (gentle sway)
                     shadowPaint.alpha = 18
                     canvas.drawOval(x - 8f * s, y + 2f * s, x + 8f * s, y + 6f * s, shadowPaint)
                     terrainPaint.color = grassColor
-                    canvas.drawCircle(x - 4f * s, y, 6f * s, terrainPaint)
-                    canvas.drawCircle(x + 3f * s, y - 1f * s, 5f * s, terrainPaint)
+                    canvas.drawCircle(x - 4f * s + sway * 0.6f, y, 6f * s, terrainPaint)
+                    canvas.drawCircle(x + 3f * s + sway * 0.6f, y - 1f * s, 5f * s, terrainPaint)
                     terrainPaint.color = grassLightColor
-                    canvas.drawCircle(x, y - 3f * s, 5f * s, terrainPaint)
+                    canvas.drawCircle(x + sway * 0.8f, y - 3f * s, 5f * s, terrainPaint)
                 }
-                3 -> { // Flowers
+                3 -> { // Flowers (sway stem)
+                    val flowerSway = sway * 0.5f
                     terrainPaint.color = grassLightColor
-                    canvas.drawLine(x, y, x, y - 6f * s, terrainPaint)
+                    canvas.drawLine(x, y, x + flowerSway, y - 6f * s, terrainPaint)
                     val fc = when (d.seed % 4) {
                         0 -> 0xFFFF6B6B.toInt()
                         1 -> 0xFFFFD93D.toInt()
@@ -1257,31 +2155,31 @@ class GameView @JvmOverloads constructor(
                         else -> 0xFF6BCB77.toInt()
                     }
                     terrainPaint.color = fc
-                    canvas.drawCircle(x, y - 7f * s, 3f * s, terrainPaint)
+                    canvas.drawCircle(x + flowerSway, y - 7f * s, 3f * s, terrainPaint)
                     terrainPaint.color = 0xFFFFFFCC.toInt()
-                    canvas.drawCircle(x, y - 7f * s, 1.5f * s, terrainPaint)
+                    canvas.drawCircle(x + flowerSway, y - 7f * s, 1.5f * s, terrainPaint)
                 }
-                4 -> { // Pine tree (tall triangle)
+                4 -> { // Pine tree (sway top)
                     terrainPaint.color = trunkColor
                     canvas.drawRect(x - 2f * s, y - 4f * s, x + 2f * s, y + 12f * s, terrainPaint)
                     shadowPaint.alpha = 25
                     canvas.drawOval(x - 8f * s, y + 8f * s, x + 8f * s, y + 14f * s, shadowPaint)
                     terrainPaint.color = 0xFF1B5E20.toInt()
                     val tp = Path()
-                    tp.moveTo(x, y - 22f * s)
+                    tp.moveTo(x + sway * 1.5f, y - 22f * s)
                     tp.lineTo(x - 10f * s, y - 2f * s)
                     tp.lineTo(x + 10f * s, y - 2f * s)
                     tp.close()
                     canvas.drawPath(tp, terrainPaint)
                     terrainPaint.color = 0xFF2E7D32.toInt()
                     val tp2 = Path()
-                    tp2.moveTo(x, y - 18f * s)
+                    tp2.moveTo(x + sway, y - 18f * s)
                     tp2.lineTo(x - 7f * s, y - 5f * s)
                     tp2.lineTo(x + 7f * s, y - 5f * s)
                     tp2.close()
                     canvas.drawPath(tp2, terrainPaint)
                 }
-                5 -> { // Mushroom
+                5 -> { // Mushroom (static)
                     terrainPaint.color = 0xFFE0E0E0.toInt()
                     canvas.drawRect(x - 1.5f * s, y - 3f * s, x + 1.5f * s, y + 4f * s, terrainPaint)
                     terrainPaint.color = 0xFFE53935.toInt()
@@ -1290,95 +2188,76 @@ class GameView @JvmOverloads constructor(
                     canvas.drawCircle(x - 2f * s, y - 6f * s, 1.2f * s, terrainPaint)
                     canvas.drawCircle(x + 2f * s, y - 4f * s, 1f * s, terrainPaint)
                 }
-                6 -> { // Tall grass
+                6 -> { // Tall grass (animated wave)
                     terrainPaint.color = 0xFF558B2F.toInt()
                     for (g in -2..2) {
                         val gx = x + g * 2f * s
-                        val lean = g * 1.5f * s
-                        canvas.drawLine(gx, y + 2f * s, gx + lean, y - 10f * s, terrainPaint)
+                        val grassSway = (Math.sin(windPhase + g * 0.4) * 3.5 * s).toFloat()
+                        canvas.drawLine(gx, y + 2f * s, gx + grassSway, y - 10f * s, terrainPaint)
                     }
                 }
-                7 -> { // Berry bush
+                7 -> { // Berry bush (gentle sway)
                     shadowPaint.alpha = 18
                     canvas.drawOval(x - 9f * s, y + 2f * s, x + 9f * s, y + 6f * s, shadowPaint)
                     terrainPaint.color = 0xFF33691E.toInt()
-                    canvas.drawCircle(x - 4f * s, y, 7f * s, terrainPaint)
-                    canvas.drawCircle(x + 3f * s, y - 1f * s, 6f * s, terrainPaint)
+                    canvas.drawCircle(x - 4f * s + sway * 0.5f, y, 7f * s, terrainPaint)
+                    canvas.drawCircle(x + 3f * s + sway * 0.5f, y - 1f * s, 6f * s, terrainPaint)
                     terrainPaint.color = grassLightColor
-                    canvas.drawCircle(x, y - 3f * s, 5f * s, terrainPaint)
-                    // Berries
+                    canvas.drawCircle(x + sway * 0.6f, y - 3f * s, 5f * s, terrainPaint)
                     terrainPaint.color = 0xFFD32F2F.toInt()
-                    canvas.drawCircle(x - 3f * s, y - 2f * s, 1.8f * s, terrainPaint)
-                    canvas.drawCircle(x + 2f * s, y - 4f * s, 1.5f * s, terrainPaint)
-                    canvas.drawCircle(x + 4f * s, y + 1f * s, 1.6f * s, terrainPaint)
+                    canvas.drawCircle(x - 3f * s + sway * 0.3f, y - 2f * s, 1.8f * s, terrainPaint)
+                    canvas.drawCircle(x + 2f * s + sway * 0.3f, y - 4f * s, 1.5f * s, terrainPaint)
+                    canvas.drawCircle(x + 4f * s + sway * 0.3f, y + 1f * s, 1.6f * s, terrainPaint)
                 }
             }
         }
-    }
 
-    /** Draw the animated river with flowing water ripples and bridges */
-    private fun drawRiver(canvas: Canvas) {
-        val rw = engine.riverWaypoints
-        if (rw.size < 2) return
-
-        // River banks (dark)
-        pathPaint.style = Paint.Style.STROKE
-        pathPaint.color = 0xFF1B5E20.toInt()
-        pathPaint.strokeWidth = 52f
-        canvas.drawPath(riverPathCache, pathPaint)
-
-        // River water body
-        pathPaint.color = 0xFF1976D2.toInt()
-        pathPaint.strokeWidth = 40f
-        canvas.drawPath(riverPathCache, pathPaint)
-
-        // Lighter water center
-        pathPaint.color = 0xFF42A5F5.toInt()
-        pathPaint.strokeWidth = 24f
-        canvas.drawPath(riverPathCache, pathPaint)
-
-        // Animated ripples flowing along the river
-        for (i in 0 until 28) {
-            val baseT = (i / 28f + waterPhase * 0.12f) % 1f
-            val idx = (baseT * (rw.size - 1)).toInt().coerceIn(0, rw.size - 2)
-            val localT = (baseT * (rw.size - 1)) - idx
-            val rx = rw[idx].x + (rw[idx + 1].x - rw[idx].x) * localT
-            val ry = rw[idx].y + (rw[idx + 1].y - rw[idx].y) * localT
-            val waveOff = Math.sin((waterPhase * 3f + i * 1.3f).toDouble()).toFloat() * 4f
-            paint.color = 0x55FFFFFF
-            canvas.drawLine(rx - 7f, ry + waveOff, rx + 7f, ry + waveOff, paint)
-            if (i % 3 == 0) {
-                paint.color = 0x2290CAF9
-                canvas.drawCircle(rx + 3f, ry + waveOff + 2f, 3f, paint)
+        // Ambient particles: fireflies at night, dust motes during day, falling leaves
+        val night = engine.isNight
+        val ambRng = java.util.Random(123L)
+        if (night) {
+            // Fireflies
+            paint.color = 0xFFFFEB3B.toInt()
+            for (i in 0 until 12) {
+                val fx = ambRng.nextFloat() * width
+                val fy = height * 0.15f + ambRng.nextFloat() * (height * 0.7f)
+                val pulse = (0.3f + 0.7f * Math.sin(t * 2.0 + i * 1.3).toFloat()).coerceIn(0f, 1f)
+                paint.alpha = (pulse * 200).toInt()
+                val ox = (Math.sin(t * 0.8 + i * 2.1) * 15f).toFloat()
+                val oy = (Math.cos(t * 0.6 + i * 1.7) * 10f).toFloat()
+                canvas.drawCircle(fx + ox, fy + oy, 2.5f, paint)
+                // Glow
+                paint.alpha = (pulse * 60).toInt()
+                canvas.drawCircle(fx + ox, fy + oy, 6f, paint)
             }
+            paint.alpha = 255
+        } else {
+            // Dust motes drifting (subtle)
+            paint.color = 0xFFFFFFFF.toInt()
+            for (i in 0 until 8) {
+                val mx = (ambRng.nextFloat() * width + (t * 12f + i * 50f).toFloat()) % (width + 40f) - 20f
+                val my = height * 0.15f + ambRng.nextFloat() * (height * 0.6f) + (Math.sin(t * 0.5 + i) * 20f).toFloat()
+                paint.alpha = 30 + (20 * Math.sin(t + i * 0.9)).toInt().coerceIn(0, 40)
+                canvas.drawCircle(mx.toFloat(), my, 1.5f + ambRng.nextFloat(), paint)
+            }
+            paint.alpha = 255
         }
 
-        // Bridges where paths cross the river
-        for (bp in bridgePositions) {
-            val bw = 36f
-            val bh = 50f
-            // Bridge shadow
-            shadowPaint.alpha = 25
-            canvas.drawOval(bp.x - bw, bp.y + bh * 0.3f, bp.x + bw, bp.y + bh * 0.5f, shadowPaint)
-            // Stone arch
-            terrainPaint.color = 0xFF5D4037.toInt()
-            canvas.drawRoundRect(bp.x - bw, bp.y - bh / 2, bp.x + bw, bp.y + bh / 2, 6f, 6f, terrainPaint)
-            // Lighter planks
-            terrainPaint.color = 0xFF8D6E63.toInt()
-            canvas.drawRoundRect(bp.x - bw + 4f, bp.y - bh / 2 + 3f, bp.x + bw - 4f, bp.y + bh / 2 - 3f, 4f, 4f, terrainPaint)
-            // Plank lines
-            terrainPaint.color = 0xFF4E342E.toInt()
-            terrainPaint.alpha = 80
-            var plankX = bp.x - bw + 10f
-            while (plankX < bp.x + bw - 8f) {
-                canvas.drawLine(plankX, bp.y - bh / 2 + 5f, plankX, bp.y + bh / 2 - 5f, terrainPaint)
-                plankX += 9f
+        // Falling leaves (all maps with trees)
+        if (engine.mapType != MapType.DESERT && engine.mapType != MapType.SNOW) {
+            for (i in 0 until 6) {
+                val leafPhase = (t * 0.7 + i * 3.0) % 8.0
+                val lx = (ambRng.nextFloat() * width + (leafPhase * 25f).toFloat()) % (width + 40f) - 20f
+                val ly = (leafPhase / 8.0 * (height * 0.8f) + height * 0.1f).toFloat()
+                val leafSway = (Math.sin(t * 2.0 + i * 1.5) * 8f).toFloat()
+                val rot = (t * 60 + i * 45).toFloat()
+                paint.color = when (i % 3) { 0 -> 0xDD4CAF50.toInt(); 1 -> 0xDDFF9800.toInt(); else -> 0xDDE53935.toInt() }
+                canvas.save()
+                canvas.rotate(rot, lx + leafSway, ly)
+                canvas.drawOval(lx + leafSway - 3f, ly - 1.5f, lx + leafSway + 3f, ly + 1.5f, paint)
+                canvas.restore()
             }
-            terrainPaint.alpha = 255
-            // Rails
-            terrainPaint.color = 0xFF3E2723.toInt()
-            canvas.drawRect(bp.x - bw, bp.y - bh / 2, bp.x + bw, bp.y - bh / 2 + 3f, terrainPaint)
-            canvas.drawRect(bp.x - bw, bp.y + bh / 2 - 3f, bp.x + bw, bp.y + bh / 2, terrainPaint)
+            paint.alpha = 255
         }
     }
 
@@ -1428,4 +2307,13 @@ class GameView @JvmOverloads constructor(
 
     // Reusable paint for star drawing
     private val paint = Paint().apply { isAntiAlias = true }
+
+    /** Adjust brightness of an ARGB color by shifting R/G/B by delta */
+    private fun adjustBrightness(color: Int, delta: Int): Int {
+        val a = (color ushr 24) and 0xFF
+        val r = (((color ushr 16) and 0xFF) + delta).coerceIn(0, 255)
+        val g = (((color ushr 8) and 0xFF) + delta).coerceIn(0, 255)
+        val b = ((color and 0xFF) + delta).coerceIn(0, 255)
+        return (a shl 24) or (r shl 16) or (g shl 8) or b
+    }
 }

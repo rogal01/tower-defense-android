@@ -12,6 +12,7 @@ import android.widget.TextView
 import androidx.appcompat.app.AppCompatActivity
 import com.example.myapp.databinding.ActivityCampaignBinding
 import com.example.myapp.game.CampaignData
+import com.example.myapp.game.SfxType
 
 class CampaignActivity : ImmersiveActivity() {
 
@@ -22,6 +23,7 @@ class CampaignActivity : ImmersiveActivity() {
         binding = ActivityCampaignBinding.inflate(layoutInflater)
         setContentView(binding.root)
         supportActionBar?.hide()
+        GameStrings.init(this)
 
         binding.btnBack.setOnClickListener { finish() }
     }
@@ -32,7 +34,7 @@ class CampaignActivity : ImmersiveActivity() {
     }
 
     private fun buildLevelList() {
-        val prefs = getSharedPreferences("tower_defense_save", Context.MODE_PRIVATE)
+        val prefs = getSharedPreferences("tower_defense_prefs", Context.MODE_PRIVATE)
         val container = binding.levelContainer
         container.removeAllViews()
 
@@ -106,9 +108,15 @@ class CampaignActivity : ImmersiveActivity() {
 
             val meta = TextView(this).apply {
                 val towerList = level.allowedTowers.joinToString(" ") { it.emoji }
-                text = "Survive ${level.targetWave} waves  |  $towerList"
+                val mapInfo = "${level.mapType.emoji} ${level.mapType.displayName}"
+                val starInfo = if (isCompleted) {
+                    val s = prefs.getInt("campaign_${level.id}_stars", 0)
+                    "  |  💎 ${level.diamondReward + (s - 1).coerceAtLeast(0) * 2}"
+                } else "  |  💎 ${level.diamondReward}-${level.diamondReward + 4}"
+                text = "${GameStrings.campaignSurvive(level.targetWave)}  |  $mapInfo  |  $towerList$starInfo\n⭐⭐ ${level.star2Score}  ⭐⭐⭐ ${level.star3Score}"
                 setTextSize(TypedValue.COMPLEX_UNIT_SP, 12f)
                 setTextColor(Color.parseColor("#888888"))
+                gravity = Gravity.START
             }
 
             textCol.addView(title)
@@ -116,12 +124,15 @@ class CampaignActivity : ImmersiveActivity() {
             textCol.addView(meta)
 
             val status = TextView(this).apply {
+                val stars = prefs.getInt("campaign_${level.id}_stars", 0)
                 text = when {
+                    isCompleted && stars >= 3 -> "⭐⭐⭐"
+                    isCompleted && stars >= 2 -> "⭐⭐"
                     isCompleted -> "⭐"
                     isUnlocked -> "▶"
                     else -> ""
                 }
-                setTextSize(TypedValue.COMPLEX_UNIT_SP, 24f)
+                setTextSize(TypedValue.COMPLEX_UNIT_SP, if (stars >= 2) 18f else 24f)
                 gravity = Gravity.CENTER
             }
 
@@ -131,7 +142,9 @@ class CampaignActivity : ImmersiveActivity() {
             container.addView(card)
         }
 
-        binding.textProgress.text = "$completed / ${CampaignData.levels.size} Completed"
+        val totalStars = CampaignData.levels.sumOf { prefs.getInt("campaign_${it.id}_stars", 0) }
+        val maxStars = CampaignData.levels.size * 3
+        binding.textProgress.text = GameStrings.campaignProgress(completed, CampaignData.levels.size, totalStars, maxStars)
     }
 
     private fun dp(value: Int): Int =

@@ -1,7 +1,5 @@
 package com.example.myapp.game
 
-import android.graphics.PointF
-
 data class Player(
     var x: Float = 0f,
     var y: Float = 0f,
@@ -17,8 +15,41 @@ data class Player(
     var maxHp: Float = 100f
 ) {
     fun moveTo(tx: Float, ty: Float) {
-        targetX = tx
-        targetY = ty
+        val engine = GameEngineHolder.engine
+        // Clamp to playable area: stay within screen bounds and below sky line
+        var clampedX = tx
+        var clampedY = ty
+        if (engine != null) {
+            val groundTop = engine.screenH * 0.12f + size  // below sky
+            clampedX = clampedX.coerceIn(size, engine.screenW - size)
+            clampedY = clampedY.coerceIn(groundTop, engine.screenH - size)
+        }
+        // Prevent moving into river: clamp to nearest non-river point
+        if (engine != null && engine.isPointOnRiver(clampedX, clampedY)) {
+            // Find closest point outside river by stepping away along the vector
+            var safeX = clampedX
+            var safeY = clampedY
+            val cx = x
+            val cy = y
+            val maxStep = 10
+            var found = false
+            for (i in 1..maxStep) {
+                val t = i / maxStep.toFloat()
+                val testX = cx + (clampedX - cx) * (1 - t)
+                val testY = cy + (clampedY - cy) * (1 - t)
+                if (!engine.isPointOnRiver(testX, testY)) {
+                    safeX = testX
+                    safeY = testY
+                    found = true
+                    break
+                }
+            }
+            targetX = safeX
+            targetY = safeY
+        } else {
+            targetX = clampedX
+            targetY = clampedY
+        }
     }
 
     fun update(dt: Float) {

@@ -158,6 +158,36 @@
         android:layout_height="0dp"
         android:layout_weight="1" />
 
+    <!-- Cloud / Backup Section -->
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="💾 Backup"
+        android:textColor="@color/gold"
+        android:textSize="20sp"
+        android:textStyle="bold"
+        android:layout_marginBottom="12dp" />
+
+    <Button
+        android:id="@+id/btn_export_save"
+        style="@style/Widget.MaterialComponents.Button.OutlinedButton"
+        android:layout_width="match_parent"
+        android:layout_height="48dp"
+        android:layout_marginBottom="8dp"
+        android:text="📤 Export Save"
+        android:textSize="14sp"
+        android:textColor="#4CAF50" />
+
+    <Button
+        android:id="@+id/btn_import_save"
+        style="@style/Widget.MaterialComponents.Button.OutlinedButton"
+        android:layout_width="match_parent"
+        android:layout_height="48dp"
+        android:layout_marginBottom="16dp"
+        android:text="📥 Import Save"
+        android:textSize="14sp"
+        android:textColor="#2196F3" />
+
     <!-- Reset Progress -->
     <Button
         android:id="@+id/btn_reset"

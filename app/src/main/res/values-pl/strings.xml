@@ -1,0 +1,61 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Obrona Wieży</string>
+    <string name="menu_subtitle">Broń swojego zamku!</string>
+    <string name="difficulty_label">Trudność</string>
+    <string name="difficulty_easy">Łatwy</string>
+    <string name="difficulty_normal">Normalny</string>
+    <string name="difficulty_hard">Trudny</string>
+    <string name="play">▶ GRAJ</string>
+    <string name="settings">⚙️ Ustawienia</string>
+    <string name="back">Wróć</string>
+    <string name="audio_section">🔊 Dźwięk</string>
+    <string name="master_volume">Głośność główna</string>
+    <string name="music_volume">Głośność muzyki</string>
+    <string name="sfx_volume">Głośność efektów</string>
+    <string name="game_section">🎮 Gra</string>
+    <string name="show_fps">Pokaż FPS</string>
+    <string name="screen_shake">Drganie ekranu</string>
+    <string name="reset_progress">🗑️ Resetuj postęp</string>
+    <string name="skill_tree">💎 Drzewko umiejętności</string>
+    <string name="skill_tree_title">🌟 Drzewko umiejętności</string>
+    <string name="skill_tree_subtitle">Wydaj diamenty na trwałe ulepszenia</string>
+    <string name="endless_mode">♾️ TRYB NIESKOŃCZONY</string>
+    <string name="statistics">📊 Statystyki</string>
+    <string name="achievements">🏆 Osiągnięcia</string>
+    <string name="campaign">🗺️ KAMPANIA</string>
+    <!-- Main menu -->
+    <string name="continue_game">▶️ KONTYNUUJ</string>
+    <string name="boss_rush">💀 RAJD BOSSÓW</string>
+    <string name="randomizer">🎲 LOSOWY</string>
+    <string name="survival_mode">⚔️ PRZETRWANIE</string>
+    <string name="arena_mode">🏟️ ARENA</string>
+    <string name="ironman_mode">💀 ŻELAZNY</string>
+    <string name="loadout_mode">🎒 EKWIPUNEK</string>
+    <string name="loadout_title">Wybierz Wieże</string>
+    <string name="loadout_max">Wybierz do 6 wież</string>
+    <string name="daily_challenge">🎯 Wyzwanie dnia</string>
+    <string name="help_mechanics">📖 Pomoc i mechaniki</string>
+    <string name="welcome_commander">Witaj, Dowódco!</string>
+    <string name="high_score_fmt">⭐ Najlepszy wynik: %1$d  |  Najlepsza fala: %2$d</string>
+    <string name="endless_record_fmt">♾️ Rekord nieskończoności: Fala %1$d</string>
+    <string name="boss_rush_record_fmt">💀 Rekord rajdu bossów: %1$d bossów</string>
+    <string name="diamonds_fmt">💎 %1$d Diamentów</string>
+    <string name="map_select">🗺️ Wybierz mapę</string>
+    <string name="tap_restart">Dotknij, aby zrestartować</string>
+    <string name="tap_continue">Dotknij, aby kontynuować</string>
+    <!-- Endless popup -->
+    <string name="endless_mode_title">♾️ Tryb nieskończony</string>
+    <string name="difficulty_section">⚔️ Trudność</string>
+    <string name="map_section">🗺️ Mapa</string>
+    <!-- In-game -->
+    <string name="victory">⭐ ZWYCIĘSTWO! ⭐</string>
+    <string name="score_fmt">Wynik: %1$d</string>
+    <string name="max_stars">Maksimum gwiazdek!</string>
+    <string name="game_over">💀 KONIEC GRY</string>
+    <string name="boss_rush_over">💀 RAJD BOSSÓW ZAKOŃCZONY</string>
+    <string name="endless_over">♾️ NIESKOŃCZONOŚĆ ZAKOŃCZONA</string>
+    <string name="new_high_score">⭐ NOWY REKORD! ⭐</string>
+    <string name="new_endless_record">⭐ NOWY REKORD NIESKOŃCZONOŚCI! ⭐</string>
+    <string name="new_boss_rush_record">⭐ NOWY REKORD RAJDU BOSSÓW! ⭐</string>
+</resources>

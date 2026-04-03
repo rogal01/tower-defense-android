@@ -10,6 +10,8 @@ import android.widget.TextView
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import com.example.myapp.databinding.ActivitySkillTreeBinding
+import com.example.myapp.game.AndroidGamePreferences
+import com.example.myapp.game.SfxType
 import com.example.myapp.game.SkillTree
 
 class SkillTreeActivity : ImmersiveActivity() {
@@ -23,20 +25,21 @@ class SkillTreeActivity : ImmersiveActivity() {
         setContentView(binding.root)
         supportActionBar?.hide()
 
-        skillTree = SkillTree(this)
+        skillTree = SkillTree(AndroidGamePreferences(getSharedPreferences("tower_defense_prefs", android.content.Context.MODE_PRIVATE)))
         binding.btnBack.setOnClickListener { finish() }
+        GameStrings.init(this)
 
         buildSkillList()
     }
 
     private fun buildSkillList() {
-        binding.textDiamonds.text = "\uD83D\uDC8E ${skillTree.diamonds}"
+        binding.textDiamonds.text = GameStrings.skillDiamonds(skillTree.diamonds)
         binding.skillContainer.removeAllViews()
 
         // Prestige info
         if (skillTree.prestigeLevel > 0) {
             val prestigeInfo = TextView(this).apply {
-                text = "\uD83D\uDC51 Prestige Level ${skillTree.prestigeLevel} — +${(skillTree.prestigeLevel * 5)}% damage bonus"
+                text = GameStrings.skillPrestigeLevel(skillTree.prestigeLevel, skillTree.prestigeLevel * 5)
                 setTextSize(TypedValue.COMPLEX_UNIT_SP, 16f)
                 setTextColor(0xFFFFD700.toInt())
                 gravity = Gravity.CENTER
@@ -46,7 +49,7 @@ class SkillTreeActivity : ImmersiveActivity() {
         }
 
         // Page 1 header
-        addSectionHeader("Page 1 — Core Skills")
+        addSectionHeader(GameStrings.skillPage1)
 
         for (skill in skillTree.skills) {
             addSkillRow(skill)
@@ -65,15 +68,18 @@ class SkillTreeActivity : ImmersiveActivity() {
         val prestigeBtn = Button(this).apply {
             val cost = skillTree.prestigeCost()
             val canDo = skillTree.canPrestige()
-            text = if (skillTree.allPage1Maxed()) "\uD83D\uDC51 PRESTIGE (\uD83D\uDC8E $cost)" else "\uD83D\uDD12 Max all skills to prestige"
+            text = if (skillTree.allPage1Maxed()) GameStrings.skillPrestigeBtn(cost) else GameStrings.skillPrestigeLocked
             isEnabled = canDo
             alpha = if (canDo) 1f else 0.4f
             setTextSize(TypedValue.COMPLEX_UNIT_SP, 14f)
             setOnClickListener {
                 if (skillTree.prestige()) {
                     SoundManager.play(SfxType.ACHIEVEMENT)
+                    // Mark prestige achievement
+                    val prefs = getSharedPreferences("tower_defense_prefs", MODE_PRIVATE)
+                    prefs.edit().putBoolean("ach_prestige_first", true).apply()
                     Toast.makeText(this@SkillTreeActivity,
-                        "\uD83D\uDC51 Prestige ${skillTree.prestigeLevel}! Page 1 reset, bonus unlocked!", Toast.LENGTH_LONG).show()
+                        GameStrings.skillPrestigeDone(skillTree.prestigeLevel), Toast.LENGTH_LONG).show()
                     buildSkillList()
                 }
             }
@@ -83,13 +89,13 @@ class SkillTreeActivity : ImmersiveActivity() {
 
         // Page 2: Prestige skills
         if (skillTree.prestigeLevel >= 1) {
-            addSectionHeader("Page 2 — Prestige Skills")
+            addSectionHeader(GameStrings.skillPage2)
             for (skill in skillTree.prestigeSkills) {
                 addSkillRow(skill)
             }
         } else {
             val lockText = TextView(this).apply {
-                text = "\uD83D\uDD12 Prestige to unlock Page 2 skills"
+                text = GameStrings.skillPage2Locked
                 setTextSize(TypedValue.COMPLEX_UNIT_SP, 14f)
                 setTextColor(0xFF666666.toInt())
                 gravity = Gravity.CENTER
@@ -165,7 +171,7 @@ class SkillTreeActivity : ImmersiveActivity() {
                 LinearLayout.LayoutParams.WRAP_CONTENT
             )
             if (maxed) {
-                text = "MAX"
+                text = GameStrings.skillMax
                 isEnabled = false
                 alpha = 0.5f
             } else {
@@ -178,11 +184,11 @@ class SkillTreeActivity : ImmersiveActivity() {
                 if (skillTree.upgrade(skill.id)) {
                     SoundManager.play(SfxType.PLAYER_UPGRADE)
                     Toast.makeText(this@SkillTreeActivity,
-                        "${skill.emoji} ${skill.name} upgraded!", Toast.LENGTH_SHORT).show()
+                        "${skill.emoji} ${skill.name} ${if (GameStrings.isPl) "ulepszono!" else "upgraded!"}", Toast.LENGTH_SHORT).show()
                     buildSkillList()
                 } else {
                     Toast.makeText(this@SkillTreeActivity,
-                        "Not enough diamonds!", Toast.LENGTH_SHORT).show()
+                        if (GameStrings.isPl) "Za mało diamentów!" else "Not enough diamonds!", Toast.LENGTH_SHORT).show()
                 }
             }
         }

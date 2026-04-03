@@ -1,0 +1,115 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+
+    <!-- Castle/tower shape — centered in safe zone (18,18 to 90,90) -->
+    <!-- Base platform -->
+    <path
+        android:fillColor="#5D4037"
+        android:pathData="M28,78 L80,78 L80,84 L28,84 Z" />
+
+    <!-- Main tower body -->
+    <path
+        android:fillColor="#8D6E63"
+        android:pathData="M36,42 L72,42 L72,78 L36,78 Z" />
+
+    <!-- Tower battlements (crenellations) -->
+    <path
+        android:fillColor="#6D4C41"
+        android:pathData="M32,34 L40,34 L40,42 L32,42 Z" />
+    <path
+        android:fillColor="#6D4C41"
+        android:pathData="M46,34 L54,34 L54,42 L46,42 Z" />
+    <path
+        android:fillColor="#6D4C41"
+        android:pathData="M60,34 L68,34 L68,42 L60,42 Z" />
+    <path
+        android:fillColor="#6D4C41"
+        android:pathData="M74,34 L76,34 L76,42 L74,42 Z" />
+
+    <!-- Tower side turrets -->
+    <path
+        android:fillColor="#795548"
+        android:pathData="M28,48 L36,48 L36,78 L28,78 Z" />
+    <path
+        android:fillColor="#795548"
+        android:pathData="M72,48 L80,48 L80,78 L72,78 Z" />
+
+    <!-- Turret tops -->
+    <path
+        android:fillColor="#6D4C41"
+        android:pathData="M26,40 L38,40 L38,48 L26,48 Z" />
+    <path
+        android:fillColor="#6D4C41"
+        android:pathData="M70,40 L82,40 L82,48 L70,48 Z" />
+
+    <!-- Left turret battlement detail -->
+    <path
+        android:fillColor="#5D4037"
+        android:pathData="M26,36 L30,36 L30,40 L26,40 Z" />
+    <path
+        android:fillColor="#5D4037"
+        android:pathData="M34,36 L38,36 L38,40 L34,40 Z" />
+
+    <!-- Right turret battlement detail -->
+    <path
+        android:fillColor="#5D4037"
+        android:pathData="M70,36 L74,36 L74,40 L70,40 Z" />
+    <path
+        android:fillColor="#5D4037"
+        android:pathData="M78,36 L82,36 L82,40 L78,40 Z" />
+
+    <!-- Gate (dark archway) -->
+    <path
+        android:fillColor="#3E2723"
+        android:pathData="M48,60 A6,10 0 0,1 60,60 L60,78 L48,78 Z" />
+
+    <!-- Window left -->
+    <path
+        android:fillColor="#FFD54F"
+        android:pathData="M40,50 L44,50 L44,56 L40,56 Z" />
+
+    <!-- Window right -->
+    <path
+        android:fillColor="#FFD54F"
+        android:pathData="M64,50 L68,50 L68,56 L64,56 Z" />
+
+    <!-- Flag pole on center -->
+    <path
+        android:fillColor="#455A64"
+        android:strokeWidth="1.5"
+        android:strokeColor="#455A64"
+        android:pathData="M54,18 L54,34" />
+
+    <!-- Flag (triangle banner) -->
+    <path
+        android:fillColor="#D32F2F"
+        android:pathData="M54,18 L68,24 L54,30 Z" />
+
+    <!-- Shield emblem on flag -->
+    <path
+        android:fillColor="#FFD700"
+        android:pathData="M58,22 L62,22 L62,26 L60,28 L58,26 Z" />
+
+    <!-- Sword crossing behind castle (left) -->
+    <path
+        android:fillColor="#90A4AE"
+        android:pathData="M22,26 L26,24 L56,72 L52,74 Z" />
+
+    <!-- Sword crossing behind castle (right) -->
+    <path
+        android:fillColor="#90A4AE"
+        android:pathData="M82,24 L86,26 L56,74 L52,72 Z" />
+
+    <!-- Sword hilts -->
+    <path
+        android:fillColor="#FFD700"
+        android:pathData="M20,28 L28,22 L30,24 L22,30 Z" />
+    <path
+        android:fillColor="#FFD700"
+        android:pathData="M80,22 L88,28 L86,30 L78,24 Z" />
+
+</vector>

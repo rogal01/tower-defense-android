@@ -4,24 +4,12 @@ import android.content.Context
 import android.media.AudioAttributes
 import android.media.AudioFormat
 import android.media.SoundPool
+import com.example.myapp.game.SfxType
 import java.io.File
 import java.io.FileOutputStream
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
 import kotlin.math.*
-
-enum class SfxType {
-    ARROW_FIRE, MAGIC_FIRE, CANNON_FIRE, POISON_FIRE, TESLA_FIRE, ICE_FIRE,
-    ENEMY_DIE, BOSS_APPEAR,
-    POWER_FIREBALL, POWER_FREEZE, POWER_HEAL, POWER_LIGHTNING,
-    WAVE_START, WAVE_COMPLETE, COMBO, ACHIEVEMENT,
-    GAME_OVER, VICTORY,
-    TOWER_PLACE, TOWER_UPGRADE, TOWER_SELL, TOWER_ABILITY,
-    BASE_HIT, PLAYER_ATTACK,
-    BOSS_CHARGE, BOSS_SUMMON, BOSS_HEAL, BOSS_AOE,
-    BOSS_SHIELD, BOSS_ROAR, BOSS_TELEPORT, BOSS_DRAIN, BOSS_QUAKE, BOSS_SPLIT,
-    DIAMOND_DROP, PLAYER_UPGRADE, UI_CLICK
-}
 
 object SoundManager {
 
@@ -125,6 +113,11 @@ object SoundManager {
             SfxType.POISON_FIRE -> noise(0.07, 400.0, 0.35)
             SfxType.TESLA_FIRE -> zap(0.08, 0.6)
             SfxType.ICE_FIRE -> shimmer(0.08, 2200.0, 0.35)
+            SfxType.FLAME_FIRE -> sweep(0.1, 300.0, 1000.0, 0.5)
+            SfxType.NECRO_FIRE -> noise(0.08, 200.0, 0.4)
+            SfxType.BALLISTA_FIRE -> boom(0.1, 150.0, 0.6)
+            SfxType.VORTEX_FIRE -> shimmer(0.07, 1500.0, 0.35)
+            SfxType.HEALER_FIRE -> chime(0.12, doubleArrayOf(523.0, 659.0), 0.3)
             SfxType.ENEMY_DIE -> chirp(0.05, 800.0, 300.0, 0.4)
             SfxType.BOSS_APPEAR -> horn(0.3, 150.0, 0.6)
             SfxType.POWER_FIREBALL -> sweep(0.15, 200.0, 900.0, 0.6)

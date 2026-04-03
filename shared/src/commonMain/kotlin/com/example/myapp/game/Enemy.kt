@@ -44,6 +44,31 @@ data class Enemy(
     var reachedBase: Boolean = false
     /** True if this is an elite enemy (crowned, extra HP/gold) */
     var isElite: Boolean = false
+    /** Shield timer — when > 0, enemy takes 70% reduced damage */
+    var shieldTimer: Float = 0f
+    /** Elite ability type — random special power for elite enemies */
+    var eliteAbility: EliteAbility = EliteAbility.NONE
+    /** Elite aura timer — tracks periodic effects */
+    var eliteAuraTimer: Float = 0f
+    /** Burn timer from Flame tower — fire DoT */
+    var burnTimer: Float = 0f
+    /** Burn DPS from Flame tower */
+    var burnDps: Float = 0f
+    /** Tar slow timer — when > 0, enemy is slowed by tar trap */
+    var tarSlowTimer: Float = 0f
+    /** Last tower that hit this enemy — used for kill attribution */
+    var lastHitTower: Tower? = null
+    /** Berserker rage — speed/damage multiplier increases as HP drops */
+    val berserkerRage: Float get() = if (type == EnemyType.BERSERKER) (1f + (1f - (hp / maxHp).coerceIn(0f, 1f)) * 1.5f) else 1f
+    /** Commander aura — buff nearby enemies */
+    var commanderAuraTimer: Float = 0f
+    /** Shapeshifter — current resistance profile cycles every 5s */
+    var shapeshiftTimer: Float = 5f
+    var shapeshiftPhase: Int = 0
+    /** Death animation timer — when > 0, enemy is in death animation (shrink+fade) */
+    var deathAnimTimer: Float = 0f
+    /** True when death rewards have been processed */
+    var deathProcessed: Boolean = false
 
     /** Display emoji — uses boss-specific emoji if it's a boss */
     val displayEmoji: String get() = bossType?.emoji ?: type.emoji
@@ -59,44 +84,96 @@ object EnemyResistances {
             DamageType.PHYSICAL -> 0.5f
             DamageType.MAGIC -> 1.5f
             DamageType.EXPLOSIVE -> 1.3f
+            DamageType.FIRE -> 1.3f   // bones burn
+            DamageType.DARK -> 0.7f   // undead resist dark
             else -> 1f
         }
         EnemyType.ORC -> when (damageType) {
             DamageType.PHYSICAL -> 0.7f
             DamageType.EXPLOSIVE -> 1.3f
             DamageType.ICE -> 1.2f
+            DamageType.FIRE -> 1.2f   // flammable hide
             else -> 1f
         }
         EnemyType.DEMON -> when (damageType) {
             DamageType.ICE -> 1.5f
             DamageType.POISON -> 0.5f
             DamageType.MAGIC -> 0.8f
+            DamageType.FIRE -> 0.3f   // fire demons resist fire
+            DamageType.DARK -> 0.5f   // demon resist dark
             else -> 1f
         }
         EnemyType.DRAGON -> when (damageType) {
             DamageType.PHYSICAL -> 0.6f
             DamageType.ICE -> 1.4f
             DamageType.MAGIC -> 1.2f
+            DamageType.FIRE -> 0.4f   // fire-breathing = fire resist
+            DamageType.DARK -> 1.3f   // weak to dark
             else -> 1f
         }
         EnemyType.SHADOW -> when (damageType) {
             DamageType.PHYSICAL -> 0.3f
             DamageType.MAGIC -> 1.5f
             DamageType.ELECTRIC -> 1.3f
+            DamageType.FIRE -> 1.4f   // light/fire hurts shadows
+            DamageType.DARK -> 0.2f   // shadow = dark immune
             else -> 1f
         }
         EnemyType.GOLEM_SHARD -> when (damageType) {
             DamageType.PHYSICAL -> 0.5f
             DamageType.EXPLOSIVE -> 1.5f
             DamageType.MAGIC -> 1.3f
+            DamageType.FIRE -> 0.8f
             else -> 1f
         }
         EnemyType.WISP -> when (damageType) {
             DamageType.PHYSICAL -> 0.4f
             DamageType.ICE -> 1.4f
             DamageType.ELECTRIC -> 0.5f
+            DamageType.DARK -> 1.5f   // wisps weak to dark
             else -> 1f
         }
+        EnemyType.FAST_SKELETON -> when (damageType) {
+            DamageType.PHYSICAL -> 0.6f
+            DamageType.MAGIC -> 1.4f
+            DamageType.EXPLOSIVE -> 1.2f
+            DamageType.FIRE -> 1.3f
+            DamageType.DARK -> 0.7f
+            else -> 1f
+        }
+        EnemyType.ARMORED_GOLEM -> when (damageType) {
+            DamageType.PHYSICAL -> 0.3f
+            DamageType.EXPLOSIVE -> 1.5f
+            DamageType.MAGIC -> 1.4f
+            DamageType.ELECTRIC -> 1.2f
+            DamageType.FIRE -> 1.1f
+            DamageType.DARK -> 1.3f   // dark corrodes armor
+            else -> 1f
+        }
+        EnemyType.BERSERKER -> when (damageType) {
+            DamageType.ICE -> 1.3f      // cold slows rage
+            DamageType.FIRE -> 0.7f     // fire fuels rage
+            DamageType.DARK -> 1.2f
+            DamageType.PHYSICAL -> 0.8f  // thick hide
+            else -> 1f
+        }
+        EnemyType.COMMANDER -> when (damageType) {
+            DamageType.PHYSICAL -> 0.6f  // armored officer
+            DamageType.MAGIC -> 1.3f
+            DamageType.ELECTRIC -> 1.4f  // metal armor conducts
+            DamageType.DARK -> 1.2f
+            else -> 1f
+        }
+        EnemyType.SHAPESHIFTER -> 1f  // handled dynamically via shapeshiftPhase
+        else -> 1f
+    }
+
+    /** Shapeshifter dynamic resistance — cycles through weakness profiles */
+    fun getShapeshifterMultiplier(phase: Int, damageType: DamageType): Float = when (phase % 4) {
+        0 -> if (damageType == DamageType.PHYSICAL || damageType == DamageType.EXPLOSIVE) 0.3f else 1.4f
+        1 -> if (damageType == DamageType.MAGIC || damageType == DamageType.DARK) 0.3f else 1.4f
+        2 -> if (damageType == DamageType.FIRE || damageType == DamageType.ICE) 0.3f else 1.4f
+        3 -> if (damageType == DamageType.ELECTRIC || damageType == DamageType.POISON) 0.3f else 1.4f
         else -> 1f
     }
 }
@@ -118,7 +195,21 @@ enum class EnemyType(val emoji: String, val color: Int) {
     BAT("\uD83E\uDD87", 0xFF4A148C.toInt()),
     SPIDER("\uD83D\uDD77\uFE0F", 0xFF4E342E.toInt()),
     WISP("\u2728", 0xFF00BCD4.toInt()),
-    GOLEM_SHARD("\uD83E\uDEA8", 0xFF795548.toInt())
+    GOLEM_SHARD("\uD83E\uDEA8", 0xFF795548.toInt()),
+    FAST_SKELETON("\uD83D\uDC80", 0xFFE0E0E0.toInt()),
+    ARMORED_GOLEM("\uD83E\uDEA8", 0xFF6D4C41.toInt()),
+    BERSERKER("\uD83E\uDDBE", 0xFFD32F2F.toInt()),
+    COMMANDER("\uD83D\uDC51", 0xFFFF6F00.toInt()),
+    SHAPESHIFTER("\uD83C\uDF00", 0xFF7C4DFF.toInt())
+}
+
+/** Elite enemy special abilities — randomly assigned to crowned enemies */
+enum class EliteAbility(val label: String, val color: Int) {
+    NONE("", 0),
+    REGEN("Regen", 0xFF66BB6A.toInt()),         // Heals self over time
+    SPEED_AURA("Haste", 0xFFFFD740.toInt()),     // Speeds up nearby enemies
+    SHIELD("Shield", 0xFF42A5F5.toInt()),         // Periodic damage shield
+    THORNS("Thorns", 0xFFFF5252.toInt())          // Damages towers that attack it
 }
 
 /** Boss special ability types */

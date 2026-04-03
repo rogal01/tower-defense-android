@@ -23,4 +23,38 @@
     <string name="statistics">📊 Statistics</string>
     <string name="achievements">🏆 Achievements</string>
     <string name="campaign">🗺️ CAMPAIGN</string>
+    <!-- Main menu -->
+    <string name="continue_game">▶️ CONTINUE</string>
+    <string name="boss_rush">💀 BOSS RUSH</string>
+    <string name="randomizer">🎲 RANDOMIZER</string>
+    <string name="survival_mode">⚔️ SURVIVAL</string>
+    <string name="arena_mode">🏟️ ARENA</string>
+    <string name="ironman_mode">💀 IRONMAN</string>
+    <string name="loadout_mode">🎒 LOADOUT</string>
+    <string name="loadout_title">Choose Your Towers</string>
+    <string name="loadout_max">Select up to 6 towers</string>
+    <string name="daily_challenge">🎯 Daily Challenge</string>
+    <string name="help_mechanics">📖 Help &amp; Mechanics</string>
+    <string name="welcome_commander">Welcome, Commander!</string>
+    <string name="high_score_fmt">⭐ High Score: %1$d  |  Best Wave: %2$d</string>
+    <string name="endless_record_fmt">♾️ Endless Record: Wave %1$d</string>
+    <string name="boss_rush_record_fmt">💀 Boss Rush Record: %1$d bosses</string>
+    <string name="diamonds_fmt">💎 %1$d Diamonds</string>
+    <string name="map_select">🗺️ Select Map</string>
+    <string name="tap_restart">Tap to restart</string>
+    <string name="tap_continue">Tap to continue</string>
+    <!-- Endless popup -->
+    <string name="endless_mode_title">♾️ Endless Mode</string>
+    <string name="difficulty_section">⚔️ Difficulty</string>
+    <string name="map_section">🗺️ Map</string>
+    <!-- In-game -->
+    <string name="victory">⭐ VICTORY! ⭐</string>
+    <string name="score_fmt">Score: %1$d</string>
+    <string name="max_stars">Max stars!</string>
+    <string name="game_over">💀 GAME OVER</string>
+    <string name="boss_rush_over">💀 BOSS RUSH OVER</string>
+    <string name="endless_over">♾️ ENDLESS RUN OVER</string>
+    <string name="new_high_score">⭐ NEW HIGH SCORE! ⭐</string>
+    <string name="new_endless_record">⭐ NEW ENDLESS RECORD! ⭐</string>
+    <string name="new_boss_rush_record">⭐ NEW BOSS RUSH RECORD! ⭐</string>
 </resources>

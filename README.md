@@ -1,8 +1,8 @@
-# 🏰 Tower Defense — Android
+# 🏰 Tower Defense — Android & iOS
 
-A feature-rich tower defense game for Android, built entirely with **Kotlin** and the **Android Canvas API**. No external game engines, no sprites — every visual is procedurally drawn on Canvas with over 1,100 lines of hand-crafted drawing code.
+A feature-rich tower defense game built with **Kotlin Multiplatform (KMP)**, with native rendering on **Android Canvas** and **iOS SpriteKit**. No external game engines, no sprites — every visual is procedurally drawn with over 1,200 lines of hand-crafted drawing code.
 
-> **4,300+ lines** of game logic & rendering · **6 tower types** · **16 enemy types** · **10 unique bosses** · **15 campaign levels** · **37 achievements** · **16 persistent skills** · **3 maps**
+> **6,300+ lines** of shared game logic · **10 tower types** · **3 trap types** · **18 enemy types** · **10 unique bosses** · **8 maps** · **40 campaign levels** · **50 achievements** · **16 persistent skills** · **6 game modes** · **EN/PL localization** · **iOS & Android**
 
 ---
 
@@ -10,15 +10,19 @@ A feature-rich tower defense game for Android, built entirely with **Kotlin** an
 
 - [Gameplay](#gameplay)
 - [Towers](#towers)
+- [Traps](#traps)
 - [Enemies & Bosses](#enemies--bosses)
 - [Powers & Abilities](#powers--abilities)
 - [Game Modes](#game-modes)
+- [Maps](#maps)
 - [Campaign](#campaign)
 - [Wave Modifiers](#wave-modifiers)
 - [Advanced Mechanics](#advanced-mechanics)
 - [Meta-Progression](#meta-progression)
+- [Localization](#localization)
 - [Architecture](#architecture)
 - [Building](#building)
+- [iOS Setup](#ios-setup)
 - [Tech Stack](#tech-stack)
 - [License](#license)
 
@@ -26,14 +30,16 @@ A feature-rich tower defense game for Android, built entirely with **Kotlin** an
 
 ## Gameplay
 
-Defend your base from waves of enemies by placing towers, using special powers, and commanding your player character. Enemies follow winding paths from the top of the screen toward your base, crossing an animated river via bridges.
+Defend your base from waves of enemies by placing towers and traps, using special powers, and commanding your player character. Enemies follow winding paths across 8 unique maps toward your base.
 
 ### Core Loop
 
-- **Player Character** — Tap/drag to move. Auto-attacks nearest enemy in range. Upgradeable damage, speed, HP, and range.
-- **Tower Placement** — Place towers along the map. Each has unique stats, a targeting mode (Close / First / Last / Strong), upgrades, and a special ability.
+- **Player Character** — Tap/drag to move. Auto-attacks nearest enemy in range. Upgradeable ATK, SPD, HP, and base HP.
+- **Tower Placement** — Place 10 tower types on open terrain. Each has unique stats, targeting modes (Close / First / Last / Strong), upgrades up to Lv5, and a special ability.
+- **Trap Placement** — Place traps directly on enemy paths for passive area denial.
 - **Wave System** — Enemies arrive in escalating waves. Every 5th wave spawns a boss with unique abilities. Wave modifiers add variety.
-- **Combo System** — Rapid kills chain into combos for bonus gold multipliers.
+- **Combo System** — Rapid kills chain into combos (up to 50×+) for bonus gold multipliers.
+- **Bounty Board** — 3 randomly-generated objectives per run with gold and diamond rewards.
 - **Powers** — 4 active powers with gold costs and cooldowns.
 - **Dash** — Teleport toward enemies dealing AoE damage along the path. 8-second cooldown.
 
@@ -41,7 +47,7 @@ Defend your base from waves of enemies by placing towers, using special powers, 
 
 ## Towers
 
-6 tower types, each with unique stats, damage types, targeting modes, upgrades, and an activatable special ability.
+10 tower types, each with unique stats, damage types, targeting modes, 5 upgrade levels, and an activatable special ability.
 
 | Tower | Cost | Damage | Range | Fire Rate | Type | Ability |
 |-------|------|--------|-------|-----------|------|---------|
@@ -51,26 +57,57 @@ Defend your base from waves of enemies by placing towers, using special powers, 
 | ☠️ Poison | 80g | 6 | 210 | 1.0/s | Poison | **Plague** — poison spread |
 | ⚡ Tesla | 120g | 20 | 250 | 0.7/s | Electric | **Overcharge** — chain lightning |
 | ❄️ Ice | 70g | 0 | 230 | — | Ice | **Deep Freeze** — freezes enemies |
+| 🔥 Flame | 90g | 12 | 190 | 0.9/s | Fire | **Inferno** — mass burn DoT |
+| 💀 Necro | 110g | 18 | 200 | 0.6/s | Dark | **Soul Harvest** — execute low-HP enemies |
+| 🎯 Ballista | 140g | 50 | 300 | 0.3/s | Physical | **Siege Shot** — 5× damage to strongest |
+| 🌀 Vortex | 100g | 4 | 240 | 1.5/s | Magic | **Singularity** — pulls enemies in + AoE |
 
-All towers can be upgraded to level 5, increasing damage, range, and fire rate. Tap a tower to select it, then upgrade, sell, change targeting, or activate its ability.
+### Damage Types
+
+8 damage types interact with enemy resistances:
+
+| Type | Towers | Notes |
+|------|--------|-------|
+| Physical | Arrow, Ballista | Baseline — most enemies neutral |
+| Magic | Magic, Vortex | Effective against armored |
+| Explosive | Cannon | AoE splash damage |
+| Poison | Poison | Damage-over-time |
+| Electric | Tesla | Chain lightning |
+| Ice | Ice | Slows enemies |
+| Fire | Flame | Burns enemies over time. Demons resist, Shadows vulnerable |
+| Dark | Necro | Execute bonus. Shadows immune, Wisps vulnerable |
 
 ### Tower Synergy
 
-Same-type towers placed near each other boost each other's damage by **+10% per nearby tower** (max 3 stacks = **+30%**). Synergized towers display a colored glow ring.
+Same-type towers placed near each other boost damage by **+10% per nearby tower** (max 3 stacks = **+30%**). Synergized towers display a colored glow ring.
+
+---
+
+## Traps
+
+3 trap types placed directly on enemy paths for passive area denial:
+
+| Trap | Cost | Effect |
+|------|------|--------|
+| 🗡️ Spikes | 30g | Deals damage to enemies walking through |
+| 🟤 Tar Pit | 40g | Slows enemies passing through |
+| 💣 Landmine | 60g | Explodes on contact dealing AoE damage |
+
+Traps are consumed on use and can be stacked on the same path tile.
 
 ---
 
 ## Enemies & Bosses
 
-### 16 Enemy Types
+### 18 Enemy Types
 
-Goblins, Skeletons, Orcs, Demons, Dragons, and specialized boss minions — Shadows, Slimes, Bats, Spiders, Wisps, and Golem Shards. Each type has unique colors, shapes, speed, and HP scaling.
+Goblins, Skeletons, Orcs, Demons, Dragons, Fast Skeletons, Armored Golems, and specialized boss minions — Shadows, Slimes, Bats, Spiders, Wisps, and Golem Shards. Each type has unique speed, HP, resistances, and visual appearance.
 
 ### Elite Enemies
 
 Every 5th non-boss wave (starting from wave 5) spawns one **Elite Enemy** with:
 - 3× HP, 1.5× damage, 2× gold reward
-- A golden crown and glow ring for easy identification
+- A golden crown and glow ring
 
 ### 10 Unique Bosses
 
@@ -104,7 +141,7 @@ Bosses appear every 5th wave with distinct abilities and themed minion squads. N
 
 ### Player Dash
 
-💨 **Dash** — Teleport up to 200 units toward your move target, dealing AoE damage to all enemies along the dash path. 8-second cooldown. Displayed as a teal bar under the player HP bar.
+💨 **Dash** — Teleport up to 200 units toward your move target, dealing AoE damage to all enemies along the dash path. 8-second cooldown.
 
 ---
 
@@ -112,24 +149,35 @@ Bosses appear every 5th wave with distinct abilities and themed minion squads. N
 
 | Mode | Description |
 |------|-------------|
-| **Classic** | Standard waves with scaling difficulty. 3 difficulty levels (Easy / Normal / Hard). |
-| **Endless** | Infinite waves. Separate high wave record. |
+| **Campaign** | 40 hand-crafted levels with progressive mechanics and restrictions. Earn stars based on score. |
+| **Endless** | Infinite waves with scaling difficulty. Choose map and difficulty (Easy / Normal / Hard). Separate high-wave record. |
 | **Boss Rush** | Boss every 3 waves. How many can you defeat? |
-| **Daily Challenge** | Seeded daily run with fixed parameters. |
-| **Campaign** | 15 hand-crafted levels with progressive mechanics and restrictions. |
+| **Daily Challenge** | Seeded daily run with fixed parameters. Same seed for everyone. |
+| **Randomizer** | Everything scrambled — tower costs, power cooldowns, enemy stats, starting gold. |
+| **Continue** | Resume a saved game in progress. |
 
-### Maps
+---
 
-3 procedurally-winding maps with randomized path jitter each run:
-- 🗺️ **Classic** — Standard 3-path layout
-- 🏔️ **Valley** — Mountain terrain variation
-- ➕ **Crossroads** — Intersecting path layout
+## Maps
+
+8 maps with unique path layouts, terrain, and ambient visual effects:
+
+| Map | Paths | Terrain | Special |
+|-----|-------|---------|---------|
+| 🗺️ Classic | 3 winding | Grass, river, bridges | Standard layout |
+| 🏔️ Valley | 2 converging | Mountain terrain | Narrow chokepoints |
+| ➕ Crossroads | 4 intersecting | Plains | Crossing paths |
+| 🏜️ Desert | 2 winding | Sand dunes | Open terrain |
+| ❄️ Snow | 3 branching | Snow, frozen lake | Ice-themed enemies |
+| 🌋 Lava | 2 straight | Volcanic rock | Eruptions damage towers periodically |
+| 🌿 Enchanted | 3 curving | Magical forest | Sparkle effects |
+| 🌋 Volcano | 2 narrow | Active volcano | Periodic fire eruptions |
 
 ---
 
 ## Campaign
 
-15 levels that progressively introduce game mechanics. Each completed level awards diamonds.
+40 levels that progressively introduce game mechanics. Each completed level awards diamonds. Earn ⭐⭐⭐ stars based on your score.
 
 | # | Level | Waves | Twist |
 |---|-------|-------|-------|
@@ -148,12 +196,37 @@ Bosses appear every 5th wave with distinct abilities and themed minion squads. N
 | 13 | 💀 Boss Rush | 9 | Boss every 3 waves |
 | 14 | 🏹 Arrows Only | 10 | Only Arrow towers allowed |
 | 15 | ⭐ Final Stand | 15 | All modifiers cranked up |
+| 16 | 🧱 Barricade Basics | 6 | Arrow + Blockade placement |
+| 17 | 🌩️ Tesla Lab | 7 | Tesla + Ice only |
+| 18 | 🧪 Poison Garden | 8 | Poison + Magic, regen enemies |
+| 19 | 💣 Demolition | 8 | Cannon + Cannon, 1.3× HP |
+| 20 | 🏰 Fortress | 10 | All 6 towers, limited gold |
+| 21 | ⚡ Blitz | 8 | 1.8× speed, 1.2× gold |
+| 22 | 🛡️ Armored Assault | 10 | 1.5× HP, armor regen |
+| 23 | 🐉 Dragon's Den | 8 | Dragon waves, boss every 4 |
+| 24 | 💰 Penny Pincher | 10 | 0.4× gold, 0.8× HP |
+| 25 | ☀️ Daylight Siege | 12 | Day-only, 1.3× HP |
+| 26 | 🌙 Nightfall | 10 | Always night |
+| 27 | 🧛 Undead Rising | 10 | Skeletons + Bats, regen |
+| 28 | 🕸️ Spider Nest | 12 | Spiders only, 2× spawn |
+| 29 | 🏋️ Titan Trial | 10 | All enemies 2× HP |
+| 30 | 🎯 Marksman | 15 | Arrow + Tesla, 1.5× speed |
+| 31 | 🔥 Playing with Fire | 8 | Arrow + Flame towers |
+| 32 | 💀 Dark Arts | 8 | Arrow + Magic + Necro |
+| 33 | 🎯 Siege Warfare | 10 | Ballista + Arrow |
+| 34 | 🌀 Event Horizon | 10 | Vortex + Cannon + Ice |
+| 35 | 🧊 Fire & Ice | 10 | Flame + Ice only |
+| 36 | 💀 Necro Rush | 10 | Necro + Poison + Arrow, 2.5× spawn |
+| 37 | 🌀 Gravity Well | 12 | Vortex + Tesla |
+| 38 | 🎯 Sniper Alley | 12 | Ballista only |
+| 39 | ⚔️ Full Armory | 15 | All 10 tower types |
+| 40 | 💀 Absolute Zero | 25 | Hardest level — 1.8× HP, 0.7× gold |
 
 ---
 
 ## Wave Modifiers
 
-Random modifiers can appear on non-boss waves, adding variety and challenge:
+Random modifiers can appear on non-boss waves:
 
 | Modifier | Effect |
 |----------|--------|
@@ -170,26 +243,30 @@ Random modifiers can appear on non-boss waves, adding variety and challenge:
 ## Advanced Mechanics
 
 ### Critical Hits
-Towers have a **12% chance** to deal **2× damage**. Critical hits display a red **CRIT!** text and burst of red particles.
+Towers have a **12% chance** to deal **2× damage**. Critical hits display a red **CRIT!** text.
 
 ### Gold Interest
-Between waves, you earn **5% interest** on your current gold. A floating text shows the bonus: "+Xg interest!"
+Between waves, you earn **5% interest** on your current gold.
 
 ### Day/Night Cycle
 The sky toggles between day and night every 8 waves:
-- 🌙 **Night** — Dark sky with stars & moon, darkened terrain. Enemies gain **+20% HP**. Towers lose **10% range**. A HUD indicator warns you.
-- ☀️ **Day** — Normal bright sky with sun & clouds. Standard stats.
+- 🌙 **Night** — Dark sky with stars & moon. Enemies gain **+20% HP**. Towers lose **10% range**.
+- ☀️ **Day** — Normal bright sky. Standard stats.
 
-### Tower Synergy
-Place same-type towers near each other for a stacking damage bonus:
-- Each nearby same-type tower within range grants **+10% damage**
-- Maximum 3 stacks (**+30%** total)
-- Synergized towers display a colored glow ring matching their type
+### Kill Streak Border Glow
+Rapid kills create a glowing border effect around the screen that intensifies with your combo.
 
-### Elite Enemies
-Every 5th non-boss wave (starting wave 5) spawns one elite enemy:
-- **3× HP**, **1.5× damage**, **2× gold reward**
-- Visually marked with a **golden crown** and **glow ring**
+### Path Highlighting
+Enemy paths glow when you're placing towers or traps, making it easy to see valid placement locations.
+
+### Ambient Map Animations
+Each map has unique ambient visual effects — flowing water, falling snow, drifting sand, lava bubbles, magical sparkles, and volcanic eruptions.
+
+### Bounty Board
+Each run generates 3 random bounties (e.g. "Kill 20 Goblins", "Reach Wave 10"). Completing bounties mid-run awards gold and diamonds.
+
+### Run History
+A full log of past games with mode, wave reached, score, and date for tracking progress over time.
 
 ---
 
@@ -197,11 +274,11 @@ Every 5th non-boss wave (starting wave 5) spawns one elite enemy:
 
 ### 💎 Diamonds
 
-Earned from boss kills, rare enemy drops, elite enemies, and campaign completion. Diamonds persist across runs and are spent in the Skill Tree.
+Earned from boss kills, elite enemies, bounties, and campaign completion. Diamonds persist across runs and are spent in the Skill Tree.
 
 ### Skill Tree — 16 Skills
 
-**Page 1 — Base Skills:**
+**Page 1 — Base Skills (10):**
 
 | Skill | Effect per Level | Max |
 |-------|-----------------|-----|
@@ -216,7 +293,7 @@ Earned from boss kills, rare enemy drops, elite enemies, and campaign completion
 | ⭐ War Veteran | +3 gold per wave | 5 |
 | 👁️ Eagle Eye | +15 attack range | 4 |
 
-**Page 2 — Prestige Skills** (unlocked after first prestige):
+**Page 2 — Prestige Skills (6, unlocked after first prestige):**
 
 | Skill | Effect per Level | Max |
 |-------|-----------------|-----|
@@ -227,84 +304,133 @@ Earned from boss kills, rare enemy drops, elite enemies, and campaign completion
 | 🍀 Lucky Waves | Better wave modifier chances | 3 |
 | 👑 Midas Touch | +5% gold per prestige | 5 |
 
-### 🏆 Achievements — 37 Total
+### 🏆 Achievements — 50 Total
 
-**Combat & Waves:**
-🗡️ First Blood · 🛡️ Survivor (Wave 5) · ⚔️ Veteran (Wave 10) · 👑 Legend (Wave 20) · 🏆 Immortal (Wave 30) · 🌟 Mythic (Wave 50) · ⚔️ Centurion (Wave 100) · 💨 Speed Demon (Wave 10 at 3× speed)
+**Combat & Waves (8):**
+🗡️ First Blood · 🌊 Survivor (Wave 5) · ⭐ Veteran (Wave 10) · 🏆 Legend (Wave 20) · 💀 Immortal (Wave 30) · 🔥 Mythic (Wave 50) · 💯 Centurion (Wave 100) · ⚡ Speed Demon (Wave 10 at 3×)
 
-**Kills:**
-💀 Slayer (50) · 🔥 Destroyer (200) · 💥 Annihilator (500) · 👻 Genocide (1000)
+**Kills (4):**
+⚔️ Slayer (50) · 💣 Destroyer (200) · ☠️ Annihilator (500) · 💀 Genocide (1000)
 
-**Bosses:**
-☠️ Boss Slayer (first boss) · 🐉 Boss Hunter (5 bosses) · 🐲 Boss Legend (10 bosses)
+**Bosses (4):**
+👹 Boss Slayer (first) · 🐉 Boss Hunter (5) · 👑 Boss Legend (10) · 🗡️ Gauntlet (5 in Boss Rush)
 
-**Combos:**
-🔗 Combo King (10×) · ⛓️ Combo God (20×)
+**Combos (4):**
+🔗 Combo King (10×) · ⛓️ Combo God (20×) · 🔥 Unstoppable (30×) · ⚡ Godlike (50×)
 
-**Building:**
-🏗️ Architect (5 towers) · 🏰 Fortress (10 towers) · 🎯 Arsenal (all types) · ⬆️ Master Builder (Lv5 tower)
+**Building (3):**
+🏗️ Architect (5 towers) · 🏰 Fortress (10 towers) · 🎯 Arsenal (all types)
 
-**Powers & Upgrades:**
-✨ Sorcerer (use a power) · 🌊 Elementalist (all 4 powers) · 🏆 Well Rounded (all upgrades)
+**Powers & Upgrades (3):**
+🧙 Sorcerer (use a power) · 🌈 Elementalist (all 4 powers) · 🌟 Well Rounded (all upgrades) · ⬆️ Master Builder (Lv5 tower)
 
-**Economy:**
-💰 Rich (500g) · 🤑 Millionaire (1000g) · 🏦 Gold Hoarder (2000g) · 💎 Diamond Hoarder (10/run) · 💎 Diamond Mine (50/run)
+**Economy (5):**
+💰 Rich (500g) · 💎 Millionaire (1000g) · 🏦 Gold Hoarder (2000g) · 💎 Diamond Hoarder (10/run) · ⛏️ Diamond Mine (50/run)
 
-**Survival:**
-🛡️ Untouchable (wave without base damage) · ❤️ Last Stand (win wave at 1 HP base) · 🛠️ Mechanic (repair 3×) · ♾️ Endurance (Endless wave 10)
+**Survival (4):**
+🛡️ Untouchable (no base damage) · ❤️‍🔥 Last Stand (1 HP base) · 🔧 Mechanic (repair 3×) · ♾️ Endurance (Endless wave 10)
+
+**Traps (3):**
+🪤 Trapper (first trap) · 💣 Minefield (10 traps) · 💥 Triple Threat (3 kills with one mine)
+
+**Bounties (2):**
+🎯 Bounty Hunter (first bounty) · 👑 Bounty King (all 3 bounties)
+
+**Maps & Modes (3):**
+🌋 Volcanic Victory (Wave 15 on Volcano) · 🐺 Lone Wolf (Wave 5 with no towers) · 🌍 Cartographer (all 8 maps)
+
+**Campaign (5):**
+📜 Campaign stars and completion achievements
 
 ### 📊 Statistics
 
-Lifetime tracking of: total kills, bosses killed, towers placed, gold earned, diamonds earned, highest combo, highest wave, highest score, total runs, powers used, and more.
+Lifetime tracking of: total kills, bosses killed, towers placed, gold earned, diamonds earned, highest combo, highest wave, highest score, total runs, favorite tower, and more.
+
+---
+
+## Localization
+
+Full **English** and **Polish** language support. All UI text, achievements, tutorials, toasts, and menus are localized. Language can be switched in Settings.
 
 ---
 
 ## Architecture
 
+### Kotlin Multiplatform (KMP)
+
+The game logic lives in a **shared KMP module** compiled for both Android and iOS. Platform-specific code (rendering, preferences, audio) is implemented natively on each platform.
+
 ```
+shared/src/
+├── commonMain/kotlin/com/example/myapp/game/
+│   ├── GameEngine.kt           # Core game logic (~3,070 lines)
+│   ├── Enemy.kt                # Enemy data, EnemyType (18), BossType (10)
+│   ├── Tower.kt                # Tower entity, TowerType (10), targeting
+│   ├── Player.kt               # Player movement & attack
+│   ├── Projectile.kt           # Projectile entity
+│   ├── SkillTree.kt            # Persistent skill & diamond system
+│   ├── CampaignLevel.kt        # Campaign level definitions (40 levels)
+│   ├── GamePreferences.kt      # Platform-agnostic preferences interface
+│   ├── GameAudio.kt            # Platform-agnostic audio interface
+│   ├── GamePoint.kt            # 2D point utility
+│   └── GameEngineHolder.kt     # Singleton engine holder
+├── androidMain/
+│   └── AndroidGamePreferences.kt  # SharedPreferences implementation
+└── iosMain/
+    └── IosGamePreferences.kt      # UserDefaults implementation
+
 app/src/main/java/com/example/myapp/
-├── MainActivity.kt            # Game activity — HUD buttons, tower/power/upgrade/dash controls
-├── MainMenuActivity.kt        # Main menu — difficulty, play, settings, skill tree, stats
-├── SettingsActivity.kt         # Audio & display settings
-├── SkillTreeActivity.kt        # Diamond-based persistent skill upgrades
-├── StatsActivity.kt            # Lifetime statistics viewer
-├── AchievementsActivity.kt     # Achievement gallery
-├── CampaignActivity.kt         # Campaign level select
-├── ImmersiveActivity.kt        # Base activity with immersive fullscreen mode
-├── SoundManager.kt             # Centralized audio settings singleton
+├── MainActivity.kt            # Game activity — HUD, tower/power/trap/upgrade controls
+├── MainMenuActivity.kt        # Main menu — modes, settings, skill tree, stats
+├── SettingsActivity.kt        # Audio, display, language settings
+├── SkillTreeActivity.kt       # Diamond-based persistent skill upgrades
+├── StatsActivity.kt           # Lifetime statistics viewer
+├── AchievementsActivity.kt    # Achievement gallery (50 achievements)
+├── CampaignActivity.kt        # Campaign level select with stars
+├── RunHistoryActivity.kt      # Past game run history log
+├── HelpActivity.kt            # In-game help & mechanics reference
+├── TutorialDialog.kt          # First-run tutorial dialog
+├── GameStrings.kt             # EN/PL localization strings
+├── LocaleHelper.kt            # Language selection helper
+├── AndroidGameAudio.kt        # Android audio implementation
+├── SoundManager.kt            # Audio settings singleton
+├── ImmersiveActivity.kt       # Fullscreen base activity
 └── game/
-    ├── GameEngine.kt           # Core game logic (~1840 lines)
-    ├── GameView.kt             # SurfaceView renderer & touch input (~1430 lines)
-    ├── EntityRenderer.kt       # Procedural Canvas drawing (~1100 lines)
-    ├── Enemy.kt                # Enemy data, EnemyType (16), BossType (10) enums
-    ├── Player.kt               # Player movement & attack
-    ├── Tower.kt                # Tower entity, TowerType (6), targeting modes
-    ├── Projectile.kt           # Projectile entity
-    ├── CampaignLevel.kt        # Campaign level definitions (15 levels)
-    └── SkillTree.kt            # Persistent skill & diamond system
+    ├── GameEngine.kt           # Android-specific engine shim
+    ├── GameView.kt             # SurfaceView renderer (~2,100 lines)
+    └── EntityRenderer.kt       # Procedural Canvas drawing (~1,200 lines)
+
+ios/app/
+├── TowerDefenseApp.swift       # iOS app entry point
+├── GameContainerView.swift     # SwiftUI HUD — all towers, traps, powers, upgrades
+├── GameViewModel.swift         # ViewModel bridging shared engine to SwiftUI
+└── GameSpriteView.swift        # SpriteKit rendering — paths, towers, enemies, base
 ```
 
 ### Key Design Decisions
 
-- **Zero external assets** — All visuals are procedurally drawn with Canvas paths, circles, arcs, and geometric shapes. Each of the 16 enemy types, 10 bosses, 6 towers, and the player have unique hand-drawn looks.
-- **SurfaceView game loop** — Dedicated render thread at ~60fps with `synchronized` locks for thread safety.
-- **Waypoint path system** — 3 winding paths with randomized jitter per run. Enemies follow assigned paths with smooth waypoint interpolation.
-- **Animated river** — Flows across the map with sine-wave animation and bridges at path crossings.
-- **SharedPreferences persistence** — High scores, achievements, skill levels, diamonds, campaign progress, statistics, and save games all persist locally.
-- **Immersive mode** — All activities extend `ImmersiveActivity` for edge-to-edge fullscreen.
+- **Kotlin Multiplatform** — Shared game logic compiled for both Android and iOS from a single Kotlin codebase.
+- **Zero external assets** — All visuals are procedurally drawn. Android uses Canvas paths, circles, arcs, and shapes. iOS uses SpriteKit with emoji rendering.
+- **SurfaceView game loop (Android)** — Dedicated render thread at ~60fps with `synchronized` locks for thread safety.
+- **SpriteKit game loop (iOS)** — Native SKScene with layered rendering (terrain, paths, traps, towers, enemies, effects).
+- **Waypoint path system** — Up to 4 winding paths per map with randomized jitter. Enemies follow assigned paths with smooth waypoint interpolation.
+- **SharedPreferences / UserDefaults** — High scores, achievements, skill levels, diamonds, campaign progress, bounties, run history, and settings all persist locally.
+- **Full localization** — All strings routed through `GameStrings.kt` with EN/PL support.
 
 ---
 
 ## Building
 
-### Requirements
+### Android
+
+#### Requirements
 
 - Android Studio (latest stable)
 - JDK 17+
 - Android SDK 35 (compileSdk)
 - Min SDK 26 (Android 8.0)
 
-### Build & Run
+#### Build & Run
 
 ```bash
 # Clone
@@ -332,20 +458,43 @@ No game engine, image loader, or third-party game libraries.
 
 ---
 
+## iOS Setup
+
+The iOS app lives in `ios/` and uses the shared KMP module for game logic.
+
+#### Requirements
+
+- Xcode 15+
+- macOS Sonoma or later
+- CocoaPods or SPM for framework linking
+
+#### Setup
+
+1. Build the shared framework: `./gradlew :shared:linkDebugFrameworkIosArm64`
+2. Open `ios/TowerDefense.xcodeproj` in Xcode
+3. Link the shared framework from `shared/build/bin/iosArm64/debugFramework/`
+4. Build & run on simulator or device
+
+See [ios/IOS-SETUP-GUIDE.md](ios/IOS-SETUP-GUIDE.md) for detailed setup instructions.
+
+---
+
 ## Tech Stack
 
 | | |
 |---|---|
-| **Language** | Kotlin 2.1.0 |
-| **Build** | Gradle 8.13, AGP 8.13.2 |
-| **UI** | Android Canvas 2D, ViewBinding |
-| **Rendering** | Custom SurfaceView @ ~60fps |
-| **Persistence** | SharedPreferences |
-| **Min SDK** | 26 (Android 8.0) |
-| **Target SDK** | 35 |
+| **Language** | Kotlin 2.1.0, Swift 5.9 |
+| **Architecture** | Kotlin Multiplatform (KMP) |
+| **Build** | Gradle 8.13, AGP 8.13.2, Xcode 15 |
+| **Android UI** | Android Canvas 2D, SurfaceView @ ~60fps |
+| **iOS UI** | SwiftUI + SpriteKit |
+| **Persistence** | SharedPreferences (Android), UserDefaults (iOS) |
+| **Localization** | English, Polish |
+| **Min SDK** | Android 26 (8.0), iOS 16 |
+| **Target SDK** | Android 35 |
 
 ---
 
 ## License
 
-MIT
+MIT — see [LICENSE](LICENSE) for details.

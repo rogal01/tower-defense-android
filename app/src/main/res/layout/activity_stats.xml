@@ -196,6 +196,30 @@
                 android:textColor="#00E5FF"
                 android:textSize="16sp"
                 android:layout_marginTop="4dp" />
+
+            <TextView
+                android:id="@+id/stat_playtime"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:textColor="@color/white"
+                android:textSize="16sp"
+                android:layout_marginTop="4dp" />
+
+            <TextView
+                android:id="@+id/stat_averages"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:textColor="#AAAAAA"
+                android:textSize="14sp"
+                android:layout_marginTop="4dp" />
+
+            <TextView
+                android:id="@+id/stat_mastery"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:textColor="#FFD700"
+                android:textSize="14sp"
+                android:layout_marginTop="8dp" />
         </LinearLayout>
 
         <!-- Back button -->
