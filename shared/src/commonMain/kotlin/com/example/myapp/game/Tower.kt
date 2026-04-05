@@ -1,5 +1,7 @@
 package com.example.myapp.game
 
+import kotlin.math.sqrt
+
 enum class DamageType {
     PHYSICAL,   // Arrow, Ballista
     MAGIC,      // Magic, Vortex
@@ -57,16 +59,23 @@ data class Tower(
     fun distanceTo(ex: Float, ey: Float): Float {
         val dx = x - ex
         val dy = y - ey
-        return Math.sqrt((dx * dx + dy * dy).toDouble()).toFloat()
+        return sqrt((dx * dx + dy * dy).toDouble()).toFloat()
     }
 
     fun upgradeCost(): Int = level * 50
 
+    fun isMaxLevel(): Boolean = level >= MAX_LEVEL
+
     fun upgrade() {
+        if (isMaxLevel()) return
         level++
         damage *= 1.4f
         range += 15f
         fireRate *= 1.15f
+    }
+
+    companion object {
+        const val MAX_LEVEL = 10
     }
 
     fun sellValue(): Int = (type.baseCost * 0.6f).toInt() + (level - 1) * 15

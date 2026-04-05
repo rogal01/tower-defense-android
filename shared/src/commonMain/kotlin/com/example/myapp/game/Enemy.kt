@@ -1,5 +1,7 @@
 package com.example.myapp.game
 
+import kotlin.math.sqrt
+
 data class Enemy(
     var x: Float,
     var y: Float,
@@ -25,7 +27,7 @@ data class Enemy(
     fun distanceTo(tx: Float, ty: Float): Float {
         val dx = x - tx
         val dy = y - ty
-        return Math.sqrt((dx * dx + dy * dy).toDouble()).toFloat()
+        return sqrt((dx * dx + dy * dy).toDouble()).toFloat()
     }
 
     fun isAtBase(baseX: Float, baseY: Float): Boolean {
@@ -127,9 +129,9 @@ object EnemyResistances {
             else -> 1f
         }
         EnemyType.WISP -> when (damageType) {
-            DamageType.PHYSICAL -> 0.4f
+            DamageType.PHYSICAL -> 0.6f
             DamageType.ICE -> 1.4f
-            DamageType.ELECTRIC -> 0.5f
+            DamageType.ELECTRIC -> 0.7f
             DamageType.DARK -> 1.5f   // wisps weak to dark
             else -> 1f
         }

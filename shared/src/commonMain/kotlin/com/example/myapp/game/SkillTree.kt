@@ -34,8 +34,11 @@ class SkillTree(private val prefs: GamePreferences) {
         Skill("gold_bonus",     "Treasure Hunter", "+10% gold from kills per level",    "\uD83D\uDC8E",  5, 5, 3),
         Skill("diamond_luck",   "Diamond Magnet",  "+5% diamond drop chance per level", "\uD83C\uDF1F",  3, 8, 6),
         Skill("wave_bonus",     "War Veteran",     "+3 gold per wave bonus",            "\u2B50",        5, 4, 3),
-        Skill("attack_range",   "Eagle Eye",       "+15 starting attack range",         "\uD83D\uDC41\uFE0F", 4, 5, 4)
+        Skill("attack_range",   "Eagle Eye",       "+15 starting attack range",         "\uD83D\uDC41\uFE0F", 4, 5, 4),
+        Skill("cannon_discount", "Cannon Discount", "-6% Cannon cost per level",         "\uD83D\uDCA3", 5, 7, 5)
     )
+    // Returns the cannon cost multiplier (e.g. 0.94 for level 1, 0.88 for level 2, etc.)
+    fun cannonCostMultiplier(): Float = 1f - getLevel("cannon_discount") * 0.06f
 
     /** Page 2 skills — unlocked after prestige 1 */
     val prestigeSkills: List<Skill> = listOf(

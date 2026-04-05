@@ -514,6 +514,7 @@ Każda wieża zadaje określony typ obrażeń. Wrogowie mają odporności i sła
     fun baseUp(cost: Int) = if (isPl) "🏰 Baza wzmocniona! (${cost}g)" else "🏰 Base up! (${cost}g)"
     fun needGold(cost: Int) = if (isPl) "Potrzeba ${cost}g!" else "Need ${cost}g!"
     fun towerUpgraded(level: Int, cost: Int) = if (isPl) "⬆️ Wieża Poz.${level}! (${cost}g)" else "⬆️ Tower Lv${level}! (${cost}g)"
+    val towerMaxLevel get() = if (isPl) "Wieża na max poziomie!" else "Tower at max level!"
     val tapTowerFirst get() = if (isPl) "Najpierw dotknij wieżę!" else "Tap a tower first!"
     fun targetMode(label: String) = if (isPl) "Cel: $label" else "Target: $label"
     fun soldTower(value: Int) = if (isPl) "💸 Sprzedano za ${value}g!" else "💸 Sold for ${value}g!"

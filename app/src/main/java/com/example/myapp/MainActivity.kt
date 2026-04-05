@@ -388,9 +388,13 @@ class MainActivity : ImmersiveActivity() {
         binding.btnUpTower.setOnClickListener {
             val selected = gameView.getSelectedTower()
             if (selected != null) {
-                val cost = selected.upgradeCost()
-                if (engine.upgradeTower(selected)) Toast.makeText(this, S.towerUpgraded(selected.level, cost), Toast.LENGTH_SHORT).show()
-                else Toast.makeText(this, S.needGold(cost), Toast.LENGTH_SHORT).show()
+                if (selected.isMaxLevel()) {
+                    Toast.makeText(this, S.towerMaxLevel, Toast.LENGTH_SHORT).show()
+                } else {
+                    val cost = selected.upgradeCost()
+                    if (engine.upgradeTower(selected)) Toast.makeText(this, S.towerUpgraded(selected.level, cost), Toast.LENGTH_SHORT).show()
+                    else Toast.makeText(this, S.needGold(cost), Toast.LENGTH_SHORT).show()
+                }
             } else Toast.makeText(this, S.tapTowerFirst, Toast.LENGTH_SHORT).show()
         }
         binding.btnTarget.setOnClickListener {
@@ -407,8 +411,10 @@ class MainActivity : ImmersiveActivity() {
             // Update ability button with tower's ability name
             if (tower != null) {
                 binding.btnAbility.text = "\u2728 ${tower.type.abilityName}"
+                binding.btnUpTower.text = if (tower.isMaxLevel()) "\u2B06\uFE0F MAX" else "\u2B06\uFE0F ${tower.upgradeCost()}g"
             } else {
                 binding.btnAbility.text = "\u2728 Ability"
+                binding.btnUpTower.text = "\u2B06\uFE0F Up"
             }
         }
 

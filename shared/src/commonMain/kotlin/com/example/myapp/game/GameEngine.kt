@@ -1,5 +1,15 @@
 package com.example.myapp.game
 
+import kotlin.math.sqrt
+import kotlin.math.cos
+import kotlin.math.sin
+import kotlin.math.abs
+import kotlin.math.PI
+import kotlin.math.max
+import kotlin.math.min
+import kotlin.math.pow
+import kotlin.random.Random
+
 // Floating text for damage numbers, gold, combos
 data class FloatingText(
     var x: Float, var y: Float,
@@ -90,7 +100,7 @@ data class Trap(
 ) {
     fun distanceTo(ex: Float, ey: Float): Float {
         val dx = x - ex; val dy = y - ey
-        return Math.sqrt((dx * dx + dy * dy).toDouble()).toFloat()
+        return sqrt((dx * dx + dy * dy).toDouble()).toFloat()
     }
     fun isSpent(): Boolean = uses <= 0
 }
@@ -105,7 +115,7 @@ data class SupplyDrop(
 ) {
     fun distanceTo(tx: Float, ty: Float): Float {
         val dx = x - tx; val dy = y - ty
-        return Math.sqrt((dx * dx + dy * dy).toDouble()).toFloat()
+        return sqrt((dx * dx + dy * dy).toDouble()).toFloat()
     }
     fun isExpired(): Boolean = lifetime <= 0f
 }
@@ -152,7 +162,7 @@ data class Blockade(
     fun distanceTo(ex: Float, ey: Float): Float {
         val dx = x - ex
         val dy = y - ey
-        return Math.sqrt((dx * dx + dy * dy).toDouble()).toFloat()
+        return sqrt((dx * dx + dy * dy).toDouble()).toFloat()
     }
     fun isDead(): Boolean = hp <= 0
 }
@@ -249,7 +259,7 @@ class GameEngine(val prefs: GamePreferences, val audio: GameAudio = SilentAudio)
     // Boss spawn flash
     var bossFlashTimer: Float = 0f
     // Haptic feedback event: 0=none, 1=light, 2=heavy
-    @Volatile var hapticPending: Int = 0
+    var hapticPending: Int = 0
 
     // High score
     var highScore: Int = 0
@@ -608,7 +618,7 @@ class GameEngine(val prefs: GamePreferences, val audio: GameAudio = SilentAudio)
         spawnPoints.clear()
         val bx = baseX
         val by = baseY
-        val rng = java.util.Random()
+        val rng = Random
 
         when (mapType) {
             MapType.CLASSIC -> generateRandomizedClassicPaths(w, h, bx, by, rng)
@@ -631,10 +641,10 @@ class GameEngine(val prefs: GamePreferences, val audio: GameAudio = SilentAudio)
     fun isPointOnRiver(x: Float, y: Float): Boolean = false
 
     /** Helper: jitter a base value by +/- range */
-    private fun jitter(rng: java.util.Random, base: Float, range: Float): Float =
+    private fun jitter(rng: Random, base: Float, range: Float): Float =
         base + (rng.nextFloat() * 2f - 1f) * range
 
-    private fun generateRandomizedClassicPaths(w: Float, h: Float, bx: Float, by: Float, rng: java.util.Random) {
+    private fun generateRandomizedClassicPaths(w: Float, h: Float, bx: Float, by: Float, rng: Random) {
         val j = 0.04f // jitter factor relative to screen
         // Left path
         paths.add(GamePath(listOf(
@@ -670,7 +680,7 @@ class GameEngine(val prefs: GamePreferences, val audio: GameAudio = SilentAudio)
         )))
     }
 
-    private fun generateRandomizedValleyPaths(w: Float, h: Float, bx: Float, by: Float, rng: java.util.Random) {
+    private fun generateRandomizedValleyPaths(w: Float, h: Float, bx: Float, by: Float, rng: Random) {
         val j = 0.05f
         paths.add(GamePath(listOf(
             GamePoint(jitter(rng, w * 0.50f, w * j), -40f),
@@ -693,7 +703,7 @@ class GameEngine(val prefs: GamePreferences, val audio: GameAudio = SilentAudio)
         )))
     }
 
-    private fun generateRandomizedCrossroadsPaths(w: Float, h: Float, bx: Float, by: Float, rng: java.util.Random) {
+    private fun generateRandomizedCrossroadsPaths(w: Float, h: Float, bx: Float, by: Float, rng: Random) {
         val j = 0.03f
         val cx = jitter(rng, w * 0.5f, w * 0.04f)
         val cy = jitter(rng, h * 0.45f, h * 0.03f)
@@ -727,7 +737,7 @@ class GameEngine(val prefs: GamePreferences, val audio: GameAudio = SilentAudio)
         )))
     }
 
-    private fun generateRandomizedDesertPaths(w: Float, h: Float, bx: Float, by: Float, rng: java.util.Random) {
+    private fun generateRandomizedDesertPaths(w: Float, h: Float, bx: Float, by: Float, rng: Random) {
         val j = 0.04f
         // Two wide sweeping paths (desert canyon feel)
         paths.add(GamePath(listOf(
@@ -750,7 +760,7 @@ class GameEngine(val prefs: GamePreferences, val audio: GameAudio = SilentAudio)
         )))
     }
 
-    private fun generateRandomizedSnowPaths(w: Float, h: Float, bx: Float, by: Float, rng: java.util.Random) {
+    private fun generateRandomizedSnowPaths(w: Float, h: Float, bx: Float, by: Float, rng: Random) {
         val j = 0.035f
         // Three narrow winding paths (icy mountain passes)
         paths.add(GamePath(listOf(
@@ -781,7 +791,7 @@ class GameEngine(val prefs: GamePreferences, val audio: GameAudio = SilentAudio)
         )))
     }
 
-    private fun generateRandomizedLavaPaths(w: Float, h: Float, bx: Float, by: Float, rng: java.util.Random) {
+    private fun generateRandomizedLavaPaths(w: Float, h: Float, bx: Float, by: Float, rng: Random) {
         val j = 0.04f
         // Two dangerous paths winding through lava fields
         paths.add(GamePath(listOf(
@@ -815,7 +825,7 @@ class GameEngine(val prefs: GamePreferences, val audio: GameAudio = SilentAudio)
         )))
     }
 
-    private fun generateRandomizedEnchantedPaths(w: Float, h: Float, bx: Float, by: Float, rng: java.util.Random) {
+    private fun generateRandomizedEnchantedPaths(w: Float, h: Float, bx: Float, by: Float, rng: Random) {
         val j = 0.045f
         // Four spiraling fairy paths converging on base
         paths.add(GamePath(listOf(
@@ -847,7 +857,7 @@ class GameEngine(val prefs: GamePreferences, val audio: GameAudio = SilentAudio)
         )))
     }
 
-    private fun generateRandomizedVolcanoPaths(w: Float, h: Float, bx: Float, by: Float, rng: java.util.Random) {
+    private fun generateRandomizedVolcanoPaths(w: Float, h: Float, bx: Float, by: Float, rng: Random) {
         val j = 0.04f
         volcanoCenterX = w * 0.50f
         volcanoCenterY = h * 0.40f
@@ -883,10 +893,8 @@ class GameEngine(val prefs: GamePreferences, val audio: GameAudio = SilentAudio)
     fun setupDailyChallenge() {
         isDailyChallenge = true
         // Seed based on current day
-        val cal = java.util.Calendar.getInstance()
-        dailyChallengeSeed = (cal.get(java.util.Calendar.YEAR) * 10000L +
-                (cal.get(java.util.Calendar.MONTH) + 1) * 100L + cal.get(java.util.Calendar.DAY_OF_MONTH))
-        val rng = java.util.Random(dailyChallengeSeed)
+        dailyChallengeSeed = getDailySeed()
+        val rng = Random(dailyChallengeSeed.toInt())
         val allMods = WaveModifier.entries.filter { it != WaveModifier.NONE }
         val modCount = 3 + rng.nextInt(3) // 3-5 modifiers
         dailyChallengeModifiers = List(modCount) { allMods[rng.nextInt(allMods.size)] }
@@ -905,8 +913,8 @@ class GameEngine(val prefs: GamePreferences, val audio: GameAudio = SilentAudio)
     /** Set up randomizer mode — scramble tower costs, power cooldowns, multipliers, etc. */
     fun setupRandomizer() {
         isRandomizerMode = true
-        randomizerSeed = System.currentTimeMillis()
-        val rng = java.util.Random(randomizerSeed)
+        randomizerSeed = currentTimeMillis()
+        val rng = Random(randomizerSeed.toInt())
 
         // Randomize starting gold: 20–150
         randomizerStartGold = 20 + rng.nextInt(131)
@@ -945,9 +953,10 @@ class GameEngine(val prefs: GamePreferences, val audio: GameAudio = SilentAudio)
         mapType = MapType.entries[rng.nextInt(MapType.entries.size)]
     }
 
-    /** Get tower cost (respects randomizer overrides) */
+    /** Get tower cost (respects randomizer overrides and cannon discount) */
     fun getTowerCost(type: TowerType): Int {
-        return if (isRandomizerMode) randomizerTowerCosts[type] ?: type.baseCost else type.baseCost
+        val base = if (isRandomizerMode) randomizerTowerCosts[type] ?: type.baseCost else type.baseCost
+        return if (type == TowerType.CANNON) (base * skillTree.cannonCostMultiplier()).toInt().coerceAtLeast(1) else base
     }
 
     /** Get power cooldown (respects randomizer overrides and endless CDR buff) */
@@ -963,7 +972,7 @@ class GameEngine(val prefs: GamePreferences, val audio: GameAudio = SilentAudio)
             dailyChallengeModifiers[nextWave % dailyChallengeModifiers.size]
         } else if (nextWave >= 3 && !isDailyChallenge) {
             val mods = WaveModifier.entries.filter { it != WaveModifier.NONE }
-            if (Math.random() < 0.4) mods.random() else WaveModifier.NONE
+            if (Random.nextDouble() < 0.4) mods.random() else WaveModifier.NONE
         } else WaveModifier.NONE
 
         if (nextWave % bossInterval == 0) {
@@ -977,20 +986,20 @@ class GameEngine(val prefs: GamePreferences, val audio: GameAudio = SilentAudio)
             if (previewMod == WaveModifier.SWARM) count *= 2
             repeat(count) {
                 val type = when {
-                    nextWave >= 18 && Math.random() < 0.06 -> EnemyType.SHAPESHIFTER
-                    nextWave >= 15 && Math.random() < 0.07 -> EnemyType.COMMANDER
-                    nextWave >= 12 && Math.random() < 0.08 -> EnemyType.BERSERKER
-                    nextWave >= 10 && Math.random() < 0.08 -> EnemyType.WISP
-                    nextWave >= 9 && Math.random() < 0.08 -> EnemyType.SHADOW
-                    nextWave >= 8 && Math.random() < 0.12 -> EnemyType.ARMORED_GOLEM
-                    nextWave >= 7 && Math.random() < 0.15 -> EnemyType.DRAGON
-                    nextWave >= 5 && Math.random() < 0.18 -> EnemyType.DEMON
-                    nextWave >= 4 && Math.random() < 0.18 -> EnemyType.FAST_SKELETON
-                    nextWave >= 3 && Math.random() < 0.25 -> EnemyType.ORC
-                    nextWave >= 2 && Math.random() < 0.35 -> EnemyType.SKELETON
-                    nextWave >= 1 && Math.random() < 0.20 -> EnemyType.BAT
-                    nextWave >= 1 && Math.random() < 0.15 -> EnemyType.SLIME
-                    nextWave >= 2 && Math.random() < 0.12 -> EnemyType.SPIDER
+                    nextWave >= 18 && Random.nextDouble() < 0.06 -> EnemyType.SHAPESHIFTER
+                    nextWave >= 15 && Random.nextDouble() < 0.07 -> EnemyType.COMMANDER
+                    nextWave >= 12 && Random.nextDouble() < 0.08 -> EnemyType.BERSERKER
+                    nextWave >= 10 && Random.nextDouble() < 0.08 -> EnemyType.WISP
+                    nextWave >= 9 && Random.nextDouble() < 0.08 -> EnemyType.SHADOW
+                    nextWave >= 8 && Random.nextDouble() < 0.12 -> EnemyType.ARMORED_GOLEM
+                    nextWave >= 7 && Random.nextDouble() < 0.15 -> EnemyType.DRAGON
+                    nextWave >= 5 && Random.nextDouble() < 0.18 -> EnemyType.DEMON
+                    nextWave >= 4 && Random.nextDouble() < 0.18 -> EnemyType.FAST_SKELETON
+                    nextWave >= 3 && Random.nextDouble() < 0.25 -> EnemyType.ORC
+                    nextWave >= 2 && Random.nextDouble() < 0.35 -> EnemyType.SKELETON
+                    nextWave >= 1 && Random.nextDouble() < 0.20 -> EnemyType.BAT
+                    nextWave >= 1 && Random.nextDouble() < 0.15 -> EnemyType.SLIME
+                    nextWave >= 2 && Random.nextDouble() < 0.12 -> EnemyType.SPIDER
                     else -> EnemyType.GOBLIN
                 }
                 enemyCounts[type] = (enemyCounts[type] ?: 0) + 1
@@ -999,7 +1008,7 @@ class GameEngine(val prefs: GamePreferences, val audio: GameAudio = SilentAudio)
         }
     }
 
-    fun update(dt: Float) { synchronized(lock) {
+    fun update(dt: Float) { /* synchronized */ run {
         if (gameOver || campaignVictory || isPaused) return
         playTimeSeconds += dt
 
@@ -1022,11 +1031,11 @@ class GameEngine(val prefs: GamePreferences, val audio: GameAudio = SilentAudio)
         if (waveInProgress) {
             supplyDropTimer -= dt
             if (supplyDropTimer <= 0f) {
-                supplyDropTimer = 12f + (Math.random() * 8).toFloat() // every 12-20s
-                if (Math.random() < 0.4) { // 40% chance each interval
-                    val dropX = 60f + (Math.random() * (screenW - 120f)).toFloat()
-                    val dropY = 80f + (Math.random() * (screenH * 0.6f)).toFloat()
-                    val amount = (10 + wave * 2 + (Math.random() * wave * 3).toInt()).coerceAtMost(100)
+                supplyDropTimer = 12f + (Random.nextDouble() * 8).toFloat() // every 12-20s
+                if (Random.nextDouble() < 0.4) { // 40% chance each interval
+                    val dropX = 60f + (Random.nextDouble() * (screenW - 120f)).toFloat()
+                    val dropY = 80f + (Random.nextDouble() * (screenH * 0.6f)).toFloat()
+                    val amount = (10 + wave * 2 + (Random.nextDouble() * wave * 3).toInt()).coerceAtMost(100)
                     supplyDrops.add(SupplyDrop(dropX, dropY, amount))
                 }
             }
@@ -1123,7 +1132,7 @@ class GameEngine(val prefs: GamePreferences, val audio: GameAudio = SilentAudio)
         }
 
         if (waveInProgress && enemiesRemaining > 0) {
-            if (enemies.size < 10 && Math.random() < dt * 2.5) {
+            if (enemies.size < 10 && Random.nextDouble() < dt * 2.5) {
                 spawnEnemy()
                 enemiesRemaining--
             }
@@ -1211,10 +1220,10 @@ class GameEngine(val prefs: GamePreferences, val audio: GameAudio = SilentAudio)
                 enemy.burnTimer -= dt
                 enemy.hp -= enemy.burnDps * dt
                 // Fire particles while burning
-                if (Math.random() < 0.3) {
-                    particles.add(Particle(enemy.x + (Math.random().toFloat() - 0.5f) * enemy.size,
-                        enemy.y + (Math.random().toFloat() - 0.5f) * enemy.size,
-                        (Math.random().toFloat() - 0.5f) * 30f, -40f - Math.random().toFloat() * 30f,
+                if (Random.nextDouble() < 0.3) {
+                    particles.add(Particle(enemy.x + (Random.nextDouble().toFloat() - 0.5f) * enemy.size,
+                        enemy.y + (Random.nextDouble().toFloat() - 0.5f) * enemy.size,
+                        (Random.nextDouble().toFloat() - 0.5f) * 30f, -40f - Random.nextDouble().toFloat() * 30f,
                         0.4f, 0xFFFF5722.toInt(), 3f))
                 }
             }
@@ -1285,10 +1294,10 @@ class GameEngine(val prefs: GamePreferences, val audio: GameAudio = SilentAudio)
                 if (nearestBlockade.isDead()) {
                     // Blockade destroyed effect
                     repeat(10) {
-                        val angle = Math.random() * Math.PI * 2
-                        val sp = 80f + (Math.random() * 60f).toFloat()
+                        val angle = Random.nextDouble() * PI * 2
+                        val sp = 80f + (Random.nextDouble() * 60f).toFloat()
                         particles.add(Particle(nearestBlockade.x, nearestBlockade.y,
-                            (Math.cos(angle) * sp).toFloat(), (Math.sin(angle) * sp).toFloat(),
+                            (cos(angle) * sp).toFloat(), (sin(angle) * sp).toFloat(),
                             0.6f, 0xFF8D6E63.toInt(), 5f))
                     }
                     floatingTexts.add(FloatingText(nearestBlockade.x, nearestBlockade.y - 20f, "DESTROYED!", 0xFFFF5252.toInt(), 1f, 22f))
@@ -1300,7 +1309,7 @@ class GameEngine(val prefs: GamePreferences, val audio: GameAudio = SilentAudio)
             if (target != null) {
                 val dx = target.x - enemy.x
                 val dy = target.y - enemy.y
-                val dist = Math.sqrt((dx * dx + dy * dy).toDouble()).toFloat()
+                val dist = sqrt((dx * dx + dy * dy).toDouble()).toFloat()
                 if (dist > enemy.size * 0.5f) {
                     enemy.x += (dx / dist) * enemy.speed * speedMult * chargeBoost * roarBoost * iceSlow * berserkerBoost * dt
                     enemy.y += (dy / dist) * enemy.speed * speedMult * chargeBoost * roarBoost * iceSlow * berserkerBoost * dt
@@ -1311,7 +1320,7 @@ class GameEngine(val prefs: GamePreferences, val audio: GameAudio = SilentAudio)
                 // Past last waypoint or no path — head to base
                 val dx = baseX - enemy.x
                 val dy = baseY - enemy.y
-                val dist = Math.sqrt((dx * dx + dy * dy).toDouble()).toFloat()
+                val dist = sqrt((dx * dx + dy * dy).toDouble()).toFloat()
                 if (dist > enemy.size) {
                     enemy.x += (dx / dist) * enemy.speed * speedMult * chargeBoost * roarBoost * iceSlow * berserkerBoost * dt
                     enemy.y += (dy / dist) * enemy.speed * speedMult * chargeBoost * roarBoost * iceSlow * berserkerBoost * dt
@@ -1387,20 +1396,20 @@ class GameEngine(val prefs: GamePreferences, val audio: GameAudio = SilentAudio)
 
             // Death burst — colored sparks outward
             repeat(12) {
-                val angle = Math.random() * Math.PI * 2
-                val speed = 120f + (Math.random() * 100f).toFloat()
+                val angle = Random.nextDouble() * PI * 2
+                val speed = 120f + (Random.nextDouble() * 100f).toFloat()
                 particles.add(Particle(
                     enemy.x, enemy.y,
-                    (Math.cos(angle) * speed).toFloat(), (Math.sin(angle) * speed).toFloat(),
+                    (cos(angle) * speed).toFloat(), (sin(angle) * speed).toFloat(),
                     0.6f, enemy.type.color, 5f
                 ))
             }
             // Debris (smaller, grayish)
             repeat(6) {
-                val debrisAngle = Math.random() * Math.PI * 2
+                val debrisAngle = Random.nextDouble() * PI * 2
                 particles.add(Particle(
                     enemy.x, enemy.y,
-                    (Math.cos(debrisAngle) * 70).toFloat(), (Math.sin(debrisAngle) * 70 - 30).toFloat(),
+                    (cos(debrisAngle) * 70).toFloat(), (sin(debrisAngle) * 70 - 30).toFloat(),
                     0.8f, 0xFFBDBDBD.toInt(), 3f
                 ))
             }
@@ -1418,11 +1427,11 @@ class GameEngine(val prefs: GamePreferences, val audio: GameAudio = SilentAudio)
             ))
             // Rising smoke wisps
             repeat(4) {
-                val ox = (Math.random().toFloat() - 0.5f) * enemy.size
+                val ox = (Random.nextDouble().toFloat() - 0.5f) * enemy.size
                 particles.add(Particle(
                     enemy.x + ox, enemy.y,
-                    (Math.random().toFloat() - 0.5f) * 20f, -(40f + Math.random().toFloat() * 60f),
-                    1.0f, 0x44666666, 4f + Math.random().toFloat() * 3f
+                    (Random.nextDouble().toFloat() - 0.5f) * 20f, -(40f + Random.nextDouble().toFloat() * 60f),
+                    1.0f, 0x44666666, 4f + Random.nextDouble().toFloat() * 3f
                 ))
             }
 
@@ -1431,44 +1440,44 @@ class GameEngine(val prefs: GamePreferences, val audio: GameAudio = SilentAudio)
                 EnemyType.SKELETON, EnemyType.FAST_SKELETON -> {
                     // Bone fragments scatter
                     repeat(8) {
-                        val angle = Math.random() * Math.PI * 2
-                        val sp = 80f + (Math.random() * 80f).toFloat()
+                        val angle = Random.nextDouble() * PI * 2
+                        val sp = 80f + (Random.nextDouble() * 80f).toFloat()
                         particles.add(Particle(enemy.x, enemy.y,
-                            (Math.cos(angle) * sp).toFloat(), (Math.sin(angle) * sp - 40f).toFloat(),
+                            (cos(angle) * sp).toFloat(), (sin(angle) * sp - 40f).toFloat(),
                             0.9f, 0xFFF5F5DC.toInt(), 3f))
                     }
                 }
                 EnemyType.SLIME -> {
                     // Green splat expanding outward
                     repeat(14) {
-                        val angle = Math.random() * Math.PI * 2
-                        val sp = 30f + (Math.random() * 60f).toFloat()
+                        val angle = Random.nextDouble() * PI * 2
+                        val sp = 30f + (Random.nextDouble() * 60f).toFloat()
                         particles.add(Particle(enemy.x, enemy.y,
-                            (Math.cos(angle) * sp).toFloat(), (Math.sin(angle) * sp).toFloat(),
-                            1.2f, 0xFF00C853.toInt(), 6f + Math.random().toFloat() * 4f))
+                            (cos(angle) * sp).toFloat(), (sin(angle) * sp).toFloat(),
+                            1.2f, 0xFF00C853.toInt(), 6f + Random.nextDouble().toFloat() * 4f))
                     }
                 }
                 EnemyType.BAT -> {
                     // Feathers floating down
                     repeat(6) {
-                        val ox = (Math.random().toFloat() - 0.5f) * 40f
+                        val ox = (Random.nextDouble().toFloat() - 0.5f) * 40f
                         particles.add(Particle(enemy.x + ox, enemy.y,
-                            (Math.random().toFloat() - 0.5f) * 30f, 20f + Math.random().toFloat() * 20f,
+                            (Random.nextDouble().toFloat() - 0.5f) * 30f, 20f + Random.nextDouble().toFloat() * 20f,
                             1.5f, 0xFF4A148C.toInt(), 3f))
                     }
                 }
                 EnemyType.DEMON -> {
                     // Fire eruption
                     repeat(10) {
-                        val angle = Math.random() * Math.PI * 2
-                        val sp = 60f + (Math.random() * 100f).toFloat()
+                        val angle = Random.nextDouble() * PI * 2
+                        val sp = 60f + (Random.nextDouble() * 100f).toFloat()
                         particles.add(Particle(enemy.x, enemy.y,
-                            (Math.cos(angle) * sp).toFloat(), (Math.sin(angle) * sp - 50f).toFloat(),
+                            (cos(angle) * sp).toFloat(), (sin(angle) * sp - 50f).toFloat(),
                             0.7f, 0xFFFF5722.toInt(), 5f))
                     }
                     repeat(5) {
-                        particles.add(Particle(enemy.x + (Math.random().toFloat() - 0.5f) * 20f, enemy.y,
-                            0f, -(80f + Math.random().toFloat() * 40f),
+                        particles.add(Particle(enemy.x + (Random.nextDouble().toFloat() - 0.5f) * 20f, enemy.y,
+                            0f, -(80f + Random.nextDouble().toFloat() * 40f),
                             0.6f, 0xFFFFAB00.toInt(), 4f))
                     }
                 }
@@ -1476,71 +1485,71 @@ class GameEngine(val prefs: GamePreferences, val audio: GameAudio = SilentAudio)
                     // Fiery explosion with screen shake
                     shakeTimer = 0.2f; shakeIntensity = 8f
                     repeat(16) {
-                        val angle = Math.random() * Math.PI * 2
-                        val sp = 100f + (Math.random() * 120f).toFloat()
+                        val angle = Random.nextDouble() * PI * 2
+                        val sp = 100f + (Random.nextDouble() * 120f).toFloat()
                         particles.add(Particle(enemy.x, enemy.y,
-                            (Math.cos(angle) * sp).toFloat(), (Math.sin(angle) * sp).toFloat(),
-                            0.8f, if (Math.random() < 0.5) 0xFFFF9800.toInt() else 0xFFFF5722.toInt(), 7f))
+                            (cos(angle) * sp).toFloat(), (sin(angle) * sp).toFloat(),
+                            0.8f, if (Random.nextDouble() < 0.5) 0xFFFF9800.toInt() else 0xFFFF5722.toInt(), 7f))
                     }
                 }
                 EnemyType.ARMORED_GOLEM -> {
                     // Stone chunks crumbling
                     repeat(10) {
-                        val angle = Math.random() * Math.PI * 2
-                        val sp = 50f + (Math.random() * 80f).toFloat()
+                        val angle = Random.nextDouble() * PI * 2
+                        val sp = 50f + (Random.nextDouble() * 80f).toFloat()
                         particles.add(Particle(enemy.x, enemy.y,
-                            (Math.cos(angle) * sp).toFloat(), (Math.sin(angle) * sp + 30f).toFloat(),
-                            1.0f, 0xFF795548.toInt(), 5f + Math.random().toFloat() * 3f))
+                            (cos(angle) * sp).toFloat(), (sin(angle) * sp + 30f).toFloat(),
+                            1.0f, 0xFF795548.toInt(), 5f + Random.nextDouble().toFloat() * 3f))
                     }
                     shakeTimer = 0.15f; shakeIntensity = 5f
                 }
                 EnemyType.SPIDER -> {
                     // Webs scatter
                     repeat(6) {
-                        val angle = Math.random() * Math.PI * 2
-                        val sp = 40f + (Math.random() * 50f).toFloat()
+                        val angle = Random.nextDouble() * PI * 2
+                        val sp = 40f + (Random.nextDouble() * 50f).toFloat()
                         particles.add(Particle(enemy.x, enemy.y,
-                            (Math.cos(angle) * sp).toFloat(), (Math.sin(angle) * sp).toFloat(),
+                            (cos(angle) * sp).toFloat(), (sin(angle) * sp).toFloat(),
                             1.0f, 0x99EEEEEE.toInt(), 2f))
                     }
                 }
                 EnemyType.ORC -> {
                     // Blood-green burst
                     repeat(8) {
-                        val angle = Math.random() * Math.PI * 2
-                        val sp = 70f + (Math.random() * 80f).toFloat()
+                        val angle = Random.nextDouble() * PI * 2
+                        val sp = 70f + (Random.nextDouble() * 80f).toFloat()
                         particles.add(Particle(enemy.x, enemy.y,
-                            (Math.cos(angle) * sp).toFloat(), (Math.sin(angle) * sp).toFloat(),
+                            (cos(angle) * sp).toFloat(), (sin(angle) * sp).toFloat(),
                             0.7f, 0xFF558B2F.toInt(), 4f))
                     }
                 }
                 EnemyType.WISP -> {
                     // Ethereal sparkle dissipation
                     repeat(12) {
-                        val angle = Math.random() * Math.PI * 2
-                        val sp = 30f + (Math.random() * 60f).toFloat()
+                        val angle = Random.nextDouble() * PI * 2
+                        val sp = 30f + (Random.nextDouble() * 60f).toFloat()
                         particles.add(Particle(enemy.x, enemy.y,
-                            (Math.cos(angle) * sp).toFloat(), (Math.sin(angle) * sp - 40f).toFloat(),
-                            0.8f, 0xFF00BCD4.toInt(), 3f + Math.random().toFloat() * 2f))
+                            (cos(angle) * sp).toFloat(), (sin(angle) * sp - 40f).toFloat(),
+                            0.8f, 0xFF00BCD4.toInt(), 3f + Random.nextDouble().toFloat() * 2f))
                     }
                 }
                 EnemyType.SHADOW -> {
                     // Dark smoke dissipation
                     repeat(10) {
-                        val angle = Math.random() * Math.PI * 2
-                        val sp = 50f + (Math.random() * 60f).toFloat()
+                        val angle = Random.nextDouble() * PI * 2
+                        val sp = 50f + (Random.nextDouble() * 60f).toFloat()
                         particles.add(Particle(enemy.x, enemy.y,
-                            (Math.cos(angle) * sp).toFloat(), (Math.sin(angle) * sp).toFloat(),
-                            1.0f, 0xFF37474F.toInt(), 5f + Math.random().toFloat() * 3f))
+                            (cos(angle) * sp).toFloat(), (sin(angle) * sp).toFloat(),
+                            1.0f, 0xFF37474F.toInt(), 5f + Random.nextDouble().toFloat() * 3f))
                     }
                 }
                 EnemyType.FAST_SKELETON -> {
                     // Quick bone scatter (lighter version of skeleton)
                     repeat(4) {
-                        val angle = Math.random() * Math.PI * 2
-                        val sp = 80f + (Math.random() * 60f).toFloat()
+                        val angle = Random.nextDouble() * PI * 2
+                        val sp = 80f + (Random.nextDouble() * 60f).toFloat()
                         particles.add(Particle(enemy.x, enemy.y,
-                            (Math.cos(angle) * sp).toFloat(), (Math.sin(angle) * sp + 20f).toFloat(),
+                            (cos(angle) * sp).toFloat(), (sin(angle) * sp + 20f).toFloat(),
                             0.6f, 0xFFE0E0E0.toInt(), 4f))
                     }
                 }
@@ -1551,9 +1560,9 @@ class GameEngine(val prefs: GamePreferences, val audio: GameAudio = SilentAudio)
                 shakeTimer = 0.4f; shakeIntensity = 15f
                 val bossColor = enemy.bossType?.color ?: 0xFFFFD700.toInt()
                 repeat(20) {
-                    val angle = Math.random() * Math.PI * 2
+                    val angle = Random.nextDouble() * PI * 2
                     particles.add(Particle(enemy.x, enemy.y,
-                        (Math.cos(angle) * 250).toFloat(), (Math.sin(angle) * 250).toFloat(),
+                        (cos(angle) * 250).toFloat(), (sin(angle) * 250).toFloat(),
                         0.8f, bossColor, 8f))
                 }
                 checkAchievement("boss_kill")
@@ -1573,7 +1582,7 @@ class GameEngine(val prefs: GamePreferences, val audio: GameAudio = SilentAudio)
             } else {
                 // Regular enemies have a small diamond drop chance
                 val dropChance = 0.03f + skillTree.diamondDropBonus()
-                if (Math.random() < dropChance) {
+                if (Random.nextDouble() < dropChance) {
                     skillTree.addDiamonds(1)
                     diamondsEarnedThisRun += 1
                     audio.play(SfxType.DIAMOND_DROP)
@@ -1605,8 +1614,8 @@ class GameEngine(val prefs: GamePreferences, val audio: GameAudio = SilentAudio)
                 repeat(2) {
                     val miniHp = dead.maxHp * 0.3f
                     val mini = Enemy(
-                        x = dead.x + ((Math.random() - 0.5) * 30).toFloat(),
-                        y = dead.y + ((Math.random() - 0.5) * 20).toFloat(),
+                        x = dead.x + ((Random.nextDouble() - 0.5) * 30).toFloat(),
+                        y = dead.y + ((Random.nextDouble() - 0.5) * 20).toFloat(),
                         speed = dead.speed * 1.2f,
                         hp = miniHp, maxHp = miniHp,
                         goldReward = (dead.goldReward * 0.3f).toInt().coerceAtLeast(1),
@@ -1639,8 +1648,8 @@ class GameEngine(val prefs: GamePreferences, val audio: GameAudio = SilentAudio)
                         enemy.hp -= dmg
                         floatingTexts.add(FloatingText(enemy.x, enemy.y - 20f, "-${dmg.toInt()}", 0xFFFF5252.toInt(), 0.6f, 18f))
                         repeat(4) {
-                            val a = Math.random() * Math.PI * 2
-                            particles.add(Particle(trap.x, trap.y, (Math.cos(a) * 40f).toFloat(), (Math.sin(a) * 40f).toFloat(), 0.4f, 0xFFBDBDBD.toInt(), 3f))
+                            val a = Random.nextDouble() * PI * 2
+                            particles.add(Particle(trap.x, trap.y, (cos(a) * 40f).toFloat(), (sin(a) * 40f).toFloat(), 0.4f, 0xFFBDBDBD.toInt(), 3f))
                         }
                     }
                     TrapType.TAR -> {
@@ -1664,9 +1673,9 @@ class GameEngine(val prefs: GamePreferences, val audio: GameAudio = SilentAudio)
                         if (mineKills >= 3) checkAchievement("mine_triple")
                         shakeTimer = 0.15f; shakeIntensity = 8f
                         repeat(15) {
-                            val a = Math.random() * Math.PI * 2
-                            val sp = 60f + (Math.random() * 80f).toFloat()
-                            particles.add(Particle(trap.x, trap.y, (Math.cos(a) * sp).toFloat(), (Math.sin(a) * sp).toFloat(), 0.7f, 0xFFFF6F00.toInt(), 5f))
+                            val a = Random.nextDouble() * PI * 2
+                            val sp = 60f + (Random.nextDouble() * 80f).toFloat()
+                            particles.add(Particle(trap.x, trap.y, (cos(a) * sp).toFloat(), (sin(a) * sp).toFloat(), 0.7f, 0xFFFF6F00.toInt(), 5f))
                         }
                         audio.play(SfxType.POWER_FIREBALL)
                     }
@@ -1684,7 +1693,7 @@ class GameEngine(val prefs: GamePreferences, val audio: GameAudio = SilentAudio)
             if (volcanoEruptionTimer <= 0f && !volcanoErupting) {
                 volcanoErupting = true
                 volcanoEruptDuration = 2f
-                volcanoEruptionTimer = 25f + (Math.random().toFloat() * 10f) // 25-35s between eruptions
+                volcanoEruptionTimer = 25f + (Random.nextDouble().toFloat() * 10f) // 25-35s between eruptions
                 shakeTimer = 0.5f; shakeIntensity = 12f
                 floatingTexts.add(FloatingText(volcanoCenterX, volcanoCenterY - 60f, "\uD83C\uDF0B ERUPTION!", 0xFFFF3D00.toInt(), 2f, 36f))
                 audio.play(SfxType.BOSS_QUAKE)
@@ -1693,11 +1702,11 @@ class GameEngine(val prefs: GamePreferences, val audio: GameAudio = SilentAudio)
                 volcanoEruptDuration -= dt
                 // Spawn lava particles
                 repeat(3) {
-                    val a = Math.random() * Math.PI * 2
-                    val sp = 30f + (Math.random() * 80f).toFloat()
+                    val a = Random.nextDouble() * PI * 2
+                    val sp = 30f + (Random.nextDouble() * 80f).toFloat()
                     particles.add(Particle(volcanoCenterX, volcanoCenterY,
-                        (Math.cos(a) * sp).toFloat(), (Math.sin(a) * sp - 40f).toFloat(),
-                        1.2f, if (Math.random() < 0.5) 0xFFFF6F00.toInt() else 0xFFFF3D00.toInt(), 6f))
+                        (cos(a) * sp).toFloat(), (sin(a) * sp - 40f).toFloat(),
+                        1.2f, if (Random.nextDouble() < 0.5) 0xFFFF6F00.toInt() else 0xFFFF3D00.toInt(), 6f))
                 }
                 // Damage enemies and towers near center
                 val eruptRadius = 180f
@@ -1777,7 +1786,7 @@ class GameEngine(val prefs: GamePreferences, val audio: GameAudio = SilentAudio)
                     val rawResist = EnemyResistances.getMultiplier(target.type, tower.type.damageType)
                     val resistMult = if (rawResist < 1f) rawResist + (1f - rawResist) * skillTree.resistancePierce() else rawResist
                     val synergyMult = synergyMap[tower] ?: 1f
-                    val isCrit = Math.random() < critChance
+                    val isCrit = Random.nextDouble() < critChance
                     val critMult = if (isCrit) critMultiplier else 1f
                     val shieldMult = if (target.shieldTimer > 0) 0.3f else 1f
                     var dmg = tower.damage * towerDmgMult * resistMult * synergyMult * critMult * shieldMult
@@ -1801,7 +1810,7 @@ class GameEngine(val prefs: GamePreferences, val audio: GameAudio = SilentAudio)
                     if (tower.type == TowerType.VORTEX) {
                         val dx = tower.x - target.x
                         val dy = tower.y - target.y
-                        val dist = Math.sqrt((dx * dx + dy * dy).toDouble()).toFloat()
+                        val dist = sqrt((dx * dx + dy * dy).toDouble()).toFloat()
                         if (dist > 10f) {
                             val pull = 15f  // pixels toward tower
                             target.x += (dx / dist) * pull
@@ -1815,8 +1824,8 @@ class GameEngine(val prefs: GamePreferences, val audio: GameAudio = SilentAudio)
                         floatingTexts.add(FloatingText(tower.x, tower.y - tower.size, "THORNS!", EliteAbility.THORNS.color, 0.8f, 20f))
                         repeat(4) {
                             particles.add(Particle(tower.x, tower.y,
-                                (Math.random().toFloat() - 0.5f) * 80f,
-                                (Math.random().toFloat() - 0.5f) * 80f,
+                                (Random.nextDouble().toFloat() - 0.5f) * 80f,
+                                (Random.nextDouble().toFloat() - 0.5f) * 80f,
                                 0.4f, EliteAbility.THORNS.color, 4f))
                         }
                     }
@@ -1856,8 +1865,8 @@ class GameEngine(val prefs: GamePreferences, val audio: GameAudio = SilentAudio)
                         // Red crit particles
                         repeat(6) {
                             particles.add(Particle(target.x, target.y,
-                                (Math.random().toFloat() - 0.5f) * 200f,
-                                (Math.random().toFloat() - 0.5f) * 200f,
+                                (Random.nextDouble().toFloat() - 0.5f) * 200f,
+                                (Random.nextDouble().toFloat() - 0.5f) * 200f,
                                 0.5f, 0xFFFF1744.toInt(), 5f))
                         }
                     }
@@ -2038,20 +2047,20 @@ class GameEngine(val prefs: GamePreferences, val audio: GameAudio = SilentAudio)
         }
 
         val type = when {
-            wave >= 18 && Math.random() < 0.06 -> EnemyType.SHAPESHIFTER
-            wave >= 15 && Math.random() < 0.07 -> EnemyType.COMMANDER
-            wave >= 12 && Math.random() < 0.08 -> EnemyType.BERSERKER
-            wave >= 10 && Math.random() < 0.08 -> EnemyType.WISP
-            wave >= 9 && Math.random() < 0.08 -> EnemyType.SHADOW
-            wave >= 8 && Math.random() < 0.12 -> EnemyType.ARMORED_GOLEM
-            wave >= 7 && Math.random() < 0.15 -> EnemyType.DRAGON
-            wave >= 5 && Math.random() < 0.18 -> EnemyType.DEMON
-            wave >= 4 && Math.random() < 0.18 -> EnemyType.FAST_SKELETON
-            wave >= 3 && Math.random() < 0.25 -> EnemyType.ORC
-            wave >= 2 && Math.random() < 0.35 -> EnemyType.SKELETON
-            wave >= 1 && Math.random() < 0.20 -> EnemyType.BAT
-            wave >= 1 && Math.random() < 0.15 -> EnemyType.SLIME
-            wave >= 2 && Math.random() < 0.12 -> EnemyType.SPIDER
+            wave >= 18 && Random.nextDouble() < 0.06 -> EnemyType.SHAPESHIFTER
+            wave >= 15 && Random.nextDouble() < 0.07 -> EnemyType.COMMANDER
+            wave >= 12 && Random.nextDouble() < 0.08 -> EnemyType.BERSERKER
+            wave >= 10 && Random.nextDouble() < 0.08 -> EnemyType.WISP
+            wave >= 9 && Random.nextDouble() < 0.08 -> EnemyType.SHADOW
+            wave >= 8 && Random.nextDouble() < 0.12 -> EnemyType.ARMORED_GOLEM
+            wave >= 7 && Random.nextDouble() < 0.15 -> EnemyType.DRAGON
+            wave >= 5 && Random.nextDouble() < 0.18 -> EnemyType.DEMON
+            wave >= 4 && Random.nextDouble() < 0.18 -> EnemyType.FAST_SKELETON
+            wave >= 3 && Random.nextDouble() < 0.25 -> EnemyType.ORC
+            wave >= 2 && Random.nextDouble() < 0.35 -> EnemyType.SKELETON
+            wave >= 1 && Random.nextDouble() < 0.20 -> EnemyType.BAT
+            wave >= 1 && Random.nextDouble() < 0.15 -> EnemyType.SLIME
+            wave >= 2 && Random.nextDouble() < 0.12 -> EnemyType.SPIDER
             else -> EnemyType.GOBLIN
         }
 
@@ -2101,8 +2110,8 @@ class GameEngine(val prefs: GamePreferences, val audio: GameAudio = SilentAudio)
         if (isElite) eliteSpawnedThisWave = true
         val enemy = Enemy(
             x = spawn.x,
-            y = spawn.y + ((Math.random() - 0.5) * 40).toFloat(),
-            speed = (baseSpeed + (Math.random() * 20).toFloat()) * enemySpeedMult * speedMod,
+            y = spawn.y + ((Random.nextDouble() - 0.5) * 40).toFloat(),
+            speed = (baseSpeed + (Random.nextDouble() * 20).toFloat()) * enemySpeedMult * speedMod,
             hp = hp * eliteHpMult,
             maxHp = hp * eliteHpMult,
             goldReward = (baseGold * waveScale * goldMult * goldMod * eliteGoldMult).toInt().coerceAtLeast(1),
@@ -2146,9 +2155,9 @@ class GameEngine(val prefs: GamePreferences, val audio: GameAudio = SilentAudio)
             val sp = if (paths.isNotEmpty()) paths[pathIdx].spawnPoint else GamePoint(screenW / 2, -40f)
             val mHp = (15f + wave * 3f) * waveScale * enemyHpMult * hpMod
             val enemy = Enemy(
-                x = sp.x + ((Math.random() - 0.5) * 80).toFloat(),
-                y = sp.y + ((Math.random() - 0.5) * 40).toFloat(),
-                speed = (70f + (Math.random() * 30).toFloat()) * enemySpeedMult * speedMod,
+                x = sp.x + ((Random.nextDouble() - 0.5) * 80).toFloat(),
+                y = sp.y + ((Random.nextDouble() - 0.5) * 40).toFloat(),
+                speed = (70f + (Random.nextDouble() * 30).toFloat()) * enemySpeedMult * speedMod,
                 hp = mHp, maxHp = mHp,
                 goldReward = ((2f + wave) * goldMult * goldMod).toInt().coerceAtLeast(1),
                 damage = (4f + wave) * waveScale * enemyDmgMult,
@@ -2177,9 +2186,9 @@ class GameEngine(val prefs: GamePreferences, val audio: GameAudio = SilentAudio)
                     val pathIdx = boss.pathIndex
                     val mHp = (15f + wave * 3f) * waveScale * enemyHpMult
                     enemies.add(Enemy(
-                        x = boss.x + ((Math.random() - 0.5) * 60).toFloat(),
-                        y = boss.y + ((Math.random() - 0.5) * 40).toFloat(),
-                        speed = (70f + (Math.random() * 30).toFloat()) * enemySpeedMult,
+                        x = boss.x + ((Random.nextDouble() - 0.5) * 60).toFloat(),
+                        y = boss.y + ((Random.nextDouble() - 0.5) * 40).toFloat(),
+                        speed = (70f + (Random.nextDouble() * 30).toFloat()) * enemySpeedMult,
                         hp = mHp, maxHp = mHp,
                         goldReward = ((2f + wave) * goldMult).toInt().coerceAtLeast(1),
                         damage = (4f + wave) * waveScale * enemyDmgMult,
@@ -2193,9 +2202,9 @@ class GameEngine(val prefs: GamePreferences, val audio: GameAudio = SilentAudio)
                 floatingTexts.add(FloatingText(boss.x, boss.y - boss.size, "\uD83D\uDC7E SUMMON!", bt.color, 1.2f, 28f))
                 audio.play(SfxType.BOSS_SUMMON)
                 repeat(10) {
-                    val angle = Math.random() * Math.PI * 2
+                    val angle = Random.nextDouble() * PI * 2
                     particles.add(Particle(boss.x, boss.y,
-                        (Math.cos(angle) * 100).toFloat(), (Math.sin(angle) * 100).toFloat(),
+                        (cos(angle) * 100).toFloat(), (sin(angle) * 100).toFloat(),
                         0.5f, bt.color, 5f))
                 }
             }
@@ -2205,9 +2214,9 @@ class GameEngine(val prefs: GamePreferences, val audio: GameAudio = SilentAudio)
                 audio.play(SfxType.BOSS_HEAL)
                 floatingTexts.add(FloatingText(boss.x, boss.y - boss.size, "+${healAmt.toInt()} HP", 0xFF66BB6A.toInt(), 1.2f, 28f))
                 repeat(8) {
-                    val angle = Math.random() * Math.PI * 2
+                    val angle = Random.nextDouble() * PI * 2
                     particles.add(Particle(boss.x, boss.y,
-                        (Math.cos(angle) * 60).toFloat(), (Math.sin(angle) * 60 - 40).toFloat(),
+                        (cos(angle) * 60).toFloat(), (sin(angle) * 60 - 40).toFloat(),
                         0.6f, 0xFF66BB6A.toInt(), 5f))
                 }
             }
@@ -2228,11 +2237,11 @@ class GameEngine(val prefs: GamePreferences, val audio: GameAudio = SilentAudio)
                 audio.play(SfxType.BOSS_AOE)
                 shakeTimer = 0.3f; shakeIntensity = 10f
                 repeat(15) {
-                    val angle = Math.random() * Math.PI * 2
-                    val dist = Math.random() * range
+                    val angle = Random.nextDouble() * PI * 2
+                    val dist = Random.nextDouble() * range
                     particles.add(Particle(
-                        boss.x + (Math.cos(angle) * dist).toFloat(),
-                        boss.y + (Math.sin(angle) * dist).toFloat(),
+                        boss.x + (cos(angle) * dist).toFloat(),
+                        boss.y + (sin(angle) * dist).toFloat(),
                         0f, -40f, 0.6f, 0xFFFF5722.toInt(), 6f))
                 }
             }
@@ -2242,10 +2251,10 @@ class GameEngine(val prefs: GamePreferences, val audio: GameAudio = SilentAudio)
                 audio.play(SfxType.BOSS_SHIELD)
                 floatingTexts.add(FloatingText(boss.x, boss.y - boss.size, "\uD83D\uDEE1\uFE0F SHIELD!", 0xFF29B6F6.toInt(), 1.5f, 28f))
                 repeat(12) {
-                    val angle = Math.random() * Math.PI * 2
+                    val angle = Random.nextDouble() * PI * 2
                     particles.add(Particle(
-                        boss.x + (Math.cos(angle) * 40).toFloat(),
-                        boss.y + (Math.sin(angle) * 40).toFloat(),
+                        boss.x + (cos(angle) * 40).toFloat(),
+                        boss.y + (sin(angle) * 40).toFloat(),
                         0f, 0f, 0.8f, 0xFF29B6F6.toInt(), 4f))
                 }
             }
@@ -2270,16 +2279,16 @@ class GameEngine(val prefs: GamePreferences, val audio: GameAudio = SilentAudio)
                     boss.waypointIndex += 2
                     val wp = path.waypoints[boss.waypointIndex]
                     repeat(8) {
-                        val angle = Math.random() * Math.PI * 2
+                        val angle = Random.nextDouble() * PI * 2
                         particles.add(Particle(boss.x, boss.y,
-                            (Math.cos(angle) * 80).toFloat(), (Math.sin(angle) * 80).toFloat(),
+                            (cos(angle) * 80).toFloat(), (sin(angle) * 80).toFloat(),
                             0.4f, 0xFF263238.toInt(), 5f))
                     }
                     boss.x = wp.x; boss.y = wp.y
                     repeat(8) {
-                        val angle = Math.random() * Math.PI * 2
+                        val angle = Random.nextDouble() * PI * 2
                         particles.add(Particle(boss.x, boss.y,
-                            (Math.cos(angle) * 80).toFloat(), (Math.sin(angle) * 80).toFloat(),
+                            (cos(angle) * 80).toFloat(), (sin(angle) * 80).toFloat(),
                             0.4f, 0xFF263238.toInt(), 5f))
                     }
                     floatingTexts.add(FloatingText(boss.x, boss.y - boss.size, "\uD83D\uDCA8 TELEPORT!", bt.color, 1f, 26f))
@@ -2299,13 +2308,13 @@ class GameEngine(val prefs: GamePreferences, val audio: GameAudio = SilentAudio)
             BossAbility.QUAKE -> {
                 shakeTimer = 1f; shakeIntensity = 20f
                 // Slow all towers
-                towers.forEach { it.fireTimer += 1.5f }
+                towers.forEach { it.fireTimer += 0.8f }
                 floatingTexts.add(FloatingText(boss.x, boss.y - boss.size, "\uD83C\uDF0B QUAKE!", bt.color, 1.5f, 32f))
                 audio.play(SfxType.BOSS_QUAKE)
                 repeat(20) {
                     particles.add(Particle(
-                        (Math.random() * screenW).toFloat(), screenH * 0.8f,
-                        ((Math.random() - 0.5) * 40).toFloat(), -(Math.random() * 200 + 50).toFloat(),
+                        (Random.nextDouble() * screenW).toFloat(), screenH * 0.8f,
+                        ((Random.nextDouble() - 0.5) * 40).toFloat(), -(Random.nextDouble() * 200 + 50).toFloat(),
                         0.6f, 0xFF795548.toInt(), 4f))
                 }
             }
@@ -2316,8 +2325,8 @@ class GameEngine(val prefs: GamePreferences, val audio: GameAudio = SilentAudio)
                     boss.hp = boss.hp * 0.4f  // Boss loses 60% of remaining HP when splitting
                     repeat(2) {
                         enemies.add(Enemy(
-                            x = boss.x + ((Math.random() - 0.5) * 50).toFloat(),
-                            y = boss.y + ((Math.random() - 0.5) * 30).toFloat(),
+                            x = boss.x + ((Random.nextDouble() - 0.5) * 50).toFloat(),
+                            y = boss.y + ((Random.nextDouble() - 0.5) * 30).toFloat(),
                             speed = boss.speed * 1.3f,
                             hp = cloneHp, maxHp = cloneHp,
                             goldReward = (boss.goldReward / 4),
@@ -2330,9 +2339,9 @@ class GameEngine(val prefs: GamePreferences, val audio: GameAudio = SilentAudio)
                     floatingTexts.add(FloatingText(boss.x, boss.y - boss.size, "\uD83E\uDDA0 SPLIT!", bt.color, 1.2f, 28f))
                     audio.play(SfxType.BOSS_SPLIT)
                     repeat(12) {
-                        val angle = Math.random() * Math.PI * 2
+                        val angle = Random.nextDouble() * PI * 2
                         particles.add(Particle(boss.x, boss.y,
-                            (Math.cos(angle) * 120).toFloat(), (Math.sin(angle) * 120).toFloat(),
+                            (cos(angle) * 120).toFloat(), (sin(angle) * 120).toFloat(),
                             0.5f, bt.color, 6f))
                     }
                 }
@@ -2348,22 +2357,22 @@ class GameEngine(val prefs: GamePreferences, val audio: GameAudio = SilentAudio)
         val wp = wps[wpIdx]
         val dx = wp.x - enemy.x
         val dy = wp.y - enemy.y
-        val distToWp = Math.sqrt((dx * dx + dy * dy).toDouble()).toFloat()
+        val distToWp = sqrt((dx * dx + dy * dy).toDouble()).toFloat()
         // Segment length for normalization (avoid div-by-zero)
         val segLen = if (wpIdx > 0) {
             val prev = wps[wpIdx - 1]
             val sx = wp.x - prev.x; val sy = wp.y - prev.y
-            Math.sqrt((sx * sx + sy * sy).toDouble()).toFloat().coerceAtLeast(1f)
+            sqrt((sx * sx + sy * sy).toDouble()).toFloat().coerceAtLeast(1f)
         } else 100f
         return wpIdx + (1f - (distToWp / segLen).coerceIn(0f, 1f))
     }
 
-    fun placeTower(x: Float, y: Float, type: TowerType): Boolean { synchronized(lock) {
+    fun placeTower(x: Float, y: Float, type: TowerType): Boolean { /* synchronized */ run {
         if (!isTowerAllowed(type)) return false
         val cost = getTowerCost(type)
         if (gold < cost) return false
         if (towers.any { it.distanceTo(x, y) < 70f }) return false
-        val distToBase = Math.sqrt(((x - baseX) * (x - baseX) + (y - baseY) * (y - baseY)).toDouble()).toFloat()
+        val distToBase = sqrt(((x - baseX) * (x - baseX) + (y - baseY) * (y - baseY)).toDouble()).toFloat()
         if (distToBase < 60f) return false
 
         // Block placement on/near enemy paths
@@ -2395,7 +2404,7 @@ class GameEngine(val prefs: GamePreferences, val audio: GameAudio = SilentAudio)
 
     /** Place a blockade on or near a path — enemies must destroy it to pass */
     val blockadeCost: Int get() = 50
-    fun placeBlockade(x: Float, y: Float): Boolean { synchronized(lock) {
+    fun placeBlockade(x: Float, y: Float): Boolean { /* synchronized */ run {
         if (gold < blockadeCost) return false
         // Must be near a path segment (opposite of tower rule)
         var nearPath = false
@@ -2418,7 +2427,7 @@ class GameEngine(val prefs: GamePreferences, val audio: GameAudio = SilentAudio)
         // Don't overlap existing blockades or towers
         if (blockades.any { it.distanceTo(x, y) < 60f }) return false
         if (towers.any { it.distanceTo(x, y) < 60f }) return false
-        val distToBase = Math.sqrt(((x - baseX) * (x - baseX) + (y - baseY) * (y - baseY)).toDouble()).toFloat()
+        val distToBase = sqrt(((x - baseX) * (x - baseX) + (y - baseY) * (y - baseY)).toDouble()).toFloat()
         if (distToBase < 80f) return false
 
         gold -= blockadeCost
@@ -2430,16 +2439,16 @@ class GameEngine(val prefs: GamePreferences, val audio: GameAudio = SilentAudio)
     } }
 
     /** Collect a supply drop at touch position, returns true if collected */
-    fun collectSupplyDrop(touchX: Float, touchY: Float): Boolean { synchronized(lock) {
+    fun collectSupplyDrop(touchX: Float, touchY: Float): Boolean { /* synchronized */ run {
         val drop = supplyDrops.firstOrNull { it.distanceTo(touchX, touchY) < it.size * 2f }
         if (drop != null) {
             gold += drop.goldAmount
             totalGoldEarned += drop.goldAmount
             floatingTexts.add(FloatingText(drop.x, drop.y - 20f, "+${drop.goldAmount}g", 0xFFFFD700.toInt(), 1f, 24f))
             repeat(8) {
-                val angle = Math.random() * Math.PI * 2
+                val angle = Random.nextDouble() * PI * 2
                 particles.add(Particle(drop.x, drop.y,
-                    (Math.cos(angle) * 60).toFloat(), (Math.sin(angle) * 60).toFloat(),
+                    (cos(angle) * 60).toFloat(), (sin(angle) * 60).toFloat(),
                     0.5f, 0xFFFFD700.toInt(), 4f))
             }
             audio.play(SfxType.DIAMOND_DROP)
@@ -2450,7 +2459,7 @@ class GameEngine(val prefs: GamePreferences, val audio: GameAudio = SilentAudio)
     } }
 
     /** Place a trap on an enemy path */
-    fun placeTrap(x: Float, y: Float, type: TrapType): Boolean { synchronized(lock) {
+    fun placeTrap(x: Float, y: Float, type: TrapType): Boolean { /* synchronized */ run {
         if (gold < type.cost) return false
         // Must be near a path segment
         var nearPath = false
@@ -2473,7 +2482,7 @@ class GameEngine(val prefs: GamePreferences, val audio: GameAudio = SilentAudio)
         if (traps.any { it.distanceTo(x, y) < 50f }) return false
         if (blockades.any { it.distanceTo(x, y) < 50f }) return false
         if (towers.any { it.distanceTo(x, y) < 50f }) return false
-        val distToBase = Math.sqrt(((x - baseX) * (x - baseX) + (y - baseY) * (y - baseY)).toDouble()).toFloat()
+        val distToBase = sqrt(((x - baseX) * (x - baseX) + (y - baseY) * (y - baseY)).toDouble()).toFloat()
         if (distToBase < 80f) return false
 
         gold -= type.cost
@@ -2491,7 +2500,8 @@ class GameEngine(val prefs: GamePreferences, val audio: GameAudio = SilentAudio)
         return true
     } }
 
-    fun upgradeTower(tower: Tower): Boolean { synchronized(lock) {
+    fun upgradeTower(tower: Tower): Boolean { /* synchronized */ run {
+        if (tower.isMaxLevel()) return false
         val cost = tower.upgradeCost()
         if (gold < cost) return false
         gold -= cost
@@ -2501,22 +2511,22 @@ class GameEngine(val prefs: GamePreferences, val audio: GameAudio = SilentAudio)
         return true
     } }
 
-    fun sellTower(tower: Tower): Boolean { synchronized(lock) {
+    fun sellTower(tower: Tower): Boolean { /* synchronized */ run {
         val refund = (tower.sellValue() * (1f + skillTree.sellValueBonus())).toInt()
         towers.remove(tower)
         gold += refund
         audio.play(SfxType.TOWER_SELL)
         floatingTexts.add(FloatingText(tower.x, tower.y, "+${refund}g", 0xFFFFD700.toInt(), 1f, 26f))
         repeat(8) {
-            val angle = Math.random() * Math.PI * 2
+            val angle = Random.nextDouble() * PI * 2
             particles.add(Particle(tower.x, tower.y,
-                (Math.cos(angle) * 80).toFloat(), (Math.sin(angle) * 80).toFloat(),
+                (cos(angle) * 80).toFloat(), (sin(angle) * 80).toFloat(),
                 0.4f, 0xFFBDBDBD.toInt(), 4f))
         }
         return true
     } }
 
-    fun activateTowerAbility(tower: Tower): Boolean { synchronized(lock) {
+    fun activateTowerAbility(tower: Tower): Boolean { /* synchronized */ run {
         if (!tower.canUseAbility()) return false
         tower.useAbility()
         // Apply prestige cooldown reduction
@@ -2553,11 +2563,11 @@ class GameEngine(val prefs: GamePreferences, val audio: GameAudio = SilentAudio)
                     floatingTexts.add(FloatingText(target.x, target.y - target.size, "-${dmg.toInt()}", 0xFFAB47BC.toInt(), 0.5f, 16f))
                 }
                 repeat(20) {
-                    val angle = Math.random() * Math.PI * 2
-                    val dist = Math.random() * tower.range
+                    val angle = Random.nextDouble() * PI * 2
+                    val dist = Random.nextDouble() * tower.range
                     particles.add(Particle(
-                        tower.x + (Math.cos(angle) * dist).toFloat(),
-                        tower.y + (Math.sin(angle) * dist).toFloat(),
+                        tower.x + (cos(angle) * dist).toFloat(),
+                        tower.y + (sin(angle) * dist).toFloat(),
                         0f, -30f, 0.6f, 0xFFAB47BC.toInt(), 6f))
                 }
                 floatingTexts.add(FloatingText(tower.x, tower.y - tower.size, "ARCANE BLAST!", 0xFFAB47BC.toInt(), 1.2f, 28f))
@@ -2575,12 +2585,12 @@ class GameEngine(val prefs: GamePreferences, val audio: GameAudio = SilentAudio)
                     floatingTexts.add(FloatingText(target.x, target.y - target.size, "-${dmg.toInt()}", 0xFFFF7043.toInt(), 0.5f, 16f))
                 }
                 repeat(25) {
-                    val angle = Math.random() * Math.PI * 2
-                    val dist = Math.random() * tower.range * 0.8
+                    val angle = Random.nextDouble() * PI * 2
+                    val dist = Random.nextDouble() * tower.range * 0.8
                     particles.add(Particle(
-                        tower.x + (Math.cos(angle) * dist).toFloat(),
-                        tower.y + (Math.sin(angle) * dist).toFloat(),
-                        ((Math.random() - 0.5) * 30).toFloat(), -20f, 0.8f, 0xFFFF5722.toInt(), 7f))
+                        tower.x + (cos(angle) * dist).toFloat(),
+                        tower.y + (sin(angle) * dist).toFloat(),
+                        ((Random.nextDouble() - 0.5) * 30).toFloat(), -20f, 0.8f, 0xFFFF5722.toInt(), 7f))
                 }
                 floatingTexts.add(FloatingText(tower.x, tower.y - tower.size, "NAPALM!", 0xFFFF7043.toInt(), 1.2f, 28f))
                 shakeTimer = 0.3f; shakeIntensity = 8f
@@ -2595,7 +2605,7 @@ class GameEngine(val prefs: GamePreferences, val audio: GameAudio = SilentAudio)
                     target.hitFlash = 0.2f
                     repeat(3) {
                         particles.add(Particle(target.x, target.y,
-                            ((Math.random() - 0.5) * 40).toFloat(), -30f,
+                            ((Random.nextDouble() - 0.5) * 40).toFloat(), -30f,
                             0.5f, 0xFF66BB6A.toInt(), 4f))
                     }
                 }
@@ -2615,7 +2625,7 @@ class GameEngine(val prefs: GamePreferences, val audio: GameAudio = SilentAudio)
                         val t = i / 4f
                         particles.add(Particle(
                             prevX + (target.x - prevX) * t, prevY + (target.y - prevY) * t,
-                            ((Math.random() - 0.5) * 30).toFloat(), ((Math.random() - 0.5) * 30).toFloat(),
+                            ((Random.nextDouble() - 0.5) * 30).toFloat(), ((Random.nextDouble() - 0.5) * 30).toFloat(),
                             0.3f, 0xFF29B6F6.toInt(), 3f))
                     }
                     prevX = target.x; prevY = target.y
@@ -2632,7 +2642,7 @@ class GameEngine(val prefs: GamePreferences, val audio: GameAudio = SilentAudio)
                     target.hitFlash = 0.5f
                     repeat(4) {
                         particles.add(Particle(target.x, target.y,
-                            ((Math.random() - 0.5) * 50).toFloat(), ((Math.random() - 0.5) * 50).toFloat(),
+                            ((Random.nextDouble() - 0.5) * 50).toFloat(), ((Random.nextDouble() - 0.5) * 50).toFloat(),
                             0.6f, 0xFF81D4FA.toInt(), 4f))
                     }
                 }
@@ -2647,12 +2657,12 @@ class GameEngine(val prefs: GamePreferences, val audio: GameAudio = SilentAudio)
                     target.hitFlash = 0.3f
                 }
                 repeat(30) {
-                    val angle = Math.random() * Math.PI * 2
-                    val dist = Math.random() * tower.range * 0.9
+                    val angle = Random.nextDouble() * PI * 2
+                    val dist = Random.nextDouble() * tower.range * 0.9
                     particles.add(Particle(
-                        tower.x + (Math.cos(angle) * dist).toFloat(),
-                        tower.y + (Math.sin(angle) * dist).toFloat(),
-                        ((Math.random() - 0.5) * 40).toFloat(), -50f - (Math.random() * 30).toFloat(),
+                        tower.x + (cos(angle) * dist).toFloat(),
+                        tower.y + (sin(angle) * dist).toFloat(),
+                        ((Random.nextDouble() - 0.5) * 40).toFloat(), -50f - (Random.nextDouble() * 30).toFloat(),
                         0.7f, 0xFFFF5722.toInt(), 6f))
                 }
                 floatingTexts.add(FloatingText(tower.x, tower.y - tower.size, "INFERNO!", 0xFFFF5722.toInt(), 1.2f, 28f))
@@ -2668,7 +2678,7 @@ class GameEngine(val prefs: GamePreferences, val audio: GameAudio = SilentAudio)
                         harvested++
                         repeat(6) {
                             particles.add(Particle(target.x, target.y,
-                                ((Math.random() - 0.5) * 60).toFloat(), -40f - (Math.random() * 40).toFloat(),
+                                ((Random.nextDouble() - 0.5) * 60).toFloat(), -40f - (Random.nextDouble() * 40).toFloat(),
                                 0.5f, 0xFF9C27B0.toInt(), 5f))
                         }
                     } else {
@@ -2702,7 +2712,7 @@ class GameEngine(val prefs: GamePreferences, val audio: GameAudio = SilentAudio)
                     shakeTimer = 0.25f; shakeIntensity = 7f
                     repeat(10) {
                         particles.add(Particle(target.x, target.y,
-                            ((Math.random() - 0.5) * 150).toFloat(), ((Math.random() - 0.5) * 150).toFloat(),
+                            ((Random.nextDouble() - 0.5) * 150).toFloat(), ((Random.nextDouble() - 0.5) * 150).toFloat(),
                             0.5f, 0xFFFFD54F.toInt(), 5f))
                     }
                 } else {
@@ -2716,7 +2726,7 @@ class GameEngine(val prefs: GamePreferences, val audio: GameAudio = SilentAudio)
                 inRange.forEach { target ->
                     val dx = tower.x - target.x
                     val dy = tower.y - target.y
-                    val dist = Math.sqrt((dx * dx + dy * dy).toDouble()).toFloat()
+                    val dist = sqrt((dx * dx + dy * dy).toDouble()).toFloat()
                     if (dist > 10f) {
                         val pull = 60f  // Strong pull
                         target.x += (dx / dist) * pull
@@ -2729,10 +2739,10 @@ class GameEngine(val prefs: GamePreferences, val audio: GameAudio = SilentAudio)
                     target.hitFlash = 0.2f
                 }
                 repeat(25) {
-                    val angle = Math.random() * Math.PI * 2
-                    val dist = tower.range * 0.8 * Math.random()
-                    val px = tower.x + (Math.cos(angle) * dist).toFloat()
-                    val py = tower.y + (Math.sin(angle) * dist).toFloat()
+                    val angle = Random.nextDouble() * PI * 2
+                    val dist = tower.range * 0.8 * Random.nextDouble()
+                    val px = tower.x + (cos(angle) * dist).toFloat()
+                    val py = tower.y + (sin(angle) * dist).toFloat()
                     particles.add(Particle(px, py,
                         (tower.x - px) * 2f, (tower.y - py) * 2f,
                         0.6f, 0xFF7E57C2.toInt(), 4f))
@@ -2755,12 +2765,12 @@ class GameEngine(val prefs: GamePreferences, val audio: GameAudio = SilentAudio)
                     }
                 }
                 repeat(15) {
-                    val angle = Math.random() * Math.PI * 2
-                    val dist = Math.random() * tower.range * 0.6
+                    val angle = Random.nextDouble() * PI * 2
+                    val dist = Random.nextDouble() * tower.range * 0.6
                     particles.add(Particle(
-                        tower.x + (Math.cos(angle) * dist).toFloat(),
-                        tower.y + (Math.sin(angle) * dist).toFloat(),
-                        0f, -30f - (Math.random() * 20).toFloat(),
+                        tower.x + (cos(angle) * dist).toFloat(),
+                        tower.y + (sin(angle) * dist).toFloat(),
+                        0f, -30f - (Random.nextDouble() * 20).toFloat(),
                         0.6f, 0xFF66BB6A.toInt(), 5f))
                 }
                 floatingTexts.add(FloatingText(tower.x, tower.y - tower.size, "MASS HEAL!", 0xFF66BB6A.toInt(), 1.2f, 28f))
@@ -2769,7 +2779,7 @@ class GameEngine(val prefs: GamePreferences, val audio: GameAudio = SilentAudio)
         return true
     } }
 
-    fun upgradePlayerDamage(): Boolean { synchronized(lock) {
+    fun upgradePlayerDamage(): Boolean { /* synchronized */ run {
         val cost = playerDamageLevel * 25
         if (gold < cost) return false
         gold -= cost
@@ -2780,7 +2790,7 @@ class GameEngine(val prefs: GamePreferences, val audio: GameAudio = SilentAudio)
         return true
     } }
 
-    fun upgradePlayerSpeed(): Boolean { synchronized(lock) {
+    fun upgradePlayerSpeed(): Boolean { /* synchronized */ run {
         val cost = playerSpeedLevel * 20
         if (gold < cost) return false
         gold -= cost
@@ -2791,7 +2801,7 @@ class GameEngine(val prefs: GamePreferences, val audio: GameAudio = SilentAudio)
         return true
     } }
 
-    fun upgradePlayerHp(): Boolean { synchronized(lock) {
+    fun upgradePlayerHp(): Boolean { /* synchronized */ run {
         val cost = playerHpLevel * 30
         if (gold < cost) return false
         gold -= cost
@@ -2803,7 +2813,7 @@ class GameEngine(val prefs: GamePreferences, val audio: GameAudio = SilentAudio)
         return true
     } }
 
-    fun upgradeBaseHp(): Boolean { synchronized(lock) {
+    fun upgradeBaseHp(): Boolean { /* synchronized */ run {
         val cost = baseHpLevel * 40
         if (gold < cost) return false
         gold -= cost
@@ -2815,7 +2825,7 @@ class GameEngine(val prefs: GamePreferences, val audio: GameAudio = SilentAudio)
         return true
     } }
 
-    fun repairBase(): Boolean { synchronized(lock) {
+    fun repairBase(): Boolean { /* synchronized */ run {
         val cost = repairCost
         if (gold < cost) return false
         if (baseHp >= maxBaseHp) return false
@@ -2831,7 +2841,7 @@ class GameEngine(val prefs: GamePreferences, val audio: GameAudio = SilentAudio)
     val repairCost: Int get() = (20 + (wave / 5) * 5).coerceAtMost(50)
 
     /** Player picks an endless milestone buff */
-    fun pickEndlessBuff(buff: EndlessBuff) { synchronized(lock) {
+    fun pickEndlessBuff(buff: EndlessBuff) { /* synchronized */ run {
         endlessBuffs.add(buff)
         endlessMilestonePending = false
         endlessMilestoneChoices = emptyList()
@@ -2861,7 +2871,7 @@ class GameEngine(val prefs: GamePreferences, val audio: GameAudio = SilentAudio)
             "${buff.emoji} ${buff.label}!", 0xFFFFD700.toInt(), 2f, 36f))
     } }
 
-    fun usePower(type: PowerType): Boolean { synchronized(lock) {
+    fun usePower(type: PowerType): Boolean { /* synchronized */ run {
         if (!isPowerAllowed(type)) return false
         val cd = powerCooldowns.getOrDefault(type, 0f)
         if (cd > 0) return false
@@ -2880,12 +2890,12 @@ class GameEngine(val prefs: GamePreferences, val audio: GameAudio = SilentAudio)
                 }
                 shakeTimer = 0.3f; shakeIntensity = 10f
                 repeat(30) {
-                    val angle = Math.random() * Math.PI * 2
-                    val dist = Math.random() * screenW * 0.4
+                    val angle = Random.nextDouble() * PI * 2
+                    val dist = Random.nextDouble() * screenW * 0.4
                     particles.add(Particle(
-                        screenW / 2 + (Math.cos(angle) * dist).toFloat(),
-                        screenH * 0.4f + (Math.sin(angle) * dist).toFloat(),
-                        (Math.cos(angle) * 100).toFloat(), (Math.sin(angle) * 100).toFloat(),
+                        screenW / 2 + (cos(angle) * dist).toFloat(),
+                        screenH * 0.4f + (sin(angle) * dist).toFloat(),
+                        (cos(angle) * 100).toFloat(), (sin(angle) * 100).toFloat(),
                         0.6f, 0xFFFF5722.toInt(), 8f
                     ))
                 }
@@ -2901,7 +2911,7 @@ class GameEngine(val prefs: GamePreferences, val audio: GameAudio = SilentAudio)
                 enemies.forEach { enemy ->
                     repeat(4) {
                         particles.add(Particle(enemy.x, enemy.y,
-                            ((Math.random() - 0.5) * 80).toFloat(), ((Math.random() - 0.5) * 80).toFloat(),
+                            ((Random.nextDouble() - 0.5) * 80).toFloat(), ((Random.nextDouble() - 0.5) * 80).toFloat(),
                             0.5f, 0xFF81D4FA.toInt(), 4f))
                     }
                 }
@@ -2915,9 +2925,9 @@ class GameEngine(val prefs: GamePreferences, val audio: GameAudio = SilentAudio)
                 gold -= type.cost
                 baseHp = (baseHp + 50f).coerceAtMost(maxBaseHp)
                 repeat(15) {
-                    val angle = Math.random() * Math.PI * 2
+                    val angle = Random.nextDouble() * PI * 2
                     particles.add(Particle(baseX, baseY,
-                        (Math.cos(angle) * 60).toFloat(), (Math.sin(angle) * 60 - 50).toFloat(),
+                        (cos(angle) * 60).toFloat(), (sin(angle) * 60 - 50).toFloat(),
                         0.8f, 0xFF66BB6A.toInt(), 6f))
                 }
                 floatingTexts.add(FloatingText(baseX, baseY - 60f,
@@ -2938,7 +2948,7 @@ class GameEngine(val prefs: GamePreferences, val audio: GameAudio = SilentAudio)
                         val t = it / 6f
                         particles.add(Particle(
                             prevX + (enemy.x - prevX) * t, prevY + (enemy.y - prevY) * t,
-                            ((Math.random() - 0.5) * 40).toFloat(), ((Math.random() - 0.5) * 40).toFloat(),
+                            ((Random.nextDouble() - 0.5) * 40).toFloat(), ((Random.nextDouble() - 0.5) * 40).toFloat(),
                             0.4f, 0xFFFFEB3B.toInt(), 3f))
                     }
                     prevX = enemy.x; prevY = enemy.y
@@ -2959,11 +2969,11 @@ class GameEngine(val prefs: GamePreferences, val audio: GameAudio = SilentAudio)
     fun getPowerCooldown(type: PowerType): Float = powerCooldowns.getOrDefault(type, 0f)
 
     /** Player dash — teleport to target and deal AoE damage along the path */
-    fun playerDash(targetX: Float, targetY: Float): Boolean { synchronized(lock) {
+    fun playerDash(targetX: Float, targetY: Float): Boolean { /* synchronized */ run {
         if (dashCooldown > 0 || player.hp <= 0) return false
         val dx = targetX - player.x
         val dy = targetY - player.y
-        val dist = Math.sqrt((dx * dx + dy * dy).toDouble()).toFloat()
+        val dist = sqrt((dx * dx + dy * dy).toDouble()).toFloat()
         if (dist < 30f) return false
 
         val actualDist = dist.coerceAtMost(dashRange)
@@ -3015,8 +3025,8 @@ class GameEngine(val prefs: GamePreferences, val audio: GameAudio = SilentAudio)
             particles.add(Particle(
                 dashTrailX + (dashEndX - dashTrailX) * t,
                 dashTrailY + (dashEndY - dashTrailY) * t,
-                (Math.random().toFloat() - 0.5f) * 60f,
-                (Math.random().toFloat() - 0.5f) * 60f,
+                (Random.nextDouble().toFloat() - 0.5f) * 60f,
+                (Random.nextDouble().toFloat() - 0.5f) * 60f,
                 0.6f, 0xFF00E5FF.toInt(), 6f))
         }
         shakeTimer = 0.1f; shakeIntensity = 5f
@@ -3033,7 +3043,7 @@ class GameEngine(val prefs: GamePreferences, val audio: GameAudio = SilentAudio)
         if (!isEndlessMode && !isBossRush) return
         bountiesGenerated = true
         activeBounties.clear()
-        val rng = java.util.Random()
+        val rng = Random
         val pool = mutableListOf(
             Bounty("kill_demons", "Kill 10 Demons", "\uD83D\uDC7F", 10, rewardDiamonds = 3),
             Bounty("kill_dragons", "Kill 5 Dragons", "\uD83D\uDC09", 5, rewardDiamonds = 5),
@@ -3140,7 +3150,7 @@ class GameEngine(val prefs: GamePreferences, val audio: GameAudio = SilentAudio)
         val historyJson = prefs.getString("run_history", "") ?: ""
         val entries = historyJson.split("|||").filter { it.isNotBlank() }.toMutableList()
         // Build entry (11 fields: mode|diff|wave|score|kills|combo|towers|diamonds|map|timestamp|result)
-        val entry = "$mode|$diffLabel|$wave|$score|$totalKills|$bestCombo|${towers.size}|$diamondsEarnedThisRun|${mapType.name}|${System.currentTimeMillis()}|$result"
+        val entry = "$mode|$diffLabel|$wave|$score|$totalKills|$bestCombo|${towers.size}|$diamondsEarnedThisRun|${mapType.name}|${currentTimeMillis()}|$result"
         entries.add(0, entry) // newest first
         if (entries.size > 50) entries.subList(50, entries.size).clear() // cap at 50
         prefs.edit().putString("run_history", entries.joinToString("|||")).apply()
@@ -3222,7 +3232,7 @@ class GameEngine(val prefs: GamePreferences, val audio: GameAudio = SilentAudio)
 
     fun hasSave(): Boolean = prefs.getBoolean("has_save", false)
 
-    fun restart() { synchronized(lock) {
+    fun restart() { /* synchronized */ run {
         enemies.clear()
         towers.clear()
         projectiles.clear()

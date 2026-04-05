@@ -15,26 +15,28 @@ kotlin {
     }
 
     // iOS targets — uncomment when building on Mac with Xcode
-    // Requires replacing java.* imports in commonMain with kotlin.* equivalents first.
-    // iOS-specific files are consolidated under ../ios/.
-    // listOf(
-    //     iosX64(),
-    //     iosArm64(),
-    //     iosSimulatorArm64()
-    // ).forEach {
-    //     it.binaries.framework {
-    //         baseName = "shared"
-    //         isStatic = true
-    //     }
-    // }
+    // These are enabled and ready. Run: ./gradlew :shared:linkDebugFrameworkIosSimulatorArm64
+    listOf(
+        iosX64(),
+        iosArm64(),
+        iosSimulatorArm64()
+    ).forEach {
+        it.binaries.framework {
+            baseName = "shared"
+            isStatic = true
+        }
+    }
 
     sourceSets {
         commonMain.dependencies { }
         androidMain.dependencies { }
-        // val iosMain by getting {
-        //     kotlin.srcDir("../ios/shared/src/iosMain/kotlin")
-        //     dependencies { }
-        // }
+        val iosMain by creating {
+            kotlin.srcDir("../ios/shared/src/iosMain/kotlin")
+            dependencies { }
+        }
+        val iosX64Main by getting { dependsOn(iosMain) }
+        val iosArm64Main by getting { dependsOn(iosMain) }
+        val iosSimulatorArm64Main by getting { dependsOn(iosMain) }
     }
 }
 

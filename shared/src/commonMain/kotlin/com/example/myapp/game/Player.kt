@@ -1,5 +1,7 @@
 package com.example.myapp.game
 
+import kotlin.math.sqrt
+
 data class Player(
     var x: Float = 0f,
     var y: Float = 0f,
@@ -61,7 +63,7 @@ data class Player(
             remaining -= step
             val dx = targetX - x
             val dy = targetY - y
-            val dist = Math.sqrt((dx * dx + dy * dy).toDouble()).toFloat()
+            val dist = sqrt((dx * dx + dy * dy).toDouble()).toFloat()
             if (dist > 5f) {
                 val move = speed * step
                 if (move >= dist) {
@@ -84,6 +86,6 @@ data class Player(
 
     fun distanceTo(tx: Float, ty: Float): Float {
         val dx = x - tx; val dy = y - ty
-        return Math.sqrt((dx * dx + dy * dy).toDouble()).toFloat()
+        return sqrt((dx * dx + dy * dy).toDouble()).toFloat()
     }
 }
