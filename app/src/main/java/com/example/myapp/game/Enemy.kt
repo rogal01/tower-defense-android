@@ -18,9 +18,7 @@ data class Enemy(
     var bossAbilityCooldown: Float = 5f,
     var isCharging: Boolean = false,
     var chargeTimer: Float = 0f,
-    var hasSplit: Boolean = false,
-    var roarSpeedBoost: Float = 1f,
-    var roarBoostTimer: Float = 0f
+    var hasSplit: Boolean = false
 ) {
     fun distanceTo(tx: Float, ty: Float): Float {
         val dx = x - tx
@@ -44,6 +42,8 @@ data class Enemy(
     var reachedBase: Boolean = false
     /** True if this is an elite enemy (crowned, extra HP/gold) */
     var isElite: Boolean = false
+    /** Shield timer — when > 0, enemy takes 70% reduced damage */
+    var shieldTimer: Float = 0f
 
     /** Display emoji — uses boss-specific emoji if it's a boss */
     val displayEmoji: String get() = bossType?.emoji ?: type.emoji
@@ -97,6 +97,19 @@ object EnemyResistances {
             DamageType.ELECTRIC -> 0.5f
             else -> 1f
         }
+        EnemyType.FAST_SKELETON -> when (damageType) {
+            DamageType.PHYSICAL -> 0.6f
+            DamageType.MAGIC -> 1.4f
+            DamageType.EXPLOSIVE -> 1.2f
+            else -> 1f
+        }
+        EnemyType.ARMORED_GOLEM -> when (damageType) {
+            DamageType.PHYSICAL -> 0.3f
+            DamageType.EXPLOSIVE -> 1.5f
+            DamageType.MAGIC -> 1.4f
+            DamageType.ELECTRIC -> 1.2f
+            else -> 1f
+        }
         else -> 1f
     }
 }
@@ -118,21 +131,26 @@ enum class EnemyType(val emoji: String, val color: Int) {
     BAT("\uD83E\uDD87", 0xFF4A148C.toInt()),
     SPIDER("\uD83D\uDD77\uFE0F", 0xFF4E342E.toInt()),
     WISP("\u2728", 0xFF00BCD4.toInt()),
-    GOLEM_SHARD("\uD83E\uDEA8", 0xFF795548.toInt())
+    GOLEM_SHARD("\uD83E\uDEA8", 0xFF795548.toInt()),
+    FAST_SKELETON("\uD83D\uDC80", 0xFFE0E0E0.toInt()),
+    ARMORED_GOLEM("\uD83E\uDEA8", 0xFF6D4C41.toInt())
 }
 
 /** Boss special ability types */
-enum class BossAbility {
-    CHARGE,       // Speed burst toward base
-    SUMMON,       // Spawn extra minions mid-fight
-    HEAL,         // Heal self
-    AOE_DAMAGE,   // Damage all towers in range
-    SHIELD,       // Temporary damage reduction
-    ROAR,         // Buff nearby minions speed
-    TELEPORT,     // Jump ahead on path
-    DRAIN,        // Steal gold from player
-    QUAKE,        // Screen shake + slow towers
-    SPLIT         // Spawn clones when low HP
+enum class BossAbility(
+    val displayName: String,
+    val shortDescription: String
+) {
+    CHARGE("Charge", "Rushes the base at high speed"),
+    SUMMON("Summon", "Calls extra minions into the fight"),
+    HEAL("Heal", "Restores part of the boss HP"),
+    AOE_DAMAGE("Flame Burst", "Disables nearby towers and can hit the base"),
+    SHIELD("Shield", "Takes much less damage for a short time"),
+    SCREECH("Screech", "Slows the hero and jams nearby towers"),
+    TELEPORT("Teleport", "Jumps ahead on the path"),
+    DRAIN("Drain", "Steals your gold to heal itself"),
+    QUAKE("Quake", "Shakes the field and slows all towers"),
+    SPLIT("Split", "Creates clones when low on HP")
 }
 
 /** 10 unique bosses — each with themed minion type, stats, and special ability */
@@ -166,7 +184,7 @@ enum class BossType(
     DRAGON_QUEEN(
         "Dragon Queen", "\uD83D\uDC32", 0xFFE65100.toInt(),
         EnemyType.MINI_DRAGON, 4, 1100f, 30f, 200f, 60f,
-        BossAbility.ROAR
+        BossAbility.SCREECH
     ),
     SHADOW_WRAITH(
         "Shadow Wraith", "\uD83D\uDC7B", 0xFF263238.toInt(),

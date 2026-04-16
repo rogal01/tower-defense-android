@@ -91,6 +91,8 @@ object EntityRenderer {
             EnemyType.SPIDER -> drawSpider(canvas, x, y, s, flash, frozen)
             EnemyType.WISP -> drawWisp(canvas, x, y, s, flash, frozen)
             EnemyType.GOLEM_SHARD -> drawGolemShard(canvas, x, y, s, flash, frozen)
+            EnemyType.FAST_SKELETON -> drawFastSkeleton(canvas, x, y, s, flash, frozen)
+            EnemyType.ARMORED_GOLEM -> drawArmoredGolem(canvas, x, y, s, flash, frozen)
             else -> drawDefaultCircle(canvas, x, y, s, enemy.displayColor, flash, frozen)
         }
     }
@@ -491,6 +493,61 @@ object EntityRenderer {
         // Glowing core dot
         paint.color = 0xFFFF6F00.toInt()
         c.drawCircle(x, y, s * 0.12f, paint)
+    }
+
+    // --- FAST SKELETON: lean skeleton with speed lines ---
+    private fun drawFastSkeleton(c: Canvas, x: Float, y: Float, s: Float, flash: Boolean, frozen: Boolean) {
+        val col = color(0xFFE0E0E0.toInt(), flash, frozen)
+        paint.color = col
+        // Slim skull
+        c.drawOval(x - s * 0.5f, y - s * 0.7f, x + s * 0.5f, y + s * 0.2f, paint)
+        // Dark eye sockets
+        paint.color = 0xFF212121.toInt()
+        c.drawCircle(x - s * 0.18f, y - s * 0.3f, s * 0.14f, paint)
+        c.drawCircle(x + s * 0.18f, y - s * 0.3f, s * 0.14f, paint)
+        // Red glowing eyes
+        paint.color = 0xFFFF1744.toInt()
+        c.drawCircle(x - s * 0.18f, y - s * 0.3f, s * 0.07f, paint)
+        c.drawCircle(x + s * 0.18f, y - s * 0.3f, s * 0.07f, paint)
+        // Thin body
+        paint.color = col
+        c.drawRect(x - s * 0.2f, y + s * 0.1f, x + s * 0.2f, y + s * 0.6f, paint)
+        // Speed streaks behind
+        strokePaint.color = 0x66FFFFFF
+        strokePaint.strokeWidth = 2f
+        c.drawLine(x - s * 1.0f, y - s * 0.1f, x - s * 0.6f, y - s * 0.1f, strokePaint)
+        c.drawLine(x - s * 0.9f, y + s * 0.15f, x - s * 0.5f, y + s * 0.15f, strokePaint)
+        c.drawLine(x - s * 1.1f, y + s * 0.4f, x - s * 0.6f, y + s * 0.4f, strokePaint)
+    }
+
+    // --- ARMORED GOLEM: big rocky body with armor plates ---
+    private fun drawArmoredGolem(c: Canvas, x: Float, y: Float, s: Float, flash: Boolean, frozen: Boolean) {
+        val col = color(0xFF6D4C41.toInt(), flash, frozen)
+        // Large body
+        paint.color = col
+        path.reset()
+        path.moveTo(x, y - s * 0.9f)
+        path.lineTo(x + s * 0.8f, y - s * 0.3f)
+        path.lineTo(x + s * 0.9f, y + s * 0.5f)
+        path.lineTo(x + s * 0.4f, y + s * 0.9f)
+        path.lineTo(x - s * 0.4f, y + s * 0.9f)
+        path.lineTo(x - s * 0.9f, y + s * 0.5f)
+        path.lineTo(x - s * 0.8f, y - s * 0.3f)
+        path.close()
+        c.drawPath(path, paint)
+        // Armor plates (lighter)
+        paint.color = color(0xFF8D6E63.toInt(), flash, frozen)
+        c.drawRect(x - s * 0.5f, y - s * 0.4f, x + s * 0.5f, y + s * 0.1f, paint)
+        c.drawRect(x - s * 0.4f, y + s * 0.2f, x + s * 0.4f, y + s * 0.6f, paint)
+        // Glowing eyes
+        paint.color = 0xFFFFAB00.toInt()
+        c.drawCircle(x - s * 0.25f, y - s * 0.2f, s * 0.12f, paint)
+        c.drawCircle(x + s * 0.25f, y - s * 0.2f, s * 0.12f, paint)
+        // Cracks
+        strokePaint.color = 0xFF3E2723.toInt()
+        strokePaint.strokeWidth = 2f
+        c.drawLine(x - s * 0.3f, y - s * 0.6f, x, y - s * 0.1f, strokePaint)
+        c.drawLine(x + s * 0.2f, y - s * 0.5f, x + s * 0.4f, y + s * 0.3f, strokePaint)
     }
 
     private fun drawDefaultCircle(c: Canvas, x: Float, y: Float, s: Float, baseColor: Int, flash: Boolean, frozen: Boolean) {

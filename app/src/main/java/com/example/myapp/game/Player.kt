@@ -14,14 +14,50 @@ data class Player(
     var attackTimer: Float = 0f,
     var size: Float = 40f,
     var hp: Float = 100f,
-    var maxHp: Float = 100f
+    var maxHp: Float = 100f,
+    var slowTimer: Float = 0f
 ) {
     fun moveTo(tx: Float, ty: Float) {
-        targetX = tx
-        targetY = ty
+        val engine = GameEngineHolder.engine
+        // Clamp to playable area: stay within screen bounds and below sky line
+        var clampedX = tx
+        var clampedY = ty
+        if (engine != null) {
+            val groundTop = engine.screenH * 0.12f + size  // below sky
+            clampedX = clampedX.coerceIn(size, engine.screenW - size)
+            clampedY = clampedY.coerceIn(groundTop, engine.screenH - size)
+        }
+        // Prevent moving into river: clamp to nearest non-river point
+        if (engine != null && engine.isPointOnRiver(clampedX, clampedY)) {
+            // Find closest point outside river by stepping away along the vector
+            var safeX = clampedX
+            var safeY = clampedY
+            val cx = x
+            val cy = y
+            val maxStep = 10
+            var found = false
+            for (i in 1..maxStep) {
+                val t = i / maxStep.toFloat()
+                val testX = cx + (clampedX - cx) * (1 - t)
+                val testY = cy + (clampedY - cy) * (1 - t)
+                if (!engine.isPointOnRiver(testX, testY)) {
+                    safeX = testX
+                    safeY = testY
+                    found = true
+                    break
+                }
+            }
+            targetX = safeX
+            targetY = safeY
+        } else {
+            targetX = clampedX
+            targetY = clampedY
+        }
     }
 
     fun update(dt: Float) {
+        if (slowTimer > 0f) slowTimer -= dt
+        val speedScale = if (slowTimer > 0f) 0.55f else 1f
         // Sub-step to prevent glitching at high game speeds
         val maxStep = 0.02f
         var remaining = dt
@@ -32,7 +68,7 @@ data class Player(
             val dy = targetY - y
             val dist = Math.sqrt((dx * dx + dy * dy).toDouble()).toFloat()
             if (dist > 5f) {
-                val move = speed * step
+                val move = speed * speedScale * step
                 if (move >= dist) {
                     x = targetX
                     y = targetY

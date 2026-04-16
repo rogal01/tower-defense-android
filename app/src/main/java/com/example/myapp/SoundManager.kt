@@ -19,7 +19,7 @@ enum class SfxType {
     TOWER_PLACE, TOWER_UPGRADE, TOWER_SELL, TOWER_ABILITY,
     BASE_HIT, PLAYER_ATTACK,
     BOSS_CHARGE, BOSS_SUMMON, BOSS_HEAL, BOSS_AOE,
-    BOSS_SHIELD, BOSS_ROAR, BOSS_TELEPORT, BOSS_DRAIN, BOSS_QUAKE, BOSS_SPLIT,
+    BOSS_SHIELD, BOSS_SCREECH, BOSS_TELEPORT, BOSS_DRAIN, BOSS_QUAKE, BOSS_SPLIT,
     DIAMOND_DROP, PLAYER_UPGRADE, UI_CLICK
 }
 
@@ -38,6 +38,7 @@ object SoundManager {
     private var soundPool: SoundPool? = null
     private val soundIds = mutableMapOf<SfxType, Int>()
     @Volatile private var initialized = false
+    private var cacheDir: File? = null
 
     // Throttle: don't spam the same sound faster than every 40ms
     private val lastPlayTime = mutableMapOf<SfxType, Long>()
@@ -66,7 +67,6 @@ object SoundManager {
     fun init(context: Context) {
         if (initialized) return
         initialized = true
-        cacheContext = context.applicationContext
         loadSettings(context)
 
         val attrs = AudioAttributes.Builder()
@@ -75,8 +75,7 @@ object SoundManager {
             .build()
         soundPool = SoundPool.Builder().setMaxStreams(8).setAudioAttributes(attrs).build()
 
-        val cacheDir = File(context.cacheDir, "sfx")
-        cacheDir.mkdirs()
+        cacheDir = File(context.cacheDir, "sfx").apply { mkdirs() }
 
         for (sfx in SfxType.entries) {
             val samples = generateSamples(sfx)
@@ -100,19 +99,16 @@ object SoundManager {
         pool.play(id, vol, vol, 1, 0, 1f)
     }
 
-    private var cacheContext: Context? = null
-
     fun release() {
         soundPool?.release()
         soundPool = null
         soundIds.clear()
         initialized = false
         // Clean up cached WAV files
-        cacheContext?.let { ctx ->
-            val sfxDir = File(ctx.cacheDir, "sfx")
+        cacheDir?.let { sfxDir ->
             if (sfxDir.exists()) sfxDir.deleteRecursively()
         }
-        cacheContext = null
+        cacheDir = null
     }
 
     // --- Procedural sound generation ---
@@ -148,7 +144,7 @@ object SoundManager {
             SfxType.BOSS_HEAL -> chime(0.15, doubleArrayOf(659.0, 784.0), 0.35)
             SfxType.BOSS_AOE -> boom(0.15, 100.0, 0.65)
             SfxType.BOSS_SHIELD -> chirp(0.1, 1500.0, 2500.0, 0.35)
-            SfxType.BOSS_ROAR -> horn(0.2, 100.0, 0.6)
+            SfxType.BOSS_SCREECH -> horn(0.18, 180.0, 0.55)
             SfxType.BOSS_TELEPORT -> sweep(0.08, 2000.0, 400.0, 0.4)
             SfxType.BOSS_DRAIN -> sweep(0.1, 800.0, 200.0, 0.45)
             SfxType.BOSS_QUAKE -> boom(0.2, 60.0, 0.7)

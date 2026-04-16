@@ -98,13 +98,13 @@
             android:backgroundTint="#F44336" />
     </LinearLayout>
 
-    <!-- Play button -->
+    <!-- Endless Mode button (primary play mode) -->
     <Button
-        android:id="@+id/btn_play"
+        android:id="@+id/btn_endless"
         android:layout_width="match_parent"
         android:layout_height="64dp"
         android:layout_marginTop="24dp"
-        android:text="@string/play"
+        android:text="♾️ ENDLESS MODE"
         android:textSize="22sp"
         android:textStyle="bold"
         android:backgroundTint="@color/gold"
@@ -122,18 +122,6 @@
         android:backgroundTint="#4CAF50"
         android:textColor="@color/bg_dark"
         android:visibility="gone" />
-
-    <!-- Endless Mode button -->
-    <Button
-        android:id="@+id/btn_endless"
-        android:layout_width="match_parent"
-        android:layout_height="52dp"
-        android:layout_marginTop="8dp"
-        android:text="@string/endless_mode"
-        android:textSize="18sp"
-        android:textStyle="bold"
-        android:backgroundTint="#E040FB"
-        android:textColor="@color/bg_dark" />
 
     <!-- Endless high wave -->
     <TextView
@@ -178,6 +166,18 @@
         android:textSize="14sp"
         android:gravity="center"
         android:layout_marginTop="4dp" />
+
+    <!-- Randomizer button -->
+    <Button
+        android:id="@+id/btn_randomizer"
+        android:layout_width="match_parent"
+        android:layout_height="52dp"
+        android:layout_marginTop="8dp"
+        android:text="🎲 RANDOMIZER"
+        android:textSize="18sp"
+        android:textStyle="bold"
+        android:backgroundTint="#AA00FF"
+        android:textColor="@android:color/white" />
 
     <!-- Settings button -->
     <Button
@@ -234,48 +234,16 @@
         android:backgroundTint="#FFAB00"
         android:textColor="@color/bg_dark" />
 
-    <!-- Map selection row -->
-    <TextView
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:text="\uD83D\uDDFA\uFE0F Map:"
-        android:textColor="@color/white"
-        android:textSize="14sp"
-        android:layout_marginTop="8dp" />
-    <LinearLayout
+    <!-- Help button -->
+    <Button
+        android:id="@+id/btn_help"
+        style="@style/Widget.MaterialComponents.Button.OutlinedButton"
         android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:orientation="horizontal"
-        android:gravity="center"
-        android:layout_marginTop="4dp">
-        <Button
-            android:id="@+id/btn_map_classic"
-            android:layout_width="0dp"
-            android:layout_height="40dp"
-            android:layout_weight="1"
-            android:layout_marginHorizontal="4dp"
-            android:text="\uD83D\uDDFA\uFE0F Classic"
-            android:textSize="12sp"
-            android:backgroundTint="#4CAF50" />
-        <Button
-            android:id="@+id/btn_map_valley"
-            android:layout_width="0dp"
-            android:layout_height="40dp"
-            android:layout_weight="1"
-            android:layout_marginHorizontal="4dp"
-            android:text="\uD83C\uDFD4\uFE0F Valley"
-            android:textSize="12sp"
-            android:backgroundTint="#78909C" />
-        <Button
-            android:id="@+id/btn_map_crossroads"
-            android:layout_width="0dp"
-            android:layout_height="40dp"
-            android:layout_weight="1"
-            android:layout_marginHorizontal="4dp"
-            android:text="\u271A Cross"
-            android:textSize="12sp"
-            android:backgroundTint="#78909C" />
-    </LinearLayout>
+        android:layout_height="48dp"
+        android:layout_marginTop="8dp"
+        android:text="\uD83D\uDCD6 Help &amp; Mechanics"
+        android:textSize="16sp"
+        android:textColor="@color/text_secondary" />
 
     <!-- Diamond counter -->
     <TextView

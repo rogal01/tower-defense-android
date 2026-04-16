@@ -8,6 +8,7 @@ import android.view.SurfaceHolder
 import android.view.SurfaceView
 import com.example.myapp.SoundManager
 import com.example.myapp.SfxType
+import java.util.Locale
 
 class GameView @JvmOverloads constructor(
     context: Context,
@@ -16,7 +17,12 @@ class GameView @JvmOverloads constructor(
 
     private var gameThread: Thread? = null
     @Volatile private var running = false
+    @Volatile private var initialized = false
     private val engine = GameEngine(context)
+    private val pendingReadyActions = mutableListOf<() -> Unit>()
+    init {
+        GameEngineHolder.engine = engine
+    }
 
     var onGoldChanged: ((Int) -> Unit)? = null
     var onWaveChanged: ((Int) -> Unit)? = null
@@ -30,14 +36,47 @@ class GameView @JvmOverloads constructor(
     private var displayFps = 0
 
     // Paints
-    // Static terrain colors
-    private val grassColor = 0xFF3A7D3A.toInt()
-    private val grassLightColor = 0xFF4CAF50.toInt()
-    private val pathColor = 0xFF8D6E63.toInt()
-    private val pathEdgeColor = 0xFF6D4C41.toInt()
-    private val trunkColor = 0xFF795548.toInt()
-    private val rockColor = 0xFF757575.toInt()
-    private val rockHighlightColor = 0xFF9E9E9E.toInt()
+    // Static terrain colors — overridden per mapType in updateThemeColors()
+    private var grassColor = 0xFF3A7D3A.toInt()
+    private var grassLightColor = 0xFF4CAF50.toInt()
+    private var pathColor = 0xFF8D6E63.toInt()
+    private var pathEdgeColor = 0xFF6D4C41.toInt()
+    private var trunkColor = 0xFF795548.toInt()
+    private var rockColor = 0xFF757575.toInt()
+    private var rockHighlightColor = 0xFF9E9E9E.toInt()
+
+    /** Update terrain palette based on map theme */
+    private fun updateThemeColors() {
+        when (engine.mapType) {
+            MapType.DESERT -> {
+                grassColor = 0xFFC2A04E.toInt()       // sandy
+                grassLightColor = 0xFFD4B86A.toInt()   // light sand
+                pathColor = 0xFFB89A5A.toInt()         // dusty trail
+                pathEdgeColor = 0xFF9E8040.toInt()     // dark sand
+                trunkColor = 0xFF6D4C41.toInt()        // dry wood
+                rockColor = 0xFFA08060.toInt()         // sandstone
+                rockHighlightColor = 0xFFC0A080.toInt()
+            }
+            MapType.SNOW -> {
+                grassColor = 0xFFE0E8F0.toInt()        // snowy ground
+                grassLightColor = 0xFFF0F4F8.toInt()   // fresh snow
+                pathColor = 0xFFB0B8C0.toInt()         // icy path
+                pathEdgeColor = 0xFF90989F.toInt()     // darker ice
+                trunkColor = 0xFF5D4037.toInt()        // cold bark
+                rockColor = 0xFFA0A8B0.toInt()         // frozen rock
+                rockHighlightColor = 0xFFC8D0D8.toInt()
+            }
+            else -> {
+                grassColor = 0xFF3A7D3A.toInt()
+                grassLightColor = 0xFF4CAF50.toInt()
+                pathColor = 0xFF8D6E63.toInt()
+                pathEdgeColor = 0xFF6D4C41.toInt()
+                trunkColor = 0xFF795548.toInt()
+                rockColor = 0xFF757575.toInt()
+                rockHighlightColor = 0xFF9E9E9E.toInt()
+            }
+        }
+    }
     // Terrain paints (pre-allocated)
     private val terrainPaint = Paint().apply { isAntiAlias = true }
     private val pathPaint = Paint().apply { isAntiAlias = true; style = Paint.Style.STROKE; strokeCap = Paint.Cap.ROUND; strokeJoin = Paint.Join.ROUND }
@@ -158,7 +197,13 @@ class GameView @JvmOverloads constructor(
 
     override fun surfaceCreated(holder: SurfaceHolder) {
         engine.init(width.toFloat(), height.toFloat())
+        updateThemeColors()
         generateTerrain()
+        initialized = true
+        synchronized(pendingReadyActions) {
+            pendingReadyActions.forEach { it.invoke() }
+            pendingReadyActions.clear()
+        }
         startGameThread()
     }
 
@@ -170,6 +215,7 @@ class GameView @JvmOverloads constructor(
 
     override fun surfaceDestroyed(holder: SurfaceHolder) {
         stopGameThread()
+        initialized = false
         // Clear callbacks to prevent activity memory leak
         onGoldChanged = null
         onWaveChanged = null
@@ -332,10 +378,20 @@ class GameView @JvmOverloads constructor(
         canvas.drawOval(width * 0.60f, height * 0.03f, width * 0.75f, height * 0.075f, paint)
         canvas.drawOval(width * 0.38f, height * 0.06f, width * 0.52f, height * 0.095f, paint)
 
-        // === LUSH GREEN TERRAIN ===
+        // === TERRAIN (theme-aware) ===
         val groundTop = height * 0.12f
-        val terrTop = if (night) 0xFF2E5A2E.toInt() else 0xFF66BB6A.toInt()
-        val terrBot = if (night) 0xFF1B4D1B.toInt() else 0xFF388E3C.toInt()
+        val isDesert = engine.mapType == MapType.DESERT
+        val isSnow = engine.mapType == MapType.SNOW
+        val terrTop = if (night) {
+            if (isDesert) 0xFF5A4820.toInt() else if (isSnow) 0xFF506070.toInt() else 0xFF2E5A2E.toInt()
+        } else {
+            if (isDesert) 0xFFD4B86A.toInt() else if (isSnow) 0xFFE0E8F0.toInt() else 0xFF66BB6A.toInt()
+        }
+        val terrBot = if (night) {
+            if (isDesert) 0xFF3D3010.toInt() else if (isSnow) 0xFF3A4A5A.toInt() else 0xFF1B4D1B.toInt()
+        } else {
+            if (isDesert) 0xFFA08040.toInt() else if (isSnow) 0xFFB0C0D0.toInt() else 0xFF388E3C.toInt()
+        }
         terrainPaint.shader = LinearGradient(
             0f, groundTop, 0f, height.toFloat(),
             terrTop, terrBot, Shader.TileMode.CLAMP
@@ -350,20 +406,26 @@ class GameView @JvmOverloads constructor(
             val hy = groundTop + 20f + hillRng.nextFloat() * (height - groundTop - 60f)
             val hw = 80f + hillRng.nextFloat() * 150f
             val hh = 25f + hillRng.nextFloat() * 40f
-            terrainPaint.color = if (hillRng.nextBoolean()) 0xFF4CAF50.toInt() else 0xFF2E7D32.toInt()
+            terrainPaint.color = if (isDesert) {
+                if (hillRng.nextBoolean()) 0xFFC0A050.toInt() else 0xFFB09030.toInt()
+            } else if (isSnow) {
+                if (hillRng.nextBoolean()) 0xFFD0D8E0.toInt() else 0xFFB8C4D0.toInt()
+            } else {
+                if (hillRng.nextBoolean()) 0xFF4CAF50.toInt() else 0xFF2E7D32.toInt()
+            }
             terrainPaint.alpha = 30 + hillRng.nextInt(25)
             canvas.drawOval(hx - hw, hy - hh / 2, hx + hw, hy + hh / 2, terrainPaint)
         }
         terrainPaint.alpha = 255
 
         // Castle hill mound
-        terrainPaint.color = 0xFF4CAF50.toInt()
+        terrainPaint.color = if (isDesert) 0xFFB89A50.toInt() else if (isSnow) 0xFFC8D4E0.toInt() else 0xFF4CAF50.toInt()
         terrainPaint.alpha = 80
         canvas.drawOval(
             engine.baseX - 130f, engine.baseY - 25f,
             engine.baseX + 130f, engine.baseY + 55f, terrainPaint
         )
-        terrainPaint.color = 0xFF66BB6A.toInt()
+        terrainPaint.color = if (isDesert) 0xFFC4A860.toInt() else if (isSnow) 0xFFD8E0E8.toInt() else 0xFF66BB6A.toInt()
         terrainPaint.alpha = 50
         canvas.drawOval(
             engine.baseX - 95f, engine.baseY - 12f,
@@ -375,7 +437,7 @@ class GameView @JvmOverloads constructor(
         for (p in pathCache) {
             pathPaint.style = Paint.Style.STROKE
             // Grass border around path
-            pathPaint.color = 0xFF2E7D32.toInt()
+            pathPaint.color = if (isDesert) 0xFF9E8040.toInt() else if (isSnow) 0xFF90A0B0.toInt() else 0xFF2E7D32.toInt()
             pathPaint.strokeWidth = 58f
             canvas.drawPath(p, pathPaint)
             // Dark dirt edge
@@ -387,7 +449,7 @@ class GameView @JvmOverloads constructor(
             pathPaint.strokeWidth = 36f
             canvas.drawPath(p, pathPaint)
             // Lighter center tread
-            pathPaint.color = 0xFFBCAAA4.toInt()
+            pathPaint.color = if (isDesert) 0xFFD4BA80.toInt() else if (isSnow) 0xFFD0D8E0.toInt() else 0xFFBCAAA4.toInt()
             pathPaint.strokeWidth = 14f
             pathPaint.alpha = 60
             canvas.drawPath(p, pathPaint)
@@ -430,7 +492,7 @@ class GameView @JvmOverloads constructor(
             val tx = turfRng.nextFloat() * width
             val ty = groundTop + turfRng.nextFloat() * (height - groundTop)
             val ts = 3f + turfRng.nextFloat() * 6f
-            terrainPaint.color = if (turfRng.nextBoolean()) grassLightColor else 0xFF81C784.toInt()
+            terrainPaint.color = if (turfRng.nextBoolean()) grassLightColor else grassColor
             terrainPaint.alpha = 70 + turfRng.nextInt(60)
             canvas.drawLine(tx, ty, tx - ts * 0.5f, ty - ts, terrainPaint)
             canvas.drawLine(tx, ty, tx + ts * 0.3f, ty - ts * 0.8f, terrainPaint)
@@ -446,10 +508,10 @@ class GameView @JvmOverloads constructor(
         repeat(30) {
             val tx = treeSeed.nextFloat() * width
             val ts = 6f + treeSeed.nextFloat() * 10f
-            terrainPaint.color = 0xFF2E7D32.toInt()
+            terrainPaint.color = if (isDesert) 0xFF8B7535.toInt() else if (isSnow) 0xFF4A5A5A.toInt() else 0xFF2E7D32.toInt()
             terrainPaint.alpha = 35 + treeSeed.nextInt(25)
             canvas.drawCircle(tx, gtop + 10f, ts, terrainPaint)
-            terrainPaint.color = 0xFF388E3C.toInt()
+            terrainPaint.color = if (isDesert) 0xFF9E8040.toInt() else if (isSnow) 0xFF5A6A6A.toInt() else 0xFF388E3C.toInt()
             canvas.drawCircle(tx - ts * 0.3f, gtop + 6f, ts * 0.7f, terrainPaint)
         }
         terrainPaint.alpha = 255
@@ -458,9 +520,10 @@ class GameView @JvmOverloads constructor(
         drawDecorations(canvas)
 
         // Soft horizon transition
+        val horizonColor = skyBot
         terrainPaint.shader = LinearGradient(
             0f, groundTop - 8f, 0f, groundTop + 25f,
-            0xFF87CEEB.toInt(), 0x0087CEEB, Shader.TileMode.CLAMP
+            horizonColor, horizonColor and 0x00FFFFFF, Shader.TileMode.CLAMP
         )
         canvas.drawRect(0f, groundTop - 8f, width.toFloat(), groundTop + 25f, terrainPaint)
         terrainPaint.shader = null
@@ -518,6 +581,15 @@ class GameView @JvmOverloads constructor(
         canvas.drawRect(barX, barY, barX + barW * baseHpRatio, barY + barH, hpPaint)
 
         // Towers & ranges (with perspective)
+        if (engine.mapType == MapType.CROSSROADS) {
+            paint.color = 0x22FF8A65
+            canvas.drawCircle(engine.crossroadsZoneX, engine.crossroadsZoneY, engine.crossroadsKillZoneRadius, paint)
+            paint.color = 0x77FFAB91
+            paint.style = Paint.Style.STROKE
+            paint.strokeWidth = 2f
+            canvas.drawCircle(engine.crossroadsZoneX, engine.crossroadsZoneY, engine.crossroadsKillZoneRadius, paint)
+            paint.style = Paint.Style.FILL
+        }
         // Pre-compute synergy counts for visual glow
         val synergyCounts = mutableMapOf<Int, Int>()
         for (i in engine.towers.indices) {
@@ -547,13 +619,14 @@ class GameView @JvmOverloads constructor(
                 canvas.drawCircle(tower.x, tower.y, tower.size + 12f + synergyCount * 3f, paint)
             }
             if (tower == selectedTower) {
+                val displayRange = engine.getDisplayedTowerRange(tower)
                 // Pulsing selection ring
                 paint.color = 0x3300E5FF
-                canvas.drawCircle(tower.x, tower.y, tower.range, paint)
+                canvas.drawCircle(tower.x, tower.y, displayRange, paint)
                 paint.color = 0x6600E5FF
                 paint.style = Paint.Style.STROKE
                 paint.strokeWidth = 2f
-                canvas.drawCircle(tower.x, tower.y, tower.range, paint)
+                canvas.drawCircle(tower.x, tower.y, displayRange, paint)
                 paint.style = Paint.Style.FILL
                 // Selection glow under tower
                 paint.color = 0x4400E5FF
@@ -566,12 +639,13 @@ class GameView @JvmOverloads constructor(
             canvas.restore()
             // Ice tower aura ring
             if (tower.type == TowerType.ICE) {
+                val displayRange = engine.getDisplayedTowerRange(tower)
                 paint.color = 0x2281D4FA
-                canvas.drawCircle(tower.x, tower.y, tower.range, paint)
+                canvas.drawCircle(tower.x, tower.y, displayRange, paint)
                 paint.color = 0x5581D4FA
                 paint.style = Paint.Style.STROKE
                 paint.strokeWidth = 2f
-                canvas.drawCircle(tower.x, tower.y, tower.range, paint)
+                canvas.drawCircle(tower.x, tower.y, displayRange, paint)
                 paint.style = Paint.Style.FILL
             }
             if (tower.level > 1) {
@@ -668,10 +742,10 @@ class GameView @JvmOverloads constructor(
                 bossNamePaint.textSize = 13f; bossNamePaint.color = Color.WHITE
                 canvas.drawText(hpText, width / 2f, bossBarY + bossBarH - 3f, bossNamePaint)
                 // Ability indicator
-                val abilityLabel = enemy.bossType?.ability?.name?.replace('_', ' ') ?: ""
+                val abilityLabel = enemy.bossType?.ability?.displayName ?: ""
                 if (abilityLabel.isNotEmpty()) {
                     bossNamePaint.textSize = 12f; bossNamePaint.color = 0xFFBDBDBD.toInt()
-                    canvas.drawText("\u26A0\uFE0F $abilityLabel", width / 2f, bossBarY + bossBarH + 10f, bossNamePaint)
+                    canvas.drawText("\u26A0\uFE0F $abilityLabel: ${enemy.bossType?.ability?.shortDescription ?: ""}", width / 2f, bossBarY + bossBarH + 10f, bossNamePaint)
                 }
             }
         }
@@ -704,33 +778,30 @@ class GameView @JvmOverloads constructor(
         EntityRenderer.drawPlayer(canvas, engine.player.x, engine.player.y, engine.player.size, phRatioForDraw)
         canvas.restore()
         // Player range circle — subtle
+        val playerRange =
+            engine.player.attackRange *
+                (if (engine.currentWaveModifier == WaveModifier.INVISIBLE) 0.7f else 1f) *
+                (if (engine.mapType == MapType.DESERT && engine.desertStormDuration > 0f) 0.9f else 1f)
         paint.color = 0x1542A5F5
-        canvas.drawCircle(engine.player.x, engine.player.y, engine.player.attackRange, paint)
+        canvas.drawCircle(engine.player.x, engine.player.y, playerRange, paint)
         paint.color = 0x3342A5F5
         paint.style = Paint.Style.STROKE
         paint.strokeWidth = 1.5f
-        canvas.drawCircle(engine.player.x, engine.player.y, engine.player.attackRange, paint)
+        canvas.drawCircle(engine.player.x, engine.player.y, playerRange, paint)
         paint.style = Paint.Style.FILL
 
-        // Player HP bar — rounded
-        val phRatio = (engine.player.hp / engine.player.maxHp).coerceIn(0f, 1f)
-        val pBarW = 60f
-        val pBarH = 7f
-        val pBarX = engine.player.x - pBarW / 2
-        val pBarY = engine.player.y - engine.player.size - 16f
-        paint.color = 0x88000000.toInt()
-        canvas.drawRoundRect(pBarX - 1f, pBarY - 1f, pBarX + pBarW + 1f, pBarY + pBarH + 1f, 4f, 4f, paint)
-        canvas.drawRoundRect(pBarX, pBarY, pBarX + pBarW, pBarY + pBarH, 4f, 4f, hpBarBgPaint)
-        canvas.drawRoundRect(pBarX, pBarY, pBarX + pBarW * phRatio, pBarY + pBarH, 4f, 4f, playerHpBarPaint)
+        // Player HP bar removed — focus on base health only
 
         // Dash cooldown indicator under player
         if (engine.dashCooldown > 0) {
             val dashRatio = (1f - engine.dashCooldown / engine.dashCooldownMax).coerceIn(0f, 1f)
-            val dBarY = pBarY + pBarH + 3f
+            val dBarW = 50f
+            val dBarX = engine.player.x - dBarW / 2f
+            val dBarY = engine.player.y + engine.player.size + 6f
             paint.color = 0x88000000.toInt()
-            canvas.drawRoundRect(pBarX, dBarY, pBarX + pBarW, dBarY + 4f, 2f, 2f, paint)
+            canvas.drawRoundRect(dBarX, dBarY, dBarX + dBarW, dBarY + 4f, 2f, 2f, paint)
             paint.color = 0xFF00BFA5.toInt()
-            canvas.drawRoundRect(pBarX, dBarY, pBarX + pBarW * dashRatio, dBarY + 4f, 2f, 2f, paint)
+            canvas.drawRoundRect(dBarX, dBarY, dBarX + dBarW * dashRatio, dBarY + 4f, 2f, 2f, paint)
         }
 
         // Floating texts (with outline for readability)
@@ -750,9 +821,10 @@ class GameView @JvmOverloads constructor(
         // Wave info at top (with outline for readability)
         val endlessTag = if (engine.isEndlessMode) "\u267E\uFE0F " else ""
         val rushTag = if (engine.isBossRush) "\uD83D\uDC80 " else ""
+        val randTag = if (engine.isRandomizerMode) "\uD83C\uDFB2 " else ""
         if (!engine.waveInProgress && engine.wave > 0 && !engine.gameOver) {
             val countdown = engine.waveTimer.toInt() + 1
-            val wText = "${rushTag}${endlessTag}Next wave in ${countdown}s"
+            val wText = "${rushTag}${endlessTag}${randTag}Next wave in ${countdown}s"
             drawOutlinedText(canvas, wText, width / 2f, 80f, waveTextPaint)
             if (engine.isBossRush) {
                 drawOutlinedText(canvas, "Boss ${engine.bossRushWave} defeated", width / 2f, 50f, previewTextPaint)
@@ -760,8 +832,14 @@ class GameView @JvmOverloads constructor(
         } else if (engine.waveInProgress) {
             val modTag = if (engine.currentWaveModifier != WaveModifier.NONE) " ${engine.currentWaveModifier.emoji}" else ""
             val bossName = if (engine.isBossRush && engine.currentBoss != null) " \u2014 ${engine.currentBoss!!.displayName}" else ""
-            val wText = "${rushTag}${endlessTag}Wave ${engine.wave}$modTag$bossName  \u2694\uFE0F  ${engine.enemies.size} enemies"
+            val wText = "${rushTag}${endlessTag}${randTag}Wave ${engine.wave}$modTag$bossName  \u2694\uFE0F  ${engine.enemies.size} enemies"
             drawOutlinedText(canvas, wText, width / 2f, 80f, waveTextPaint)
+            engine.getCombatDebuffStatus()?.let { debuffText ->
+                previewTextPaint.color = 0xFFFFB300.toInt()
+                previewTextPaint.textAlign = Paint.Align.CENTER
+                drawOutlinedText(canvas, debuffText, width / 2f, 108f, previewTextPaint)
+                previewTextPaint.textAlign = Paint.Align.LEFT
+            }
 
             // Wave progress bar — thin bar under wave text
             if (engine.totalEnemiesThisWave > 0) {
@@ -813,7 +891,13 @@ class GameView @JvmOverloads constructor(
             comboPaint.textSize = 28f + engine.comboCount.coerceAtMost(20) * 1.5f
             drawOutlinedText(canvas, "${engine.comboCount}x COMBO", width - 20f, 170f, comboPaint)
             comboMultPaint.textSize = 22f
-            drawOutlinedText(canvas, "x${String.format("%.1f", engine.comboMultiplier)} gold", width - 20f, 198f, comboMultPaint)
+            drawOutlinedText(
+                canvas,
+                "x${String.format(Locale.getDefault(), "%.1f", engine.comboMultiplier)} gold",
+                width - 20f,
+                198f,
+                comboMultPaint
+            )
         }
 
         // High score (top left-ish)
@@ -828,6 +912,8 @@ class GameView @JvmOverloads constructor(
         if (engine.isNight) {
             drawOutlinedText(canvas, "\uD83C\uDF19 Night — enemies +20% HP", 10f, 178f, previewLabelPaint)
         }
+
+        drawOutlinedText(canvas, engine.getMapMechanicStatus(), 10f, 201f, previewLabelPaint)
 
         // Wave preview panel (between waves, bottom-left area above controls)
         val preview = engine.nextWavePreview
@@ -868,7 +954,7 @@ class GameView @JvmOverloads constructor(
                 canvas.drawText("${preview.bossType.emoji} ${preview.bossType.displayName}", pvX + 14f, contentY + 4f, previewTextPaint)
                 previewTextPaint.textSize = 13f
                 previewTextPaint.color = 0xFFBDBDBD.toInt()
-                canvas.drawText("\u26A0\uFE0F ${preview.bossType.ability.name.replace('_', ' ')} + minions", pvX + 14f, contentY + 22f, previewTextPaint)
+                canvas.drawText("\u26A0\uFE0F ${preview.bossType.ability.displayName}: ${preview.bossType.ability.shortDescription}", pvX + 14f, contentY + 22f, previewTextPaint)
             } else {
                 val totalCount = preview.enemies.values.sum()
                 previewTextPaint.color = 0xFFBDBDBD.toInt()
@@ -932,6 +1018,8 @@ class GameView @JvmOverloads constructor(
                 drawOutlinedText(canvas, "\uD83D\uDC80 BOSS RUSH OVER", width / 2f, height / 2f - 80f, gameOverPaint)
             } else if (engine.isEndlessMode) {
                 drawOutlinedText(canvas, "ENDLESS OVER", width / 2f, height / 2f - 80f, gameOverPaint)
+            } else if (engine.isRandomizerMode) {
+                drawOutlinedText(canvas, "\uD83C\uDFB2 RANDOMIZER OVER", width / 2f, height / 2f - 80f, gameOverPaint)
             } else {
                 drawOutlinedText(canvas, "GAME OVER", width / 2f, height / 2f - 80f, gameOverPaint)
             }
@@ -1067,6 +1155,21 @@ class GameView @JvmOverloads constructor(
         }
     }
 
+    fun whenReady(action: () -> Unit) {
+        if (initialized) {
+            action()
+            return
+        }
+        synchronized(pendingReadyActions) {
+            if (initialized) action() else pendingReadyActions.add(action)
+        }
+    }
+
+    fun refreshMapPresentation() {
+        updateThemeColors()
+        generateTerrain()
+    }
+
     private fun startGameThread() {
         if (!running) {
             running = true
@@ -1127,21 +1230,33 @@ class GameView @JvmOverloads constructor(
         // Build river canvas path
         riverPathCache = buildSmoothPath(engine.riverWaypoints)
 
-        // Compute bridge positions: where each enemy path crosses the river
+        // Compute bridge positions: where each enemy path actually crosses the river
         val bridges = mutableListOf<PointF>()
         val rw = engine.riverWaypoints
         if (rw.size >= 2) {
             for (gamePath in engine.paths) {
                 val wps = gamePath.waypoints
+                var found = false
                 for (i in 0 until wps.size - 1) {
-                    val ay = wps[i].y; val bpy = wps[i + 1].y
-                    // Find segment that crosses the river Y band
-                    val riverY = h * 0.33f
-                    if ((ay < riverY && bpy > riverY) || (ay > riverY && bpy < riverY)) {
-                        val t = (riverY - ay) / (bpy - ay)
-                        val cx = wps[i].x + t * (wps[i + 1].x - wps[i].x)
-                        bridges.add(PointF(cx, riverY))
-                        break
+                    if (found) break
+                    val p1x = wps[i].x; val p1y = wps[i].y
+                    val p2x = wps[i + 1].x; val p2y = wps[i + 1].y
+                    // Check intersection with each river segment
+                    for (j in 0 until rw.size - 1) {
+                        val r1x = rw[j].x; val r1y = rw[j].y
+                        val r2x = rw[j + 1].x; val r2y = rw[j + 1].y
+                        // Line-segment intersection test
+                        val dx1 = p2x - p1x; val dy1 = p2y - p1y
+                        val dx2 = r2x - r1x; val dy2 = r2y - r1y
+                        val denom = dx1 * dy2 - dy1 * dx2
+                        if (Math.abs(denom) < 0.01f) continue
+                        val t1 = ((r1x - p1x) * dy2 - (r1y - p1y) * dx2) / denom
+                        val t2 = ((r1x - p1x) * dy1 - (r1y - p1y) * dx1) / denom
+                        if (t1 in 0f..1f && t2 in 0f..1f) {
+                            bridges.add(PointF(p1x + t1 * dx1, p1y + t1 * dy1))
+                            found = true
+                            break
+                        }
                     }
                 }
             }
@@ -1323,7 +1438,9 @@ class GameView @JvmOverloads constructor(
 
         // River banks (dark)
         pathPaint.style = Paint.Style.STROKE
-        pathPaint.color = 0xFF1B5E20.toInt()
+        val isDesertRiver = engine.mapType == MapType.DESERT
+        val isSnowRiver = engine.mapType == MapType.SNOW
+        pathPaint.color = if (isDesertRiver) 0xFF8B6914.toInt() else if (isSnowRiver) 0xFF506070.toInt() else 0xFF1B5E20.toInt()
         pathPaint.strokeWidth = 52f
         canvas.drawPath(riverPathCache, pathPaint)
 

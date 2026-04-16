@@ -29,11 +29,14 @@ data class Tower(
     val size: Float = 35f,
     val type: TowerType = TowerType.ARROW,
     var targetingMode: TargetingMode = TargetingMode.CLOSE,
-    var abilityTimer: Float = 0f
+    var abilityTimer: Float = 0f,
+    var debuffTimer: Float = 0f
 ) {
     fun update(dt: Float) {
-        if (fireTimer > 0) fireTimer -= dt
-        if (abilityTimer > 0) abilityTimer -= dt
+        if (debuffTimer > 0f) debuffTimer -= dt
+        val recoveryScale = if (debuffTimer > 0f) 0.55f else 1f
+        if (fireTimer > 0) fireTimer -= dt * recoveryScale
+        if (abilityTimer > 0) abilityTimer -= dt * recoveryScale
     }
 
     fun canFire(): Boolean = fireTimer <= 0f
