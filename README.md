@@ -25,6 +25,14 @@ This is the flagship repository in my tower-defense ecosystem. It combines game 
 - It demonstrates how I separate simulation rules from rendering and platform integration.
 - It translates well to cross-platform product work where the same logic must survive very different presentation layers.
 
+## Quick Ecosystem Comparison
+
+| Repo | Primary Strength | Best Use Case |
+| --- | --- | --- |
+| Kotlin/Android | Cross-platform shared architecture | Native-feeling mobile game or app logic across platforms |
+| Godot | Fast iteration and UX polish | Prototypes, gameplay validation, onboarding, HUD work |
+| Unity | Code-first runtime structure | Larger engine-based products that need maintainable architecture |
+
 ## Why This Repo Stands Out
 
 - **Cross-platform architecture**: gameplay systems live in a shared Kotlin Multiplatform module while each platform keeps native rendering and integrations.
@@ -109,6 +117,21 @@ See `ios/IOS-SETUP-GUIDE.md` for the full iOS setup flow.
 - shared gameplay simulation across mobile platforms
 - long-form game systems design and progression balancing
 - maintainable separation between logic, rendering, and platform APIs
+
+## Best-Fit Client Work
+
+This repo is a strong fit for clients who need:
+
+- shared logic across mobile platforms
+- maintainable game or app systems under native frontends
+- architecture support for long-term feature growth
+- developers who can work without depending on a single engine choice
+
+## What I Would Improve Next
+
+- add a media pack with gameplay GIFs and platform-specific screenshots
+- document the most interesting gameplay systems with short visual callouts
+- add a compact feature matrix comparing Android and iOS responsibilities
 
 ## Part Of A Multi-Engine Ecosystem
 
