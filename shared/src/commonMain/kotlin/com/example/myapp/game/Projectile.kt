@@ -1,5 +1,7 @@
 package com.example.myapp.game
 
+import kotlin.math.sqrt
+
 data class Projectile(
     var x: Float,
     var y: Float,
@@ -14,7 +16,7 @@ data class Projectile(
     fun update(dt: Float) {
         val dx = targetX - x
         val dy = targetY - y
-        val dist = Math.sqrt((dx * dx + dy * dy).toDouble()).toFloat()
+        val dist = sqrt((dx * dx + dy * dy).toDouble()).toFloat()
         if (dist < 1f) {
             x = targetX
             y = targetY

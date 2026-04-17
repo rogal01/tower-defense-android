@@ -1,5 +1,7 @@
 package com.example.myapp.game
 
+import kotlin.math.sqrt
+
 data class Enemy(
     var x: Float,
     var y: Float,
@@ -25,7 +27,7 @@ data class Enemy(
     fun distanceTo(tx: Float, ty: Float): Float {
         val dx = x - tx
         val dy = y - ty
-        return Math.sqrt((dx * dx + dy * dy).toDouble()).toFloat()
+        return sqrt((dx * dx + dy * dy).toDouble()).toFloat()
     }
 
     fun isAtBase(baseX: Float, baseY: Float): Boolean {

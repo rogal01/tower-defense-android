@@ -1,13 +1,24 @@
-# iOS App Setup Guide — Tower Defense KMP
+# iOS Engineering Notes For Enabling Support
 
-This guide walks you through setting up the iOS build on your Mac.
+This guide documents the current path for enabling the iOS side of the project on macOS.
+
+It is intentionally framed as an engineering note, not as a fully verified turnkey setup. The iOS app shell exists, but the shared Kotlin module still contains JVM-specific APIs that need to be migrated before end-to-end parity is reliable.
 
 ## Prerequisites
-- macOS with Xcode 15+ installed
-- JDK 17 (install via `brew install openjdk@17`)
-- Kotlin Multiplatform plugin in Android Studio (optional)
 
-## Step 1: Enable iOS targets in shared module
+- macOS with Xcode 15+ installed
+- JDK 17
+- Kotlin Multiplatform plugin in Android Studio if you want to inspect the shared module from the IDE
+
+## Current Readiness
+
+- SwiftUI and SpriteKit starter files are present under `ios/`
+- iOS targets in `shared/build.gradle.kts` are disabled by default
+- `commonMain` still contains `java.*`, `System.currentTimeMillis()`, and `Math.*` usage
+
+Before treating iOS as supported, review [../docs/KMP_PORTABILITY_AUDIT.md](../docs/KMP_PORTABILITY_AUDIT.md).
+
+## Step 1: Enable iOS targets in the shared module
 
 Open `shared/build.gradle.kts` and uncomment the iOS target block:
 
@@ -24,7 +35,7 @@ listOf(
 }
 ```
 
-Also point `iosMain` at the consolidated iOS source folder:
+Also enable `iosMain` and point it at the consolidated iOS source folder:
 
 ```kotlin
 sourceSets {
@@ -37,93 +48,78 @@ sourceSets {
 }
 ```
 
-## Step 2: Fix Java-specific code in commonMain
+## Step 2: Fix JVM-specific code in `commonMain`
 
-Before iOS compilation works, replace Java-specific APIs in the shared module:
+Before iOS compilation works, replace the JVM-specific APIs that still exist in the shared module:
 
-| Java API | Kotlin/Common replacement |
-|---|---|
+| Current API | Multiplatform-safe replacement |
+| --- | --- |
 | `java.util.Random()` | `kotlin.random.Random` |
 | `java.util.Random(seed)` | `kotlin.random.Random(seed)` |
-| `rng.nextFloat()` | `rng.nextFloat()` (same API) |
 | `Math.sqrt(x)` | `kotlin.math.sqrt(x)` |
-| `Math.random()` | `kotlin.random.Random.nextDouble()` |
+| `Math.random()` | a shared `Random` source |
 | `Math.cos(x)` / `Math.sin(x)` | `kotlin.math.cos(x)` / `kotlin.math.sin(x)` |
 | `Math.abs(x)` | `kotlin.math.abs(x)` |
 | `Math.PI` | `kotlin.math.PI` |
-| `System.currentTimeMillis()` | Create expect/actual or use `Clock.System` from kotlinx-datetime |
-| `java.util.Calendar` | Create expect/actual or use kotlinx-datetime |
+| `System.currentTimeMillis()` | `kotlinx-datetime` or `expect/actual` helpers |
+| `java.util.Calendar` | `kotlinx-datetime` or `expect/actual` helpers |
 
 ## Step 3: Build the shared framework
 
 ```bash
-cd /path/to/project
 ./gradlew :shared:linkDebugFrameworkIosSimulatorArm64
 ```
 
-This generates: `shared/build/bin/iosSimulatorArm64/debugFramework/shared.framework`
+This generates:
 
-## Step 4: Create Xcode project
+```text
+shared/build/bin/iosSimulatorArm64/debugFramework/shared.framework
+```
 
-1. Open Xcode → File → New → Project → iOS → App
-2. Product Name: `TowerDefense`
-3. Interface: SwiftUI
-4. Language: Swift
-5. Save to the `ios/` directory in this project
+## Step 4: Create the Xcode project
+
+1. Open Xcode
+2. Create a new iOS App project
+3. Use `TowerDefense` as the product name
+4. Save it inside the repo's `ios/` directory
 
 ## Step 5: Link the shared framework
 
-1. In Xcode, select your project → Build Settings
-2. Search "Framework Search Paths" → Add:
-   ```
-   $(SRCROOT)/../shared/build/bin/iosSimulatorArm64/debugFramework
-   ```
-3. Add to "Other Linker Flags": `-framework shared`
-4. Add a Run Script build phase (before "Compile Sources"):
-   ```bash
-   cd "$SRCROOT/.."
-   ./gradlew :shared:linkDebugFrameworkIosSimulatorArm64
-   ```
+1. Add the generated framework directory to `Framework Search Paths`
+2. Add `-framework shared` to `Other Linker Flags`
+3. Add a run-script phase that rebuilds the Kotlin framework before compilation
 
-## Step 6: Copy Swift files
+Example run script:
+
+```bash
+cd "$SRCROOT/.."
+./gradlew :shared:linkDebugFrameworkIosSimulatorArm64
+```
+
+## Step 6: Copy the Swift files
 
 The `ios/app/` directory already contains starter Swift files:
-- `TowerDefenseApp.swift` — App entry point
-- `GameContainerView.swift` — Main SwiftUI view with HUD
-- `GameViewModel.swift` — Bridges shared GameEngine to Swift
-- `GameSpriteView.swift` — SpriteKit wrapper (rendering TODO)
 
-Copy these into your Xcode project or replace the generated files.
+- `TowerDefenseApp.swift`
+- `GameContainerView.swift`
+- `GameViewModel.swift`
+- `GameSpriteView.swift`
 
-## Step 7: Implement rendering
+Copy these into the Xcode project or replace the generated files.
 
-The Android version uses Canvas 2D. For iOS, options are:
-- **SpriteKit** (recommended) — Apple's 2D game framework
-- **Metal** — Lower-level, more control
-- **Core Graphics** — Similar to Android Canvas
+## Step 7: Implement rendering parity
 
-Port `EntityRenderer.kt` and `GameView.kt` rendering logic to a SpriteKit `SKScene`.
+The Android version uses Canvas 2D. The iOS path is currently planned around SpriteKit.
 
-## Project Structure
+Recommended next step:
 
-```
-project/
-├── app/                    # Android app module
-├── shared/                 # KMP shared module
-│   ├── src/commonMain/     # Pure Kotlin game logic
-│   ├── src/androidMain/    # Android implementations
-├── ios/                    # All iOS-specific files in one place
-│   ├── app/                # Swift/Xcode app files
-│   │   ├── TowerDefenseApp.swift
-│   │   ├── GameContainerView.swift
-│   │   ├── GameViewModel.swift
-│   │   └── GameSpriteView.swift
-│   ├── shared/src/iosMain/ # iOS-only Kotlin sources
-│   └── IOS-SETUP-GUIDE.md
-└── build.gradle.kts
-```
+- port the rendering responsibilities from Android `GameView.kt` / `EntityRenderer.kt`
+- keep the gameplay rules in the shared Kotlin module
+- let SpriteKit own only rendering and iOS-specific input presentation
 
 ## Notes
+
 - The shared framework must be rebuilt whenever Kotlin code changes
-- For release builds, use `linkReleaseFrameworkIosArm64` instead
-- Test on iOS Simulator first, then physical device
+- For release builds, use `linkReleaseFrameworkIosArm64`
+- Test on the iOS simulator first, then on a physical device
+- Until the portability audit is complete, describe iOS as scaffolded or in progress rather than fully supported

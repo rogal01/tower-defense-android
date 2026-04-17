@@ -14,9 +14,9 @@ kotlin {
         }
     }
 
-    // iOS targets — uncomment when building on Mac with Xcode
-    // Requires replacing java.* imports in commonMain with kotlin.* equivalents first.
-    // iOS-specific files are consolidated under ../ios/.
+    // iOS targets remain intentionally disabled on the default branch.
+    // The iOS shell exists under ../ios/, but commonMain still contains JVM-only APIs
+    // that must be migrated before end-to-end iOS builds are reliable.
     // listOf(
     //     iosX64(),
     //     iosArm64(),
@@ -31,6 +31,7 @@ kotlin {
     sourceSets {
         commonMain.dependencies { }
         androidMain.dependencies { }
+        // Enable iosMain only after the commonMain portability audit is resolved.
         // val iosMain by getting {
         //     kotlin.srcDir("../ios/shared/src/iosMain/kotlin")
         //     dependencies { }

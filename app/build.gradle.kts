@@ -11,6 +11,11 @@ if (localPropsFile.exists()) {
     localPropsFile.inputStream().use { localProperties.load(it) }
 }
 
+val hasLocalReleaseKeystore =
+    rootProject.file("keystore.jks").exists() &&
+        !localProperties.getProperty("KEYSTORE_PASSWORD").isNullOrBlank() &&
+        !localProperties.getProperty("KEY_PASSWORD").isNullOrBlank()
+
 android {
     namespace = "com.example.myapp"
     compileSdk = 35
@@ -36,7 +41,9 @@ android {
         release {
             isMinifyEnabled = true
             isShrinkResources = true
-            signingConfig = signingConfigs.getByName("release")
+            if (hasLocalReleaseKeystore) {
+                signingConfig = signingConfigs.getByName("release")
+            }
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"

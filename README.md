@@ -1,98 +1,101 @@
-# Tower Defense - Android & iOS
+# Tower Defense - Kotlin Multiplatform Flagship
 
 **The TD Ecosystem:** [📱 Kotlin/Android (Flagship)](https://github.com/rogal01/tower-defense-android) | [🎮 Godot (Fast Iteration)](https://github.com/rogal01/tower-defense-godot) | [⚙️ Unity (Code-First)](https://github.com/rogal01/tower-defense-unity-port)
 
-A feature-rich tower defense game built with **Kotlin Multiplatform**, with shared gameplay logic and native rendering on **Android Canvas** and **iOS SpriteKit**.
+A feature-rich tower defense game built around a shared Kotlin gameplay core, with a fully supported Android runtime and an in-progress iOS integration path.
 
-This is the flagship repository in my tower-defense ecosystem. It combines game systems programming, cross-platform architecture, native rendering, progression design, and long-term content support in one codebase.
+This repository is the flagship project in my tower-defense portfolio. It focuses on game systems programming, native mobile rendering, long-term progression design, and the tradeoffs involved in moving shared logic across platform boundaries without depending on Unity or Godot.
 
-> Portfolio note: add a short gameplay GIF or screenshot strip near the top before making the repo public.
+> Portfolio note: add a short gameplay GIF or a screenshot strip near the top before making the repo public.
 
 ## At A Glance
 
-- 6,300+ lines of shared game logic
+- 6,000+ lines of shared gameplay logic
 - 10 tower types, 3 trap types, 18 enemy types, 10 bosses
 - 8 maps and 40 campaign levels
 - 6 game modes
 - 50 achievements and 16 persistent skills
 - English and Polish localization
-- Native Android and iOS frontends without a third-party game engine
+- Native Android frontend with an iOS app shell already scaffolded
 
 ## Why This Matters To Clients
 
-- It shows that I can share core business logic across platforms while keeping native-feeling frontends.
-- It proves I can work without depending on a full third-party engine when the product calls for tighter platform control.
-- It demonstrates how I separate simulation rules from rendering and platform integration.
-- It translates well to cross-platform product work where the same logic must survive very different presentation layers.
+- It shows that I can separate core logic from rendering and platform-specific UI.
+- It demonstrates that I can adapt architecture across multiple stacks instead of locking everything into one engine.
+- It proves I can ship maintainable systems in a content-heavy product, not just isolated gameplay prototypes.
+- It maps well to client work where the same business logic needs to survive different runtimes, interfaces, or technical constraints.
+
+## Platform Readiness
+
+| Platform | Status | Notes |
+| --- | --- | --- |
+| Android | Primary, verified runtime | Main supported platform today. Builds and runs from the Android module. |
+| iOS | Scaffolded, partial, in progress | SwiftUI/SpriteKit shell exists, but the shared module still contains JVM-only APIs and the iOS Gradle targets are intentionally disabled on the default branch. |
+
+If you want the exact blockers for iOS parity, see [docs/KMP_PORTABILITY_AUDIT.md](docs/KMP_PORTABILITY_AUDIT.md) and [ios/IOS-SETUP-GUIDE.md](ios/IOS-SETUP-GUIDE.md).
 
 ## Quick Ecosystem Comparison
 
 | Repo | Primary Strength | Best Use Case |
 | --- | --- | --- |
-| Kotlin/Android | Cross-platform shared architecture | Native-feeling mobile game or app logic across platforms |
-| Godot | Fast iteration and UX polish | Prototypes, gameplay validation, onboarding, HUD work |
-| Unity | Code-first runtime structure | Larger engine-based products that need maintainable architecture |
+| Kotlin/Android | Shared mobile architecture | Native-feeling mobile products with a large reusable logic layer |
+| Godot | Fast iteration and UX polish | Gameplay validation, onboarding, UI flow, fast prototyping |
+| Unity | Code-first runtime structure | Engine-based products that still need maintainable architecture |
 
-## Why This Repo Stands Out
+## Core Gameplay Systems
 
-- **Cross-platform architecture**: gameplay systems live in a shared Kotlin Multiplatform module while each platform keeps native rendering and integrations.
-- **No external game engine**: rendering is handled with Android Canvas and iOS SpriteKit rather than Unity or Godot.
-- **Procedural presentation**: visuals are hand-drawn in code instead of relying only on asset packs.
-- **Large gameplay surface**: towers, traps, bosses, powers, campaign content, meta progression, and achievements all interact in one system.
-
-## Gameplay Systems
-
-### Core Loop
-- Place towers and traps to stop waves of enemies before they reach the base.
-- Move and upgrade a player-controlled hero who auto-attacks nearby enemies.
-- Spend gold during a run and diamonds between runs.
-- Combine towers, powers, upgrades, and map positioning to survive increasingly complex waves.
-
-### Included Systems
 - 10 unique towers with upgrades, targeting modes, and special abilities
-- 3 trap types for path control and passive damage
+- 3 trap types for lane control and passive damage
 - Elite enemies and boss encounters with unique mechanics
-- Multiple game modes including campaign, endless, boss rush, and daily challenge
-- Combo system, bounty objectives, wave modifiers, and day/night gameplay effects
+- Multiple modes including campaign, endless, boss rush, daily challenge, randomizer, and loadout
 - Persistent progression via achievements, skill tree upgrades, diamonds, stats, and campaign stars
+- Player-controlled hero with movement, dash, upgrades, and repair utility
 
 ## Technical Architecture
 
-### Shared Layer
+### Shared layer
+
 The `shared/` module contains the gameplay core:
 
-- game rules and simulation
-- enemies, towers, player, projectiles, and maps
-- progression systems such as skills, campaign data, and achievements
-- platform-agnostic interfaces for preferences and audio
+- simulation rules and combat logic
+- towers, enemies, player, projectiles, traps, and bosses
+- campaign data, achievements, skill tree, and run history logic
+- platform-facing interfaces for preferences and audio
 
-### Android Layer
-The Android app uses:
+### Android layer
 
-- `SurfaceView` for the main render loop
-- Android Canvas for world and HUD rendering
-- SharedPreferences for persistence
-- native activities for menus, settings, progression, and stats
+The `app/` module is the production runtime today:
 
-### iOS Layer
-The iOS app uses:
+- `MainActivity` now acts as a thin coordinator
+- `MainGameSessionConfigurator` applies intent-driven run setup such as campaign, loadout, map, and continue flow
+- `MainGameUiController` owns HUD wiring, button behavior, dialogs, and lifecycle-oriented run controls
+- `game/GameView.kt` contains the Android render loop, touch handling, and Canvas drawing
 
-- SwiftUI for app and HUD composition
-- SpriteKit for game rendering
-- UserDefaults for persistence
-- the same shared Kotlin gameplay logic compiled into an iOS framework
+### iOS layer
+
+The `ios/` folder contains the current iOS shell:
+
+- SwiftUI app container and view-model bridge
+- planned SpriteKit rendering path
+- integration notes for enabling the shared framework once `commonMain` becomes fully portable
 
 ## Project Layout
 
 ```text
-shared/   # Kotlin Multiplatform gameplay code
-app/      # Android app, menus, rendering, audio, UI
-ios/      # iOS app, SwiftUI container, SpriteKit integration
+app/     Android UI, rendering, activities, audio, platform integration
+shared/  Kotlin Multiplatform gameplay logic and progression systems
+ios/     SwiftUI/SpriteKit shell and iOS integration notes
+docs/    Portfolio docs, audit notes, and case-study support material
 ```
 
 ## Build
 
 ### Android
+
+Verified local prerequisites for this repo:
+
+- Android Studio JBR or another Java 21 JDK for the Gradle daemon
+- Android SDK installed and exposed through `ANDROID_HOME` or `local.properties`
 
 ```bash
 git clone https://github.com/rogal01/tower-defense-android.git
@@ -101,47 +104,56 @@ cd tower-defense-android
 ./gradlew installDebug
 ```
 
+### Release signing
+
+Release signing is optional for public clones. If you want a locally signed release build, add:
+
+- `keystore.jks` in the repo root
+- `KEYSTORE_PASSWORD` and `KEY_PASSWORD` in `local.properties`
+
+If those are missing, the project still remains usable for debug builds and code review.
+
 ### iOS
 
-1. Build the shared framework with Gradle.
-2. Open the iOS project in Xcode.
-3. Link the generated framework.
-4. Run on simulator or device.
+iOS is not presented as a turnkey build yet. The current state is:
 
-See `ios/IOS-SETUP-GUIDE.md` for the full iOS setup flow.
+1. shared iOS targets are intentionally disabled by default
+2. `commonMain` still needs portability cleanup
+3. the SwiftUI/SpriteKit shell is present for future parity work
+
+See [ios/IOS-SETUP-GUIDE.md](ios/IOS-SETUP-GUIDE.md) for the current engineering notes.
 
 ## Technical Highlights
 
-- cross-platform software architecture
-- native rendering without a third-party engine
-- shared gameplay simulation across mobile platforms
-- long-form game systems design and progression balancing
-- maintainable separation between logic, rendering, and platform APIs
+- native Android rendering without a third-party engine
+- large shared gameplay simulation in Kotlin Multiplatform
+- clear separation between game rules, rendering, and platform integration
+- content-heavy progression systems with campaign, meta upgrades, and achievements
+- architecture work that is honest about what is already shipping versus what is still under migration
+
+## Engineering Challenges Solved
+
+- kept a large gameplay surface maintainable while supporting multiple maps, modes, and progression systems
+- structured the Android gameplay screen around smaller collaborators instead of a single oversized activity
+- isolated the real KMP portability blockers instead of overstating cross-platform readiness
+- preserved a native mobile feel without relying on a heavyweight engine
 
 ## Best-Fit Client Work
 
 This repo is a strong fit for clients who need:
 
-- shared logic across mobile platforms
-- maintainable game or app systems under native frontends
-- architecture support for long-term feature growth
-- developers who can work without depending on a single engine choice
+- native Android work with heavy custom logic
+- shared logic across multiple frontends or runtimes
+- maintainable game or simulation systems with long-term feature growth
+- architecture support for products that cannot rely on one engine or framework forever
 
 ## What I Would Improve Next
 
-- add a media pack with gameplay GIFs and platform-specific screenshots
-- document the most interesting gameplay systems with short visual callouts
-- add a compact feature matrix comparing Android and iOS responsibilities
-
-## Part Of A Multi-Engine Ecosystem
-
-This repository is the **flagship** version of a broader tower-defense portfolio that also includes:
-
-- a **Godot** version focused on fast iteration, UI flow, and engine-driven experimentation
-- a **Unity** version focused on code-first runtime structure and maintainable gameplay bootstrap
-
-Together, the three repositories show that I can adapt the same product space across different engines and technical constraints instead of staying locked into a single stack.
+- finish the remaining `commonMain` portability migration so the iOS framework can be re-enabled with confidence
+- extract more render-only responsibilities out of `GameView.kt`
+- add a proper media pack with gameplay GIFs and platform-specific screenshots
+- rename legacy internal package names like `com.example.myapp` in a dedicated cleanup pass
 
 ## License
 
-MIT. See `LICENSE` for details.
+MIT. See [LICENSE](LICENSE) for details.
