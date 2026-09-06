@@ -26,6 +26,14 @@ data class Particle(
     fun isDead(): Boolean = life <= 0
 }
 
+// Shockwave ripple event
+data class Shockwave(
+    val x: Float,
+    val y: Float,
+    val color: Int,
+    val maxRadius: Float = 140f
+)
+
 // Powers
 enum class PowerType(val emoji: String, val displayName: String, val cost: Int, val cooldown: Float) {
     FIREBALL("\uD83D\uDD25", "Fireball", 40, 8f),
@@ -266,6 +274,14 @@ class GameEngine(val prefs: GamePreferences, val audio: GameAudio = SilentAudio)
     var bossFlashTimer: Float = 0f
     // Haptic feedback event: 0=none, 1=light, 2=heavy
     @Volatile var hapticPending: Int = 0
+
+    // Visual juice shockwaves (consumed by GameView)
+    val pendingShockwaves = mutableListOf<Shockwave>()
+    fun emitShockwave(x: Float, y: Float, color: Int, maxRadius: Float = 140f) {
+        if (pendingShockwaves.size < 32) {
+            pendingShockwaves.add(Shockwave(x, y, color, maxRadius))
+        }
+    }
 
     // High score
     var highScore: Int = 0
@@ -766,6 +782,10 @@ class GameEngine(val prefs: GamePreferences, val audio: GameAudio = SilentAudio)
             else -> 1f                        // Full skill tree influence
         }
         gold += (skillTree.bonusStartGold() * skillTreeFactor).toInt()
+        if (skillTree.getActiveBlessing() == DiamondBlessing.MIDAS) {
+            gold += 300
+            totalGoldEarned += 300
+        }
         val hpBonus = skillTree.bonusBaseHp() * skillTreeFactor
         if (campaignLevel?.id != 43 && campaignLevel?.id != 25 && campaignLevel?.id != 28) {
             maxBaseHp += hpBonus
@@ -797,8 +817,9 @@ class GameEngine(val prefs: GamePreferences, val audio: GameAudio = SilentAudio)
             a.unlocked = prefs.getBoolean("ach_${a.id}", false)
         }
 
-        if (skillTree.isRelicUnlocked(RelicId.AEGIS_OF_DAWN)) {
-            baseShield = 100f
+        val barrierHp = skillTree.citadelBarrierHp()
+        if (barrierHp > 0f) {
+            baseShield = barrierHp
         }
         
         generateNextWavePreview()
@@ -1092,6 +1113,13 @@ class GameEngine(val prefs: GamePreferences, val audio: GameAudio = SilentAudio)
                 trackBountyNoDamage()
                 consecutiveFlawlessWaves++
                 if (consecutiveFlawlessWaves >= 5) checkAchievement("iron_wall_5")
+                if (wave > 0 && wave % bossInterval == 0) {
+                    val flawlessBonus = if (isHeroicMode) 3 else 2
+                    skillTree.addDiamonds(flawlessBonus)
+                    diamondsEarnedThisRun += flawlessBonus
+                    audio.play(SfxType.DIAMOND_DROP)
+                    floatingTexts.add(FloatingText(baseX, baseY - 130f, "+$flawlessBonus 💎 FLAWLESS BOSS DEFENSE!", 0xFF00E5FF.toInt(), 2.2f, 28f))
+                }
             } else {
                 consecutiveFlawlessWaves = 0
             }
@@ -1280,12 +1308,15 @@ class GameEngine(val prefs: GamePreferences, val audio: GameAudio = SilentAudio)
             val effectivePlayerRange = player.attackRange * (if (currentWaveModifier == WaveModifier.INVISIBLE) 0.7f else 1f)
             val hasQuiver = skillTree.isRelicUnlocked(RelicId.ARTEMIS_QUIVER)
             val hasChrono = skillTree.isRelicUnlocked(RelicId.CHRONO_HOURGLASS)
+            val hasWarhorn = skillTree.isRelicUnlocked(RelicId.TITAN_WARHORN)
             val inRangeEnemies = enemies.filter { it.hp > 0 && it.distanceTo(player.x, player.y) < effectivePlayerRange }
-            val targets = if (hasQuiver) {
-                inRangeEnemies.sortedBy { it.distanceTo(player.x, player.y) }.take(3)
-            } else {
-                val nearest = inRangeEnemies.minByOrNull { it.distanceTo(player.x, player.y) }
-                if (nearest != null) listOf(nearest) else emptyList()
+            val targets = when {
+                hasWarhorn -> inRangeEnemies
+                hasQuiver -> inRangeEnemies.sortedBy { it.distanceTo(player.x, player.y) }.take(3)
+                else -> {
+                    val nearest = inRangeEnemies.minByOrNull { it.distanceTo(player.x, player.y) }
+                    if (nearest != null) listOf(nearest) else emptyList()
+                }
             }
 
             if (targets.isNotEmpty()) {
@@ -1294,13 +1325,23 @@ class GameEngine(val prefs: GamePreferences, val audio: GameAudio = SilentAudio)
                 audio.play(SfxType.PLAYER_ATTACK)
                 val glassDmgMult = if (hasMerchantItem(MerchantItemId.GLASS_CANNON)) 1.50f else 1f
                 for (target in targets) {
+                    if (hasWarhorn && !target.isBoss) {
+                        val dx = target.x - player.x
+                        val dy = target.y - player.y
+                        val dist = kotlin.math.hypot(dx, dy)
+                        if (dist > 5f) {
+                            target.x += (dx / dist) * 45f
+                            target.y += (dy / dist) * 45f
+                        }
+                    }
                     val shieldRed = if (target.shieldTimer > 0) 0.3f else 1f
                     val phaseRed = if (target.isPhased) 0.25f else 1f
                     val superconductMult = if (target.superconductTimer > 0f) 1.25f else 1f
                     var actualPlayerDmg = player.attackDamage * shieldRed * phaseRed * glassDmgMult * superconductMult
-                    val isCrit = (Math.random() < 0.15) || (Math.random() < critChance)
+                    val isCrit = (Math.random() < (0.15 + skillTree.heroCritChance())) || (Math.random() < critChance)
                     if (isCrit) {
-                        actualPlayerDmg *= critMultiplier
+                        val heroCritMult = if (skillTree.getLevel("hero_critical") > 0) 2.5f else critMultiplier
+                        actualPlayerDmg *= heroCritMult
                         audio.play(SfxType.HERO_SPECIAL)
                         playerCritsThisRun++
                         if (playerCritsThisRun >= 15) checkAchievement("hero_crits")
@@ -1330,7 +1371,8 @@ class GameEngine(val prefs: GamePreferences, val audio: GameAudio = SilentAudio)
         }
 
         val greedCurseSpeedMult = if (hasMerchantItem(MerchantItemId.GREED_CURSE)) 1.20f else 1f
-        val speedMult = (if (freezeTimer > 0) 0.2f else 1f) * currentWeather.enemySpeedMultiplier * greedCurseSpeedMult
+        val voidPactSpeedMult = if (hasMerchantItem(MerchantItemId.VOID_PACT)) 1.15f else 1f
+        val speedMult = (if (freezeTimer > 0) 0.2f else 1f) * currentWeather.enemySpeedMultiplier * greedCurseSpeedMult * voidPactSpeedMult
         // Reset ice slow on all enemies each frame, then reapply from ice towers / tar
         enemies.forEach {
             if (it.deepFreezeTimer > 0) { it.deepFreezeTimer -= dt; it.iceSlowFactor = 0.05f }
@@ -1384,9 +1426,11 @@ class GameEngine(val prefs: GamePreferences, val audio: GameAudio = SilentAudio)
             if (enemy.brittleTimer > 0) enemy.brittleTimer -= dt
             if (enemy.enfeebleTimer > 0) enemy.enfeebleTimer -= dt
             if (enemy.silenceTimer > 0) enemy.silenceTimer -= dt
+            val hasHarvester = skillTree.isRelicUnlocked(RelicId.ASTRAL_HARVESTER)
+            val harvesterMult = if (hasHarvester) 2.5f else 1.0f
             if (enemy.astralDecayTimer > 0 && !enemy.isDead()) {
                 enemy.astralDecayTimer -= dt
-                enemy.hp -= 35f * dt
+                enemy.hp -= 35f * harvesterMult * dt
                 if (Math.random() < 0.2) {
                     particles.add(Particle(enemy.x, enemy.y,
                         ((Math.random() - 0.5) * 20).toFloat(), -15f - Math.random().toFloat() * 15f,
@@ -1395,7 +1439,7 @@ class GameEngine(val prefs: GamePreferences, val audio: GameAudio = SilentAudio)
             }
             if (enemy.soulburnTimer > 0 && !enemy.isDead()) {
                 enemy.soulburnTimer -= dt
-                enemy.hp -= 45f * dt
+                enemy.hp -= 45f * harvesterMult * dt
                 if (Math.random() < 0.2) {
                     particles.add(Particle(enemy.x, enemy.y,
                         ((Math.random() - 0.5) * 25).toFloat(), -20f - Math.random().toFloat() * 20f,
@@ -1445,7 +1489,8 @@ class GameEngine(val prefs: GamePreferences, val audio: GameAudio = SilentAudio)
             }
             // Elite ability effects (silenced by EMP Shockwave)
             if (enemy.isElite && !enemy.isDead() && enemy.silenceTimer <= 0f) {
-                enemy.eliteAuraTimer -= dt
+                val eliteRechargeRate = if (skillTree.isRelicUnlocked(RelicId.CHRONO_SINGULARITY)) 0.60f else 1.0f
+                enemy.eliteAuraTimer -= dt * eliteRechargeRate
                 when (enemy.eliteAbility) {
                     EliteAbility.SPEED_AURA -> {
                         // Buff nearby non-elite enemies speed every 2s
@@ -1678,7 +1723,8 @@ class GameEngine(val prefs: GamePreferences, val audio: GameAudio = SilentAudio)
                         startBossTelegraph(enemy, BossAbility.TITAN_STOMP)
                     } else {
                         // 3. Periodic Ability with Telegraph
-                        enemy.bossAbilityTimer -= dt
+                        val bossRechargeRate = if (skillTree.isRelicUnlocked(RelicId.CHRONO_SINGULARITY)) 0.60f else 1.0f
+                        enemy.bossAbilityTimer -= dt * bossRechargeRate
                         if (enemy.isCharging) {
                             enemy.chargeTimer -= dt
                             if (enemy.chargeTimer <= 0f) enemy.isCharging = false
@@ -1719,10 +1765,11 @@ class GameEngine(val prefs: GamePreferences, val audio: GameAudio = SilentAudio)
 
             audio.play(SfxType.ENEMY_DIE)
             val relicGoldMult = if (skillTree.isRelicUnlocked(RelicId.MIDAS_CRUCIBLE)) 1.30f else 1.0f
+            val blessingGoldMult = if (skillTree.getActiveBlessing() == DiamondBlessing.MIDAS) 1.50f else 1.0f
             val weatherGoldMult = currentWeather.goldMultiplier
             val greedGoldMult = if (hasMerchantItem(MerchantItemId.GREED_CURSE)) 2.5f else 1.0f
-            val comboGold = (enemy.goldReward * comboMultiplier * skillTree.goldBonusMultiplier() * relicGoldMult * weatherGoldMult * greedGoldMult).toInt()
-            val baseGold = (enemy.goldReward * weatherGoldMult * greedGoldMult).toInt()
+            val comboGold = (enemy.goldReward * comboMultiplier * skillTree.goldBonusMultiplier() * relicGoldMult * weatherGoldMult * greedGoldMult * blessingGoldMult).toInt()
+            val baseGold = (enemy.goldReward * weatherGoldMult * greedGoldMult * blessingGoldMult).toInt()
             gold += comboGold
             totalGoldEarned += comboGold
             score += comboGold
@@ -1772,17 +1819,19 @@ class GameEngine(val prefs: GamePreferences, val audio: GameAudio = SilentAudio)
             }
 
             // Hellfire: soul detonate into vengeful phantom wisp
+            val hasHarvester = skillTree.isRelicUnlocked(RelicId.ASTRAL_HARVESTER)
             if (enemy.soulburnTimer > 0f) {
                 val soulTarget = enemies.filter { it.hp > 0 && it != enemy && !it.isDead() && it.distanceTo(enemy.x, enemy.y) <= 200f }
                     .minByOrNull { it.distanceTo(enemy.x, enemy.y) }
                 if (soulTarget != null) {
-                    soulTarget.hp -= 150f
+                    val soulDmg = 150f * (if (hasHarvester) 2.5f else 1.0f)
+                    soulTarget.hp -= soulDmg
                     soulTarget.hitFlash = 0.3f
                     enemy.lastHitTower?.let {
                         soulTarget.lastHitTower = it
-                        it.totalDamageDealt += 150f
+                        it.totalDamageDealt += soulDmg
                     }
-                    floatingTexts.add(FloatingText(soulTarget.x, soulTarget.y - soulTarget.size, "💀 SOUL EXPLOSION! -150", 0xFFFF1744.toInt(), 1.2f, 22f))
+                    floatingTexts.add(FloatingText(soulTarget.x, soulTarget.y - soulTarget.size, "💀 SOUL EXPLOSION! -${soulDmg.toInt()}", 0xFFFF1744.toInt(), 1.2f, 22f))
                     repeat(12) {
                         val a = Math.random() * Math.PI * 2
                         val spd = 60f + Math.random().toFloat() * 60f
@@ -1800,17 +1849,30 @@ class GameEngine(val prefs: GamePreferences, val audio: GameAudio = SilentAudio)
                 val voidTarget = enemies.filter { it.hp > 0 && it != enemy && !it.isDead() && it.distanceTo(enemy.x, enemy.y) <= 220f }
                     .minByOrNull { it.distanceTo(enemy.x, enemy.y) }
                 if (voidTarget != null) {
-                    voidTarget.hp -= 90f
+                    val voidDmg = 90f * (if (hasHarvester) 2.5f else 1.0f)
+                    voidTarget.hp -= voidDmg
                     voidTarget.hitFlash = 0.25f
                     enemy.lastHitTower?.let {
                         voidTarget.lastHitTower = it
-                        it.totalDamageDealt += 90f
+                        it.totalDamageDealt += voidDmg
                     }
-                    floatingTexts.add(FloatingText(voidTarget.x, voidTarget.y - voidTarget.size, "✨ VOID WISP! -90", 0xFFCE93D8.toInt(), 1.0f, 20f))
+                    floatingTexts.add(FloatingText(voidTarget.x, voidTarget.y - voidTarget.size, "✨ VOID WISP! -${voidDmg.toInt()}", 0xFFCE93D8.toInt(), 1.0f, 20f))
                     repeat(8) {
                         val a = Math.random() * Math.PI * 2
                         val spd = 50f + Math.random().toFloat() * 40f
                         particles.add(Particle(voidTarget.x, voidTarget.y, (Math.cos(a) * spd).toFloat(), (Math.sin(a) * spd).toFloat(), 0.4f, 0xFFE1BEE7.toInt(), 4f))
+                    }
+                }
+                if (hasHarvester) {
+                    val vacuumTargets = enemies.filter { it.hp > 0 && it != enemy && !it.isDead() && it.distanceTo(enemy.x, enemy.y) <= 220f }
+                    for (vt in vacuumTargets) {
+                        val dx = enemy.x - vt.x
+                        val dy = enemy.y - vt.y
+                        val dist = kotlin.math.hypot(dx, dy)
+                        if (dist > 15f) {
+                            vt.x += (dx / dist) * 40f
+                            vt.y += (dy / dist) * 40f
+                        }
                     }
                 }
             }
@@ -2070,22 +2132,34 @@ class GameEngine(val prefs: GamePreferences, val audio: GameAudio = SilentAudio)
                 currentBoss = null
                 // Boss always drops diamonds
                 val midasMult = if (skillTree.isRelicUnlocked(RelicId.MIDAS_CRUCIBLE)) 1.5f else 1.0f
-                val diamondDrop = ((2 + wave / 5) * midasMult).toInt().coerceAtMost(15)
+                val highRollerMult = if (skillTree.getActiveBlessing() == DiamondBlessing.HIGH_ROLLER) 3 else 1
+                val diamondDrop = (((2 + wave / 5) * midasMult).toInt().coerceAtMost(15)) * highRollerMult
                 skillTree.addDiamonds(diamondDrop)
                 diamondsEarnedThisRun += diamondDrop
-                audio.play(SfxType.DIAMOND_DROP)
+                audio.play(if (diamondDrop >= 5) SfxType.DIAMOND_CHEST else SfxType.DIAMOND_DROP)
+                emitShockwave(enemy.x, enemy.y, 0xFFFFD700.toInt(), 180f)
                 floatingTexts.add(FloatingText(enemy.x, enemy.y - enemy.size - 20f,
                     "+${diamondDrop} \uD83D\uDC8E", 0xFF00E5FF.toInt(), 1.5f, 30f))
             } else {
-                // Regular enemies have a small diamond drop chance
-                val midasChanceBonus = if (skillTree.isRelicUnlocked(RelicId.MIDAS_CRUCIBLE)) 0.03f else 0f
-                val dropChance = 0.03f + skillTree.diamondDropBonus() + midasChanceBonus
-                if (Math.random() < dropChance) {
-                    skillTree.addDiamonds(1)
-                    diamondsEarnedThisRun += 1
+                val highRollerMult = if (skillTree.getActiveBlessing() == DiamondBlessing.HIGH_ROLLER) 3 else 1
+                if (enemy.isElite) {
+                    val eliteDiamonds = 1 * highRollerMult
+                    skillTree.addDiamonds(eliteDiamonds)
+                    diamondsEarnedThisRun += eliteDiamonds
                     audio.play(SfxType.DIAMOND_DROP)
                     floatingTexts.add(FloatingText(enemy.x, enemy.y - enemy.size - 20f,
-                        "+1 \uD83D\uDC8E", 0xFF00E5FF.toInt(), 1.2f, 24f))
+                        "+${eliteDiamonds} 💎 Elite Bounty!", 0xFF00E5FF.toInt(), 1.4f, 26f))
+                } else {
+                    // Regular enemies have a small diamond drop chance
+                    val midasChanceBonus = if (skillTree.isRelicUnlocked(RelicId.MIDAS_CRUCIBLE)) 0.03f else 0f
+                    val dropChance = 0.03f + skillTree.diamondDropBonus() + midasChanceBonus
+                    if (Math.random() < dropChance) {
+                        skillTree.addDiamonds(1)
+                        diamondsEarnedThisRun += 1
+                        audio.play(SfxType.DIAMOND_DROP)
+                        floatingTexts.add(FloatingText(enemy.x, enemy.y - enemy.size - 20f,
+                            "+1 \uD83D\uDC8E", 0xFF00E5FF.toInt(), 1.2f, 24f))
+                    }
                 }
             }
 
@@ -2143,9 +2217,10 @@ class GameEngine(val prefs: GamePreferences, val audio: GameAudio = SilentAudio)
             for (enemy in enemies) {
                 if (enemy.isDead() || enemy.deathProcessed) continue
                 if (trap.distanceTo(enemy.x, enemy.y) > trap.size + enemy.size) continue
+                val trapDmgMult = skillTree.trapDamageMultiplier()
                 when (trap.type) {
                     TrapType.SPIKE -> {
-                        val dmg = 15f + wave * 2f
+                        val dmg = (15f + wave * 2f) * trapDmgMult
                         enemy.hp -= dmg
                         floatingTexts.add(FloatingText(enemy.x, enemy.y - 20f, "-${dmg.toInt()}", 0xFFFF5252.toInt(), 0.6f, 18f))
                         repeat(4) {
@@ -2154,18 +2229,20 @@ class GameEngine(val prefs: GamePreferences, val audio: GameAudio = SilentAudio)
                         }
                     }
                     TrapType.TAR -> {
-                        enemy.tarSlowTimer = 2.5f // Slow for 2.5 seconds
+                        val tarDur = 2.5f + skillTree.statusDurationBonus()
+                        enemy.tarSlowTimer = tarDur
                         floatingTexts.add(FloatingText(enemy.x, enemy.y - 20f, "Slowed!", 0xFF8D6E63.toInt(), 0.6f, 16f))
                     }
                     TrapType.MINE -> {
                         // AoE explosion
-                        val dmg = 80f + wave * 5f
+                        val dmg = (80f + wave * 5f) * trapDmgMult
+                        val mineRadius = 100f * (if (skillTree.isRelicUnlocked(RelicId.DEMOLITION_SATCHEL)) 1.4f else 1.0f)
                         var mineKills = 0
                         for (e in enemies) {
                             if (e.isDead() || e.deathProcessed) continue
                             val d = trap.distanceTo(e.x, e.y)
-                            if (d < 100f) {
-                                val falloff = 1f - (d / 100f)
+                            if (d < mineRadius) {
+                                val falloff = 1f - (d / mineRadius)
                                 e.hp -= dmg * falloff
                                 if (e.hp <= 0) mineKills++
                                 floatingTexts.add(FloatingText(e.x, e.y - 20f, "-${(dmg * falloff).toInt()}", 0xFFFF5252.toInt(), 0.8f, 20f))
@@ -2337,7 +2414,7 @@ class GameEngine(val prefs: GamePreferences, val audio: GameAudio = SilentAudio)
                     val superconductMult = if (target.superconductTimer > 0f) 1.25f else 1f
                     val brittleMult = if (target.brittleTimer > 0f && (tower.type.damageType == DamageType.PHYSICAL || tower.type.damageType == DamageType.EXPLOSIVE)) 1.4f else 1f
                     val astralMult = if (target.astralDecayTimer > 0f) 1.2f else 1f
-                    var dmg = tower.damage * towerDmgMult * resistMult * synergyMult * critMult * shieldMult * glassMult * superconductMult * brittleMult * astralMult
+                    var dmg = tower.damage * towerDmgMult * campaignRegionalTowerDmgMult(tower.type) * resistMult * synergyMult * critMult * shieldMult * glassMult * superconductMult * brittleMult * astralMult
 
                     // Necro execute: massive bonus damage to low-HP enemies
                     if (tower.type == TowerType.NECRO && target.hp < target.maxHp * 0.15f) {
@@ -2606,14 +2683,20 @@ class GameEngine(val prefs: GamePreferences, val audio: GameAudio = SilentAudio)
     ): Boolean {
         if (target.isDead()) return false
 
+        val alchemyDmgMult = skillTree.fusionDamageMultiplier() * (if (skillTree.getActiveBlessing() == DiamondBlessing.CATALYST) 1.50f else 1.0f)
+        val alchemyRadiusMult = skillTree.fusionRadiusMultiplier() * (if (hasMerchantItem(MerchantItemId.CATALYST_AMPLIFIER)) 1.35f else 1.0f) * (if (skillTree.getActiveBlessing() == DiamondBlessing.CATALYST) 1.25f else 1.0f)
+        val darkArtsMult = if (hasMerchantItem(MerchantItemId.VOID_PACT)) 1.80f else 1.0f
+        val statusBonus = skillTree.statusDurationBonus()
+        val hasSuperconductorItem = hasMerchantItem(MerchantItemId.ARCANE_SUPERCONDUCTOR)
+
         // 1. Steam Burst (FIRE + ICE)
         if ((incomingElement == DamageType.FIRE && (target.iceSlowFactor < 0.95f || target.deepFreezeTimer > 0f || freezeTimer > 0f)) ||
             (incomingElement == DamageType.ICE && target.burnTimer > 0f)
         ) {
             val hasBonus = hasMerchantItem(MerchantItemId.THERMAL_SHOCK)
             val dmgMult = if (hasBonus) 1.6f else 1.0f
-            val aoeRadius = if (hasBonus) 160f else 130f
-            val burstDmg = (120f + baseDamage * 0.75f) * dmgMult
+            val aoeRadius = (if (hasBonus) 160f else 130f) * alchemyRadiusMult
+            val burstDmg = (120f + baseDamage * 0.75f) * dmgMult * alchemyDmgMult
 
             target.burnTimer = 0f
             target.deepFreezeTimer = 0f
@@ -2633,7 +2716,8 @@ class GameEngine(val prefs: GamePreferences, val audio: GameAudio = SilentAudio)
             }
             val floatMsg = if (hasBonus) "💥 SHATTER STEAM!" else "💥 STEAM BURST!"
             floatingTexts.add(FloatingText(target.x, target.y - target.size - 15f, floatMsg, 0xFF00E5FF.toInt(), 1.2f, 26f))
-            audio.play(SfxType.TOWER_UPGRADE)
+            audio.play(SfxType.FUSION_ELEMENTAL)
+            emitShockwave(target.x, target.y, 0xFFE0F7FA.toInt(), aoeRadius)
             repeat(14) {
                 val a = Math.random() * Math.PI * 2
                 val spd = 40f + Math.random().toFloat() * 70f
@@ -2650,8 +2734,8 @@ class GameEngine(val prefs: GamePreferences, val audio: GameAudio = SilentAudio)
             (incomingElement == DamageType.POISON && target.burnTimer > 0f)
         ) {
             val remainingPoison = target.poisonTimer * target.poisonDps
-            val detDmg = 110f + remainingPoison * 1.5f + baseDamage * 0.5f
-            val aoeRadius = 120f
+            val detDmg = (110f + remainingPoison * 1.5f + baseDamage * 0.5f) * alchemyDmgMult
+            val aoeRadius = 120f * alchemyRadiusMult
 
             target.poisonTimer = 0f
             target.burnTimer = 0f
@@ -2666,7 +2750,8 @@ class GameEngine(val prefs: GamePreferences, val audio: GameAudio = SilentAudio)
                 }
             }
             floatingTexts.add(FloatingText(target.x, target.y - target.size - 15f, "☣️ DETONATION!", 0xFFFF7043.toInt(), 1.2f, 26f))
-            audio.play(SfxType.TOWER_UPGRADE)
+            audio.play(SfxType.FUSION_ELEMENTAL)
+            emitShockwave(target.x, target.y, 0xFFFF7043.toInt(), aoeRadius)
             repeat(16) {
                 val a = Math.random() * Math.PI * 2
                 val spd = 60f + Math.random().toFloat() * 80f
@@ -2683,15 +2768,21 @@ class GameEngine(val prefs: GamePreferences, val audio: GameAudio = SilentAudio)
         if ((incomingElement == DamageType.ELECTRIC && (target.iceSlowFactor < 0.95f || target.deepFreezeTimer > 0f || freezeTimer > 0f)) ||
             (incomingElement == DamageType.ICE && target.shockTimer > 0f)
         ) {
-            val chainDmg = 65f + baseDamage * 0.4f
+            val chainDmg = (65f + baseDamage * 0.4f) * alchemyDmgMult
             target.shockTimer = 0f
             target.deepFreezeTimer = 0f
             target.iceSlowFactor = 1f
-            target.superconductTimer = 4.0f
+            target.superconductTimer = 4.0f + statusBonus
+            if (hasSuperconductorItem) {
+                target.brittleTimer = (6.0f + statusBonus).coerceAtLeast(target.brittleTimer)
+            }
 
-            val chainTargets = enemies.filter { it.hp > 0 && it != target && it.distanceTo(target.x, target.y) <= 150f }.take(3)
+            val chainTargets = enemies.filter { it.hp > 0 && it != target && it.distanceTo(target.x, target.y) <= 150f * alchemyRadiusMult }.take(3)
             for (ce in chainTargets) {
-                ce.superconductTimer = 4.0f
+                ce.superconductTimer = 4.0f + statusBonus
+                if (hasSuperconductorItem) {
+                    ce.brittleTimer = (6.0f + statusBonus).coerceAtLeast(ce.brittleTimer)
+                }
                 ce.hp -= chainDmg
                 ce.hitFlash = 0.2f
                 if (sourceTower != null) {
@@ -2705,7 +2796,8 @@ class GameEngine(val prefs: GamePreferences, val audio: GameAudio = SilentAudio)
                 }
             }
             floatingTexts.add(FloatingText(target.x, target.y - target.size - 15f, "⚡ SUPERCONDUCT!", 0xFF40C4FF.toInt(), 1.2f, 26f))
-            audio.play(SfxType.TOWER_UPGRADE)
+            audio.play(SfxType.FUSION_ARCANE)
+            emitShockwave(target.x, target.y, 0xFF40C4FF.toInt(), 150f * alchemyRadiusMult)
             repeat(12) {
                 val a = Math.random() * Math.PI * 2
                 val spd = 70f + Math.random().toFloat() * 70f
@@ -2723,19 +2815,19 @@ class GameEngine(val prefs: GamePreferences, val audio: GameAudio = SilentAudio)
         ) {
             val hasBonus = hasMerchantItem(MerchantItemId.NEUROTOXIN_CHAIN)
             val dmgMult = if (hasBonus) 1.6f else 1.0f
-            val burstRadius = if (hasBonus) 180f else 140f
-            val shockDmg = (75f + baseDamage * 0.45f) * dmgMult
+            val burstRadius = (if (hasBonus) 180f else 140f) * alchemyRadiusMult
+            val shockDmg = (75f + baseDamage * 0.45f) * dmgMult * alchemyDmgMult
 
             target.shockTimer = 0f
-            target.stunTimer = target.stunTimer.coerceAtLeast(0.6f)
+            target.stunTimer = target.stunTimer.coerceAtLeast(0.6f + statusBonus * 0.3f)
 
             val nearby = enemies.filter { it.hp > 0 && it != target && it.distanceTo(target.x, target.y) <= burstRadius }
             for (ne in nearby) {
-                ne.poisonTimer = 4f
+                ne.poisonTimer = 4f + statusBonus
                 ne.poisonDps = ne.poisonDps.coerceAtLeast(target.poisonDps.coerceAtLeast(15f))
                 ne.hp -= shockDmg
                 ne.hitFlash = 0.2f
-                ne.stunTimer = ne.stunTimer.coerceAtLeast(0.4f)
+                ne.stunTimer = ne.stunTimer.coerceAtLeast(0.4f + statusBonus * 0.2f)
                 if (sourceTower != null) {
                     ne.lastHitTower = sourceTower
                     sourceTower.totalDamageDealt += shockDmg
@@ -2743,7 +2835,8 @@ class GameEngine(val prefs: GamePreferences, val audio: GameAudio = SilentAudio)
             }
             val floatMsg = if (hasBonus) "⚡ TOXIN BURST CORROSION!" else "🧪 CORROSIVE SHOCK!"
             floatingTexts.add(FloatingText(target.x, target.y - target.size - 15f, floatMsg, 0xFF00E676.toInt(), 1.2f, 26f))
-            audio.play(SfxType.TOWER_UPGRADE)
+            audio.play(SfxType.FUSION_ARCANE)
+            emitShockwave(target.x, target.y, 0xFF00E676.toInt(), burstRadius)
             repeat(12) {
                 val a = Math.random() * Math.PI * 2
                 val spd = 50f + Math.random().toFloat() * 60f
@@ -2760,12 +2853,12 @@ class GameEngine(val prefs: GamePreferences, val audio: GameAudio = SilentAudio)
         if ((incomingElement == DamageType.MAGIC && target.burnTimer > 0f) ||
             (incomingElement == DamageType.FIRE && target.arcaneMarkTimer > 0f)
         ) {
-            val baseBurst = 140f + baseDamage * 0.6f
-            val aoeRadius = 140f
+            val baseBurst = (140f + baseDamage * 0.6f) * alchemyDmgMult
+            val aoeRadius = 140f * alchemyRadiusMult
 
             target.burnTimer = 0f
             target.arcaneMarkTimer = 0f
-            target.solarBurnTimer = 3.5f
+            target.solarBurnTimer = 3.5f + statusBonus
 
             val aoeEnemies = enemies.filter { it.hp > 0 && it.distanceTo(target.x, target.y) <= aoeRadius }
             for (ae in aoeEnemies) {
@@ -2774,14 +2867,15 @@ class GameEngine(val prefs: GamePreferences, val audio: GameAudio = SilentAudio)
                 val effectiveDmg = if (isShielded) baseBurst * 1.5f else baseBurst
                 ae.hp -= effectiveDmg
                 ae.hitFlash = 0.3f
-                ae.solarBurnTimer = 3.5f
+                ae.solarBurnTimer = 3.5f + statusBonus
                 if (sourceTower != null) {
                     ae.lastHitTower = sourceTower
                     sourceTower.totalDamageDealt += effectiveDmg
                 }
             }
             floatingTexts.add(FloatingText(target.x, target.y - target.size - 15f, "☀️ SOLAR FLARE!", 0xFFFFD54F.toInt(), 1.3f, 28f))
-            audio.play(SfxType.POWER_FIREBALL)
+            audio.play(SfxType.FUSION_ELEMENTAL)
+            emitShockwave(target.x, target.y, 0xFFFFD54F.toInt(), aoeRadius)
             repeat(18) {
                 val a = Math.random() * Math.PI * 2
                 val spd = 60f + Math.random().toFloat() * 80f
@@ -2798,19 +2892,19 @@ class GameEngine(val prefs: GamePreferences, val audio: GameAudio = SilentAudio)
         if ((incomingElement == DamageType.MAGIC && (target.iceSlowFactor < 0.95f || target.deepFreezeTimer > 0f || freezeTimer > 0f)) ||
             (incomingElement == DamageType.ICE && target.arcaneMarkTimer > 0f)
         ) {
-            val singDmg = 125f + baseDamage * 0.5f
-            val pullRadius = 150f
+            val singDmg = (125f + baseDamage * 0.5f) * alchemyDmgMult
+            val pullRadius = 150f * alchemyRadiusMult
 
             target.arcaneMarkTimer = 0f
             target.deepFreezeTimer = 0f
             target.iceSlowFactor = 0.1f
-            target.stunTimer = target.stunTimer.coerceAtLeast(1.2f)
+            target.stunTimer = target.stunTimer.coerceAtLeast(1.2f + statusBonus * 0.4f)
 
             val nearby = enemies.filter { it.hp > 0 && it.distanceTo(target.x, target.y) <= pullRadius }
             for (ne in nearby) {
                 ne.hp -= singDmg
                 ne.hitFlash = 0.25f
-                ne.stunTimer = ne.stunTimer.coerceAtLeast(1.2f)
+                ne.stunTimer = ne.stunTimer.coerceAtLeast(1.2f + statusBonus * 0.4f)
                 ne.iceSlowFactor = ne.iceSlowFactor.coerceAtMost(0.1f)
                 if (sourceTower != null) {
                     ne.lastHitTower = sourceTower
@@ -2828,7 +2922,8 @@ class GameEngine(val prefs: GamePreferences, val audio: GameAudio = SilentAudio)
                 }
             }
             floatingTexts.add(FloatingText(target.x, target.y - target.size - 15f, "🌌 GLACIAL SINGULARITY!", 0xFF80D8FF.toInt(), 1.3f, 28f))
-            audio.play(SfxType.TOWER_UPGRADE)
+            audio.play(SfxType.FUSION_ARCANE)
+            emitShockwave(target.x, target.y, 0xFF80D8FF.toInt(), pullRadius)
             repeat(20) {
                 val a = Math.random() * Math.PI * 2
                 val spd = 70f + Math.random().toFloat() * 70f
@@ -2845,12 +2940,15 @@ class GameEngine(val prefs: GamePreferences, val audio: GameAudio = SilentAudio)
         if ((incomingElement == DamageType.MAGIC && target.shockTimer > 0f) ||
             (incomingElement == DamageType.ELECTRIC && target.arcaneMarkTimer > 0f)
         ) {
-            val fluxDmg = 100f + baseDamage * 0.5f
-            val linkRadius = 160f
+            val fluxDmg = (100f + baseDamage * 0.5f) * alchemyDmgMult
+            val linkRadius = 160f * alchemyRadiusMult
 
             target.arcaneMarkTimer = 0f
             target.shockTimer = 0f
-            target.conduitTimer = 4.0f
+            target.conduitTimer = 4.0f + statusBonus
+            if (hasSuperconductorItem) {
+                target.brittleTimer = (6.0f + statusBonus).coerceAtLeast(target.brittleTimer)
+            }
             target.hp -= fluxDmg
             target.hitFlash = 0.25f
             if (sourceTower != null) {
@@ -2858,9 +2956,13 @@ class GameEngine(val prefs: GamePreferences, val audio: GameAudio = SilentAudio)
                 sourceTower.totalDamageDealt += fluxDmg
             }
 
-            val linkTargets = enemies.filter { it.hp > 0 && it != target && it.distanceTo(target.x, target.y) <= linkRadius }.take(4)
+            val maxLinks = if (skillTree.isRelicUnlocked(RelicId.GRIMOIRE_OF_CONDUIT)) 7 else 4
+            val linkTargets = enemies.filter { it.hp > 0 && it != target && it.distanceTo(target.x, target.y) <= linkRadius }.take(maxLinks)
             for (lt in linkTargets) {
-                lt.conduitTimer = 4.0f
+                lt.conduitTimer = 4.0f + statusBonus
+                if (hasSuperconductorItem) {
+                    lt.brittleTimer = (6.0f + statusBonus).coerceAtLeast(lt.brittleTimer)
+                }
                 lt.hitFlash = 0.2f
                 repeat(4) {
                     particles.add(Particle(lt.x, lt.y,
@@ -2869,7 +2971,8 @@ class GameEngine(val prefs: GamePreferences, val audio: GameAudio = SilentAudio)
                 }
             }
             floatingTexts.add(FloatingText(target.x, target.y - target.size - 15f, "🔮 OVERLOAD FLUX!", 0xFFE040FB.toInt(), 1.3f, 28f))
-            audio.play(SfxType.TESLA_FIRE)
+            audio.play(SfxType.FUSION_ARCANE)
+            emitShockwave(target.x, target.y, 0xFFE040FB.toInt(), linkRadius)
             repeat(16) {
                 val a = Math.random() * Math.PI * 2
                 val spd = 60f + Math.random().toFloat() * 70f
@@ -2885,10 +2988,10 @@ class GameEngine(val prefs: GamePreferences, val audio: GameAudio = SilentAudio)
         if ((incomingElement == DamageType.MAGIC && target.poisonTimer > 0f) ||
             (incomingElement == DamageType.POISON && target.arcaneMarkTimer > 0f)
         ) {
-            val burstDmg = 90f + baseDamage * 0.4f
+            val burstDmg = (90f + baseDamage * 0.4f) * alchemyDmgMult
             target.poisonTimer = 0f
             target.arcaneMarkTimer = 0f
-            target.astralDecayTimer = 4.0f
+            target.astralDecayTimer = 4.0f + statusBonus
             target.hp -= burstDmg
             target.hitFlash = 0.25f
             if (sourceTower != null) {
@@ -2897,7 +3000,8 @@ class GameEngine(val prefs: GamePreferences, val audio: GameAudio = SilentAudio)
             }
 
             floatingTexts.add(FloatingText(target.x, target.y - target.size - 15f, "✨ ASTRAL DECAY!", 0xFFCE93D8.toInt(), 1.3f, 28f))
-            audio.play(SfxType.MAGIC_FIRE)
+            audio.play(SfxType.FUSION_DARK)
+            emitShockwave(target.x, target.y, 0xFFCE93D8.toInt(), 140f * alchemyRadiusMult)
             repeat(14) {
                 val a = Math.random() * Math.PI * 2
                 val spd = 50f + Math.random().toFloat() * 60f
@@ -2914,10 +3018,10 @@ class GameEngine(val prefs: GamePreferences, val audio: GameAudio = SilentAudio)
         if ((incomingElement == DamageType.DARK && target.burnTimer > 0f) ||
             (incomingElement == DamageType.FIRE && target.necroMarkTimer > 0f)
         ) {
-            val hellDmg = 130f + baseDamage * 0.6f
+            val hellDmg = (130f + baseDamage * 0.6f) * alchemyDmgMult * darkArtsMult
             target.burnTimer = 0f
             target.necroMarkTimer = 0f
-            target.soulburnTimer = 3.5f
+            target.soulburnTimer = 3.5f + statusBonus
             target.hp -= hellDmg
             target.hitFlash = 0.3f
             if (sourceTower != null) {
@@ -2926,7 +3030,8 @@ class GameEngine(val prefs: GamePreferences, val audio: GameAudio = SilentAudio)
             }
 
             floatingTexts.add(FloatingText(target.x, target.y - target.size - 15f, "💀 HELLFIRE!", 0xFFFF1744.toInt(), 1.3f, 28f))
-            audio.play(SfxType.NECRO_FIRE)
+            audio.play(SfxType.FUSION_DARK)
+            emitShockwave(target.x, target.y, 0xFFFF1744.toInt(), 150f * alchemyRadiusMult)
             repeat(16) {
                 val a = Math.random() * Math.PI * 2
                 val spd = 60f + Math.random().toFloat() * 80f
@@ -2943,12 +3048,12 @@ class GameEngine(val prefs: GamePreferences, val audio: GameAudio = SilentAudio)
         if ((incomingElement == DamageType.DARK && (target.iceSlowFactor < 0.95f || target.deepFreezeTimer > 0f || freezeTimer > 0f)) ||
             (incomingElement == DamageType.ICE && target.necroMarkTimer > 0f)
         ) {
-            val tombDmg = 110f + baseDamage * 0.5f
+            val tombDmg = (110f + baseDamage * 0.5f) * alchemyDmgMult * darkArtsMult
             target.necroMarkTimer = 0f
             target.deepFreezeTimer = 0f
             target.iceSlowFactor = 1f
-            target.stunTimer = target.stunTimer.coerceAtLeast(2.0f)
-            target.brittleTimer = 4.0f
+            target.stunTimer = target.stunTimer.coerceAtLeast(2.0f + statusBonus * 0.5f)
+            target.brittleTimer = 4.0f + statusBonus
             target.hp -= tombDmg
             target.hitFlash = 0.25f
             if (sourceTower != null) {
@@ -2957,7 +3062,8 @@ class GameEngine(val prefs: GamePreferences, val audio: GameAudio = SilentAudio)
             }
 
             floatingTexts.add(FloatingText(target.x, target.y - target.size - 15f, "❄️ FROST TOMB!", 0xFF80DEEA.toInt(), 1.3f, 28f))
-            audio.play(SfxType.ICE_FIRE)
+            audio.play(SfxType.FUSION_DARK)
+            emitShockwave(target.x, target.y, 0xFF80DEEA.toInt(), 140f * alchemyRadiusMult)
             repeat(14) {
                 val a = Math.random() * Math.PI * 2
                 val spd = 50f + Math.random().toFloat() * 60f
@@ -2974,11 +3080,11 @@ class GameEngine(val prefs: GamePreferences, val audio: GameAudio = SilentAudio)
         if ((incomingElement == DamageType.DARK && target.shockTimer > 0f) ||
             (incomingElement == DamageType.ELECTRIC && target.necroMarkTimer > 0f)
         ) {
-            val surgeDmg = 95f + baseDamage * 0.5f
+            val surgeDmg = (95f + baseDamage * 0.5f) * alchemyDmgMult * darkArtsMult
             target.necroMarkTimer = 0f
             target.shockTimer = 0f
-            target.stunTimer = target.stunTimer.coerceAtLeast(0.5f)
-            target.enfeebleTimer = 5.0f
+            target.stunTimer = target.stunTimer.coerceAtLeast(0.5f + statusBonus * 0.2f)
+            target.enfeebleTimer = 5.0f + statusBonus
             target.hp -= surgeDmg
             target.hitFlash = 0.25f
             if (sourceTower != null) {
@@ -2987,7 +3093,8 @@ class GameEngine(val prefs: GamePreferences, val audio: GameAudio = SilentAudio)
             }
 
             floatingTexts.add(FloatingText(target.x, target.y - target.size - 15f, "👻 SHADOW SURGE!", 0xFF7C4DFF.toInt(), 1.3f, 28f))
-            audio.play(SfxType.NECRO_FIRE)
+            audio.play(SfxType.FUSION_DARK)
+            emitShockwave(target.x, target.y, 0xFF7C4DFF.toInt(), 150f * alchemyRadiusMult)
             repeat(14) {
                 val a = Math.random() * Math.PI * 2
                 val spd = 60f + Math.random().toFloat() * 60f
@@ -3004,9 +3111,9 @@ class GameEngine(val prefs: GamePreferences, val audio: GameAudio = SilentAudio)
         if ((incomingElement == DamageType.DARK && target.poisonTimer > 0f) ||
             (incomingElement == DamageType.POISON && target.necroMarkTimer > 0f)
         ) {
-            val miasmaRadius = 140f
+            val miasmaRadius = 140f * alchemyRadiusMult
             val hpBonusDmg = target.maxHp * 0.035f
-            val baseMiasmaDmg = 85f + baseDamage * 0.4f + hpBonusDmg
+            val baseMiasmaDmg = (85f + baseDamage * 0.4f + hpBonusDmg) * alchemyDmgMult * darkArtsMult
 
             target.poisonTimer = 0f
             target.necroMarkTimer = 0f
@@ -3023,7 +3130,8 @@ class GameEngine(val prefs: GamePreferences, val audio: GameAudio = SilentAudio)
             }
 
             floatingTexts.add(FloatingText(target.x, target.y - target.size - 15f, "☠️ CORPSE MIASMA!", 0xFF69F0AE.toInt(), 1.3f, 28f))
-            audio.play(SfxType.POISON_FIRE)
+            audio.play(SfxType.FUSION_DARK)
+            emitShockwave(target.x, target.y, 0xFF69F0AE.toInt(), miasmaRadius)
             repeat(16) {
                 val a = Math.random() * Math.PI * 2
                 val spd = 40f + Math.random().toFloat() * 70f
@@ -3040,8 +3148,8 @@ class GameEngine(val prefs: GamePreferences, val audio: GameAudio = SilentAudio)
         if ((incomingElement == DamageType.EXPLOSIVE && target.burnTimer > 0f) ||
             (incomingElement == DamageType.FIRE && target.bombardTimer > 0f)
         ) {
-            val blastDmg = 150f + baseDamage * 0.6f
-            val blastRadius = 150f
+            val blastDmg = (150f + baseDamage * 0.6f) * alchemyDmgMult
+            val blastRadius = 150f * alchemyRadiusMult
 
             target.burnTimer = 0f
             target.bombardTimer = 0f
@@ -3056,13 +3164,15 @@ class GameEngine(val prefs: GamePreferences, val audio: GameAudio = SilentAudio)
                 }
             }
 
-            // Spawn ground FirePatch for 3.0s dealing 40 DPS
-            activeFirePatches.add(FirePatch(target.x, target.y, radius = 90f, duration = 3.0f, dps = 40f, sourceTower = sourceTower))
+            // Spawn ground FirePatch for 3.0s (or 5.0s with Catalyst Amplifier) dealing 40 DPS
+            val patchDur = (if (hasMerchantItem(MerchantItemId.CATALYST_AMPLIFIER)) 5.0f else 3.0f) + statusBonus
+            activeFirePatches.add(FirePatch(target.x, target.y, radius = 90f * alchemyRadiusMult, duration = patchDur, dps = 40f * alchemyDmgMult, sourceTower = sourceTower))
             shakeTimer = 0.2f
             shakeIntensity = 6f
 
             floatingTexts.add(FloatingText(target.x, target.y - target.size - 15f, "🔥 CONFLAGRATION!", 0xFFFF3D00.toInt(), 1.3f, 28f))
-            audio.play(SfxType.POWER_FIREBALL)
+            audio.play(SfxType.FUSION_SIEGE)
+            emitShockwave(target.x, target.y, 0xFFFF3D00.toInt(), blastRadius)
             repeat(20) {
                 val a = Math.random() * Math.PI * 2
                 val spd = 70f + Math.random().toFloat() * 90f
@@ -3079,8 +3189,8 @@ class GameEngine(val prefs: GamePreferences, val audio: GameAudio = SilentAudio)
         if ((incomingElement == DamageType.EXPLOSIVE && target.shockTimer > 0f) ||
             (incomingElement == DamageType.ELECTRIC && target.bombardTimer > 0f)
         ) {
-            val empDmg = 95f + baseDamage * 0.5f
-            val empRadius = 140f
+            val empDmg = (95f + baseDamage * 0.5f) * alchemyDmgMult
+            val empRadius = 140f * alchemyRadiusMult
 
             target.shockTimer = 0f
             target.bombardTimer = 0f
@@ -3090,7 +3200,7 @@ class GameEngine(val prefs: GamePreferences, val audio: GameAudio = SilentAudio)
                 he.hp -= empDmg
                 he.hitFlash = 0.25f
                 he.shieldTimer = 0f
-                he.silenceTimer = 2.5f
+                he.silenceTimer = 2.5f + statusBonus
                 he.isTelegraphing = false
                 he.telegraphTimer = 0f
                 if (sourceTower != null) {
@@ -3100,7 +3210,8 @@ class GameEngine(val prefs: GamePreferences, val audio: GameAudio = SilentAudio)
             }
 
             floatingTexts.add(FloatingText(target.x, target.y - target.size - 15f, "⚡ EMP SHOCKWAVE!", 0xFF00E5FF.toInt(), 1.3f, 28f))
-            audio.play(SfxType.TESLA_FIRE)
+            audio.play(SfxType.FUSION_SIEGE)
+            emitShockwave(target.x, target.y, 0xFF00E5FF.toInt(), empRadius)
             repeat(18) {
                 val a = Math.random() * Math.PI * 2
                 val spd = 60f + Math.random().toFloat() * 80f
@@ -3118,7 +3229,8 @@ class GameEngine(val prefs: GamePreferences, val audio: GameAudio = SilentAudio)
 
     fun echoConduitDamage(sourceEnemy: Enemy, rawDmg: Float, sourceTower: Tower? = null) {
         if (isEchoingConduit || rawDmg <= 0f) return
-        val echoDmg = rawDmg * 0.35f
+        val echoPercent = if (skillTree.isRelicUnlocked(RelicId.GRIMOIRE_OF_CONDUIT)) 0.60f else (0.35f + skillTree.conduitExtraEcho())
+        val echoDmg = rawDmg * echoPercent
         if (echoDmg < 1f) return
         isEchoingConduit = true
         try {
@@ -3145,6 +3257,18 @@ class GameEngine(val prefs: GamePreferences, val audio: GameAudio = SilentAudio)
         totalElementalReactionsThisRun++
         if (fusionId.isNotBlank()) {
             recordFusionDiscovery(fusionId)
+        }
+        if (skillTree.isRelicUnlocked(RelicId.PRISMATIC_CATALYST) && Math.random() < 0.20) {
+            skillTree.addDiamonds(1)
+            diamondsEarnedThisRun += 1
+            audio.play(SfxType.DIAMOND_DROP)
+            floatingTexts.add(FloatingText(baseX + (Math.random() * 60 - 30).toFloat(), baseY - 140f, "+1 💎 Prismatic Bounty!", 0xFF00E5FF.toInt(), 1.6f, 26f))
+        }
+        if (totalElementalReactionsThisRun == 10) {
+            skillTree.addDiamonds(5)
+            diamondsEarnedThisRun += 5
+            audio.play(SfxType.DIAMOND_DROP)
+            floatingTexts.add(FloatingText(baseX, baseY - 160f, "+5 💎 FUSION MILESTONE!", 0xFFFFD700.toInt(), 2.2f, 30f))
         }
         checkAchievement("synergy_proc")
         if (totalElementalReactionsThisRun >= 25) {
@@ -3232,8 +3356,9 @@ class GameEngine(val prefs: GamePreferences, val audio: GameAudio = SilentAudio)
         if (isEndlessMode && wave >= 10) checkAchievement("endless_10")
         if (isEndlessMode && wave >= 25) checkAchievement("endless_25")
         if (isEndlessMode && wave >= 50) checkAchievement("endless_50")
-        if (skillTree.isRelicUnlocked(RelicId.AEGIS_OF_DAWN)) {
-            baseShield = 100f
+        val barrierHp = skillTree.citadelBarrierHp()
+        if (barrierHp > 0f) {
+            baseShield = barrierHp
         }
         if (mapType == MapType.VOLCANO && wave >= 15) checkAchievement("volcano_win")
         if (isRandomizerMode && wave >= 15) checkAchievement("randomizer_win")
@@ -3266,10 +3391,25 @@ class GameEngine(val prefs: GamePreferences, val audio: GameAudio = SilentAudio)
         }
 
         if (isBossRush || wave % bossInterval == 0) {
-            if (bossPool.isEmpty()) {
-                bossPool.addAll(BossType.entries.shuffled())
+            val cl = campaignLevel
+            val climaxBoss = when (cl?.id) {
+                10 -> BossType.ORC_KING
+                20 -> BossType.SPORE_OVERLORD
+                30 -> BossType.DRAGON_QUEEN
+                40 -> BossType.FROST_TITAN
+                50 -> BossType.CHRONO_LICH
+                65 -> BossType.VOID_PHOENIX
+                80 -> BossType.IRON_DREADNOUGHT
+                else -> null
             }
-            currentBoss = bossPool.removeFirst()
+            if (climaxBoss != null && wave == cl!!.targetWave) {
+                currentBoss = climaxBoss
+            } else {
+                if (bossPool.isEmpty()) {
+                    bossPool.addAll(BossType.entries.shuffled())
+                }
+                currentBoss = bossPool.removeFirst()
+            }
             enemiesRemaining = 1
             val minionCount = if (isBossRush) {
                 // Fewer minions in boss rush — focus is on the bosses
@@ -3302,10 +3442,13 @@ class GameEngine(val prefs: GamePreferences, val audio: GameAudio = SilentAudio)
         if (boss != null) {
             val bossRushScale = if (isBossRush) 1f + bossRushWave * 0.12f else 1f
             val greedHpMult = if (hasMerchantItem(MerchantItemId.GREED_CURSE)) 1.15f else 1f
-            val hp = (boss.baseHp + wave * 40f) * waveScale * enemyHpMult * bossRushScale * greedHpMult
+            val highRoller = skillTree.getActiveBlessing() == DiamondBlessing.HIGH_ROLLER
+            val blessingHpMult = if (highRoller) 1.25f else 1.0f
+            val blessingSpeedMult = if (highRoller) 1.25f else 1.0f
+            val hp = (boss.baseHp + wave * 40f) * waveScale * enemyHpMult * bossRushScale * greedHpMult * blessingHpMult
             enemies.add(Enemy(
                 x = spawn.x, y = spawn.y,
-                speed = boss.baseSpeed * enemySpeedMult,
+                speed = boss.baseSpeed * enemySpeedMult * blessingSpeedMult,
                 hp = hp, maxHp = hp,
                 goldReward = ((boss.baseGold + wave * 10f) * waveScale * goldMult).toInt().coerceAtLeast(1),
                 damage = boss.baseDmg * waveScale * enemyDmgMult * bossRushScale,
@@ -3397,7 +3540,10 @@ class GameEngine(val prefs: GamePreferences, val audio: GameAudio = SilentAudio)
         }
 
         val greedHpMult = if (hasMerchantItem(MerchantItemId.GREED_CURSE)) 1.15f else 1f
-        val hp = baseHpVal * waveScale * enemyHpMult * hpMod * nightHpMultiplier * greedHpMult
+        val highRoller = skillTree.getActiveBlessing() == DiamondBlessing.HIGH_ROLLER
+        val blessingHpMult = if (highRoller) 1.25f else 1.0f
+        val blessingSpeedMult = if (highRoller) 1.25f else 1.0f
+        val hp = baseHpVal * waveScale * enemyHpMult * hpMod * nightHpMultiplier * greedHpMult * blessingHpMult
         // Elite enemies on every 5th non-boss wave (first enemy of the wave)
         val isElite = wave % 5 == 0 && wave % bossInterval != 0 && !eliteSpawnedThisWave && wave >= 5
         val eliteHpMult = if (isElite) 3f else 1f
@@ -3407,7 +3553,7 @@ class GameEngine(val prefs: GamePreferences, val audio: GameAudio = SilentAudio)
         val enemy = Enemy(
             x = spawn.x,
             y = spawn.y + ((Math.random() - 0.5) * 40).toFloat(),
-            speed = (baseSpeed + (Math.random() * 20).toFloat()) * enemySpeedMult * speedMod,
+            speed = (baseSpeed + (Math.random() * 20).toFloat()) * enemySpeedMult * speedMod * blessingSpeedMult,
             hp = hp * eliteHpMult,
             maxHp = hp * eliteHpMult,
             goldReward = (baseGold * waveScale * goldMult * goldMod * eliteGoldMult).toInt().coerceAtLeast(1),
@@ -3446,14 +3592,17 @@ class GameEngine(val prefs: GamePreferences, val audio: GameAudio = SilentAudio)
             WaveModifier.BOSS_RALLY -> speedMod = 1.4f
             else -> {}
         }
+        val highRoller = skillTree.getActiveBlessing() == DiamondBlessing.HIGH_ROLLER
+        val blessingHpMult = if (highRoller) 1.25f else 1.0f
+        val blessingSpeedMult = if (highRoller) 1.25f else 1.0f
         repeat(count) {
             val pathIdx = if (paths.isNotEmpty()) paths.indices.random() else 0
             val sp = if (paths.isNotEmpty()) paths[pathIdx].spawnPoint else GamePoint(screenW / 2, -40f)
-            val mHp = (15f + wave * 3f) * waveScale * enemyHpMult * hpMod
+            val mHp = (15f + wave * 3f) * waveScale * enemyHpMult * hpMod * blessingHpMult
             val enemy = Enemy(
                 x = sp.x + ((Math.random() - 0.5) * 80).toFloat(),
                 y = sp.y + ((Math.random() - 0.5) * 40).toFloat(),
-                speed = (70f + (Math.random() * 30).toFloat()) * enemySpeedMult * speedMod,
+                speed = (70f + (Math.random() * 30).toFloat()) * enemySpeedMult * speedMod * blessingSpeedMult,
                 hp = mHp, maxHp = mHp,
                 goldReward = ((2f + wave) * goldMult * goldMod).toInt().coerceAtLeast(1),
                 damage = (4f + wave) * waveScale * enemyDmgMult,
@@ -3467,7 +3616,8 @@ class GameEngine(val prefs: GamePreferences, val audio: GameAudio = SilentAudio)
     }
 
     fun startBossTelegraph(boss: Enemy, ability: BossAbility) {
-        val duration = if (isHeroicMode) 1.2f else 1.5f
+        val chronoBonus = if (skillTree.isRelicUnlocked(RelicId.CHRONO_SINGULARITY)) 1.2f else 0f
+        val duration = (if (isHeroicMode) 1.2f else 1.5f) + chronoBonus
         boss.isTelegraphing = true
         boss.telegraphTimer = duration
         boss.telegraphDuration = duration
@@ -3796,6 +3946,20 @@ class GameEngine(val prefs: GamePreferences, val audio: GameAudio = SilentAudio)
         return wpIdx + (1f - (distToWp / segLen).coerceIn(0f, 1f))
     }
 
+    fun campaignRegionalTowerDmgMult(type: TowerType): Float {
+        val clId = campaignLevel?.id ?: return 1.0f
+        return when {
+            clId in 1..10 && type == TowerType.ARROW -> 1.15f
+            clId in 11..20 && type == TowerType.POISON -> 1.20f
+            clId in 21..30 && type == TowerType.FLAME -> 1.20f
+            clId in 31..40 && type == TowerType.ICE -> 1.20f
+            clId in 41..50 && type == TowerType.TESLA -> 1.20f
+            clId in 51..65 && (type == TowerType.MAGIC || type == TowerType.VORTEX) -> 1.20f
+            clId in 66..80 && (type == TowerType.CANNON || type == TowerType.BALLISTA) -> 1.20f
+            else -> 1.0f
+        }
+    }
+
     fun canPlaceTower(x: Float, y: Float, type: TowerType): Boolean { synchronized(lock) {
         if (!isTowerAllowed(type)) return false
         val cost = getTowerCost(type)
@@ -3946,7 +4110,7 @@ class GameEngine(val prefs: GamePreferences, val audio: GameAudio = SilentAudio)
         if (distToBase < 80f) return false
 
         gold -= type.cost
-        val extraUses = if (skillTree.isRelicUnlocked(RelicId.DEMOLITION_SATCHEL)) 2 else 0
+        val extraUses = skillTree.trapBonusUses()
         val uses = when (type) {
             TrapType.SPIKE -> 5 + wave / 5 + extraUses
             TrapType.TAR -> 8 + wave / 4 + extraUses
@@ -3996,7 +4160,7 @@ class GameEngine(val prefs: GamePreferences, val audio: GameAudio = SilentAudio)
         audio.play(SfxType.TOWER_ABILITY)
         abilityTowerTypesUsed.add(tower.type)
         if (abilityTowerTypesUsed.size >= 5) checkAchievement("ability_all")
-        val towerDmgMult = (1f + (playerDamageLevel - 1) * 0.1f) * skillTree.towerDamageMultiplier() * skillTree.prestigeDamageMultiplier() * endlessBuffTowerDmg
+        val towerDmgMult = (1f + (playerDamageLevel - 1) * 0.1f) * skillTree.towerDamageMultiplier() * skillTree.prestigeDamageMultiplier() * endlessBuffTowerDmg * campaignRegionalTowerDmgMult(tower.type)
         when (tower.type) {
             TowerType.ARROW -> {
                 // Volley: fire 5 rapid shots at different enemies
@@ -4590,6 +4754,14 @@ class GameEngine(val prefs: GamePreferences, val audio: GameAudio = SilentAudio)
     // ─── RUN HISTORY ───
 
     fun saveRunHistory(result: String = "Lost") {
+        if (skillTree.isRelicUnlocked(RelicId.ALCHEMIST_PHILOSOPHER_STONE)) {
+            val converted = (totalGoldEarned / 400).coerceAtMost(15)
+            if (converted > 0) {
+                skillTree.addDiamonds(converted)
+                diamondsEarnedThisRun += converted
+            }
+        }
+        skillTree.clearActiveBlessing()
         val mode = when {
             isBossRush -> "Boss Rush"
             isEndlessMode -> "Endless"

@@ -182,6 +182,13 @@ object SoundManager {
             SfxType.HERO_SPECIAL -> bladeClash(0.20, 0.65)
             SfxType.REWARD_CHEST -> rewardChime(0.48, 0.65)
             SfxType.STUN_ZAP -> electricStun(0.14, 0.55)
+
+            // Fusion reactions & Diamond milestones
+            SfxType.FUSION_ELEMENTAL -> fusionElemental(0.32, 0.70)
+            SfxType.FUSION_ARCANE -> fusionArcane(0.35, 0.65)
+            SfxType.FUSION_DARK -> fusionDark(0.38, 0.75)
+            SfxType.FUSION_SIEGE -> fusionSiege(0.40, 0.80)
+            SfxType.DIAMOND_CHEST -> diamondChest(0.55, 0.70)
         }
     }
 
@@ -660,6 +667,112 @@ object SoundManager {
             val zapCrack = (rng.nextDouble() * 2.0 - 1.0) * 0.35
             val s = (pulse + zapCrack) * env
             out[i] = (s.coerceIn(-1.0, 1.0) * 32767).toInt().coerceIn(-32768, 32767).toShort()
+        }
+        applyDeclick(out)
+        return out
+    }
+
+    /** Elemental fusion flare: rising fiery sweep with crackling explosive tail */
+    private fun fusionElemental(dur: Double, vol: Double): ShortArray {
+        val n = (SAMPLE_RATE * dur).toInt()
+        val out = ShortArray(n)
+        val rng = java.util.Random(801)
+        var phase = 0.0
+        for (i in 0 until n) {
+            val frac = i.toDouble() / n
+            val env = sin(PI * frac).pow(0.6) * exp(-frac * 3.0) * vol
+            val freq = 550.0 * (1.0 - frac * 0.7)
+            phase += 2.0 * PI * freq / SAMPLE_RATE
+            val tone = sin(phase) + 0.3 * sin(phase * 2.0)
+            val noise = (rng.nextDouble() * 2.0 - 1.0) * frac * 0.6
+            val s = (tone * 0.7 + noise) * env
+            out[i] = (s.coerceIn(-1.0, 1.0) * 32767).toInt().coerceIn(-32768, 32767).toShort()
+        }
+        applyDeclick(out)
+        return out
+    }
+
+    /** Arcane fusion: shimmering celestial arpeggio with high resonance */
+    private fun fusionArcane(dur: Double, vol: Double): ShortArray {
+        val n = (SAMPLE_RATE * dur).toInt()
+        val out = ShortArray(n)
+        val chord = doubleArrayOf(659.25, 880.0, 1046.50, 1318.51) // E5, A5, C6, E6
+        for (i in 0 until n) {
+            val t = i.toDouble() / SAMPLE_RATE
+            val frac = i.toDouble() / n
+            val env = sin(PI * frac) * exp(-frac * 2.2) * vol
+            var s = 0.0
+            for ((idx, freq) in chord.withIndex()) {
+                val noteDelay = idx * 0.05
+                if (t >= noteDelay) {
+                    val noteFrac = (t - noteDelay) / (dur - noteDelay)
+                    val noteEnv = exp(-noteFrac * 6.0)
+                    s += sin(2.0 * PI * freq * (t - noteDelay)) * noteEnv * 0.25
+                }
+            }
+            out[i] = (s * env * 32767).toInt().coerceIn(-32768, 32767).toShort()
+        }
+        applyDeclick(out)
+        return out
+    }
+
+    /** Dark/Void fusion: sub-bass implosion with heavy distortion */
+    private fun fusionDark(dur: Double, vol: Double): ShortArray {
+        val n = (SAMPLE_RATE * dur).toInt()
+        val out = ShortArray(n)
+        var phase = 0.0
+        for (i in 0 until n) {
+            val frac = i.toDouble() / n
+            val env = sin(PI * frac) * exp(-frac * 2.5) * vol
+            val freq = 90.0 * (1.0 - frac * 0.6)
+            phase += 2.0 * PI * freq / SAMPLE_RATE
+            val sRaw = sin(phase) + 0.4 * sin(phase * 1.5)
+            val distorted = tanh(sRaw * 2.2)
+            out[i] = (distorted * env * 32767).toInt().coerceIn(-32768, 32767).toShort()
+        }
+        applyDeclick(out)
+        return out
+    }
+
+    /** Siege/Explosion fusion: thunderous ground slam with heavy low-end impact */
+    private fun fusionSiege(dur: Double, vol: Double): ShortArray {
+        val n = (SAMPLE_RATE * dur).toInt()
+        val out = ShortArray(n)
+        val rng = java.util.Random(909)
+        var phase = 0.0
+        for (i in 0 until n) {
+            val frac = i.toDouble() / n
+            val env = exp(-frac * 4.0) * vol
+            val freq = 120.0 * exp(-frac * 6.0) + 40.0
+            phase += 2.0 * PI * freq / SAMPLE_RATE
+            val boom = sin(phase) * 0.7
+            val crunch = (rng.nextDouble() * 2.0 - 1.0) * exp(-frac * 12.0) * 0.5
+            val s = (boom + crunch) * env
+            out[i] = (s.coerceIn(-1.0, 1.0) * 32767).toInt().coerceIn(-32768, 32767).toShort()
+        }
+        applyDeclick(out)
+        return out
+    }
+
+    /** Diamond chest: triumphant crystal chime fanfare */
+    private fun diamondChest(dur: Double, vol: Double): ShortArray {
+        val n = (SAMPLE_RATE * dur).toInt()
+        val out = ShortArray(n)
+        val freqs = doubleArrayOf(1046.50, 1318.51, 1567.98, 2093.00) // C6, E6, G6, C7
+        for (i in 0 until n) {
+            val t = i.toDouble() / SAMPLE_RATE
+            val frac = i.toDouble() / n
+            val env = sin(PI * frac).pow(0.5) * exp(-frac * 1.8) * vol
+            var s = 0.0
+            for ((idx, f) in freqs.withIndex()) {
+                val delay = idx * 0.06
+                if (t >= delay) {
+                    val noteFrac = (t - delay) / (dur - delay)
+                    val noteEnv = exp(-noteFrac * 5.0)
+                    s += (sin(2.0 * PI * f * (t - delay)) + 0.3 * sin(2.0 * PI * f * 2.0 * (t - delay))) * noteEnv * 0.25
+                }
+            }
+            out[i] = (s * env * 32767).toInt().coerceIn(-32768, 32767).toShort()
         }
         applyDeclick(out)
         return out

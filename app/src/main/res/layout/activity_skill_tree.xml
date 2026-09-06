@@ -57,24 +57,37 @@
             android:layout_width="0dp"
             android:layout_height="40dp"
             android:layout_weight="1"
-            android:text="💎 Passives"
-            android:textSize="12sp"
+            android:text="🏰 Citadel"
+            android:textSize="11sp"
             android:textStyle="bold"
             android:textColor="#FFFFFF"
             android:background="@drawable/bg_tab_active"
-            android:layout_marginEnd="6dp" />
+            android:layout_marginEnd="4dp" />
+
+        <Button
+            android:id="@+id/btn_tab_alchemy"
+            android:layout_width="0dp"
+            android:layout_height="40dp"
+            android:layout_weight="1"
+            android:text="⚗️ Alchemy"
+            android:textSize="11sp"
+            android:textStyle="bold"
+            android:textColor="#90A4AE"
+            android:background="@drawable/bg_tab_inactive"
+            android:layout_marginStart="2dp"
+            android:layout_marginEnd="2dp" />
 
         <Button
             android:id="@+id/btn_tab_relics"
             android:layout_width="0dp"
             android:layout_height="40dp"
             android:layout_weight="1"
-            android:text="🏺 Relic Vault"
-            android:textSize="12sp"
+            android:text="🏺 Relics"
+            android:textSize="11sp"
             android:textStyle="bold"
             android:textColor="#90A4AE"
             android:background="@drawable/bg_tab_inactive"
-            android:layout_marginStart="6dp" />
+            android:layout_marginStart="4dp" />
     </LinearLayout>
 
     <TextView

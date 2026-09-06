@@ -102,4 +102,100 @@ class SkillTreeSystemTest {
         assertTrue(restoredTree.isRelicUnlocked(RelicId.ARTEMIS_QUIVER))
         assertTrue(restoredTree.isRelicUnlocked(RelicId.MIDAS_CRUCIBLE))
     }
+
+    @Test
+    fun testAlchemyAndCombatSkillsUpgradeAndEffects() {
+        skillTree.addDiamonds(500)
+
+        // Upgrade Alchemy Skills
+        assertTrue(skillTree.upgrade("fusion_potency"))
+        assertEquals(1, skillTree.getLevel("fusion_potency"))
+        assertEquals(1.12f, skillTree.fusionDamageMultiplier(), 0.001f)
+
+        assertTrue(skillTree.upgrade("catalyst_radius"))
+        assertEquals(1, skillTree.getLevel("catalyst_radius"))
+        assertEquals(1.10f, skillTree.fusionRadiusMultiplier(), 0.001f)
+
+        assertTrue(skillTree.upgrade("conduit_resonance"))
+        assertEquals(1, skillTree.getLevel("conduit_resonance"))
+        assertEquals(0.06f, skillTree.conduitExtraEcho(), 0.001f)
+
+        assertTrue(skillTree.upgrade("status_duration"))
+        assertEquals(1, skillTree.getLevel("status_duration"))
+        assertEquals(0.8f, skillTree.statusDurationBonus(), 0.001f)
+
+        // Upgrade Fortification / Combat Skills
+        assertTrue(skillTree.upgrade("citadel_barrier"))
+        assertEquals(1, skillTree.getLevel("citadel_barrier"))
+        assertEquals(30f, skillTree.citadelBarrierHp())
+
+        assertTrue(skillTree.upgrade("trap_overhaul"))
+        assertEquals(1, skillTree.getLevel("trap_overhaul"))
+        assertEquals(1.20f, skillTree.trapDamageMultiplier(), 0.001f)
+        assertEquals(1, skillTree.trapBonusUses())
+
+        assertTrue(skillTree.upgrade("hero_critical"))
+        assertEquals(1, skillTree.getLevel("hero_critical"))
+        assertEquals(0.05f, skillTree.heroCritChance(), 0.001f)
+    }
+
+    @Test
+    fun testPreRunDiamondBlessings() {
+        assertEquals(DiamondBlessing.NONE, skillTree.getActiveBlessing())
+        assertFalse(skillTree.canAffordBlessing(DiamondBlessing.MIDAS))
+
+        skillTree.addDiamonds(25)
+        assertTrue(skillTree.canAffordBlessing(DiamondBlessing.MIDAS))
+        assertTrue(skillTree.purchaseBlessing(DiamondBlessing.MIDAS))
+        assertEquals(DiamondBlessing.MIDAS, skillTree.getActiveBlessing())
+        assertEquals(17, skillTree.diamonds) // 25 - 8
+
+        // Clear active blessing
+        skillTree.clearActiveBlessing()
+        assertEquals(DiamondBlessing.NONE, skillTree.getActiveBlessing())
+
+        // Test Catalyst blessing
+        assertTrue(skillTree.purchaseBlessing(DiamondBlessing.CATALYST))
+        assertEquals(DiamondBlessing.CATALYST, skillTree.getActiveBlessing())
+        assertEquals(7, skillTree.diamonds) // 17 - 10
+
+        // Cannot afford High Roller (cost 15, have 7)
+        assertFalse(skillTree.canAffordBlessing(DiamondBlessing.HIGH_ROLLER))
+        assertFalse(skillTree.purchaseBlessing(DiamondBlessing.HIGH_ROLLER))
+        assertEquals(DiamondBlessing.CATALYST, skillTree.getActiveBlessing())
+    }
+
+    @Test
+    fun testAllTwelveRelicsUnlockableAndPersistent() {
+        skillTree.addDiamonds(1000)
+        assertEquals(12, RelicId.entries.size)
+
+        for (relic in RelicId.entries) {
+            assertTrue(skillTree.canUnlockRelic(relic), "Should be able to unlock ${relic.title}")
+            assertTrue(skillTree.unlockRelic(relic))
+            assertTrue(skillTree.isRelicUnlocked(relic))
+        }
+
+        assertEquals(12, skillTree.unlockedRelicsCount())
+
+        // Verify relic passive contributions to skill effects
+        assertTrue(skillTree.fusionDamageMultiplier() >= 1.40f) // Prismatic Catalyst adds 0.40f
+        assertTrue(skillTree.fusionRadiusMultiplier() >= 1.25f) // Prismatic Catalyst adds 0.25f
+        assertTrue(skillTree.conduitExtraEcho() >= 0.25f)       // Grimoire of Conduit adds 0.25f
+        assertTrue(skillTree.citadelBarrierHp() >= 100f)        // Aegis of Dawn adds 100f
+        assertTrue(skillTree.trapBonusUses() >= 2)             // Demolition Satchel adds 2
+
+        // Verify persistence in a new instance
+        val restored = SkillTree(prefs)
+        assertEquals(12, restored.unlockedRelicsCount())
+        for (relic in RelicId.entries) {
+            assertTrue(restored.isRelicUnlocked(relic))
+        }
+    }
+
+    @Test
+    fun testPrestigeDamageMultiplier() {
+        assertEquals(1.0f, skillTree.prestigeDamageMultiplier(), 0.001f)
+    }
 }
+

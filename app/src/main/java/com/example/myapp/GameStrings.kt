@@ -355,9 +355,20 @@ Każda wieża zadaje określony typ obrażeń. Wrogowie mają odporności i sła
     fun achievementProgress(unlocked: Int, total: Int) =
         if (isPl) "$unlocked / $total Odblokowane" else "$unlocked / $total Unlocked"
 
-    val tabPassiveSkills get() = if (isPl) "\uD83D\uDC8E Umiejętności" else "\uD83D\uDC8E Passive Skills"
-    val tabRelicVault get() = if (isPl) "\uD83C\uDFFA Skarbiec Relikwii" else "\uD83C\uDFFA Relic Vault"
+    val tabPassiveSkills get() = if (isPl) "🏰 Cytadela" else "🏰 Citadel"
+    val tabCitadelPassives get() = if (isPl) "🏰 Cytadela" else "🏰 Citadel"
+    val tabElementalAlchemy get() = if (isPl) "⚗️ Alchemia i Runy" else "⚗️ Alchemy & Runes"
+    val tabRelicVault get() = if (isPl) "🏺 Skarbiec Relikwii" else "🏺 Relic Vault"
     val relicVaultSubtitle get() = if (isPl) "Potężne, stałe artefakty zmieniające mechaniki gry" else "Powerful permanent artifacts with game-changing powers"
+    val alchemySubtitle get() = if (isPl) "Potęga 14 fuzji żywiołów oraz błogosławieństwa przed kolejnym biegiem" else "Harness 14 elemental fusions and pre-run diamond blessings"
+    val citadelSubtitle get() = if (isPl) "Pasywne ulepszenia obrony bazy, bohatera i uzbrojenia" else "Permanent defenses, hero prowess, and armory upgrades"
+    val blessingSectionTitle get() = if (isPl) "✨ Przedbiegowe Błogosławieństwa Diamentów" else "✨ Pre-Run Diamond Blessings"
+    val blessingSectionDesc get() = if (isPl) "Wybierz jednorazową runę na kolejny bieg. Efekt znika po zakończeniu gry." else "Select a one-run blessing for your next battle. Cleared when run ends."
+    val blessingActiveBadge get() = if (isPl) "AKTYWNE NA KOLEJNY BIEG ✓" else "ACTIVE FOR NEXT RUN ✓"
+    val blessingSelectBtn get() = if (isPl) "AKTYWUJ" else "ACTIVATE"
+    val blessingRemoveBtn get() = if (isPl) "USUŃ" else "REMOVE"
+    val alchemySkillsHeader get() = if (isPl) "🧪 Mistrzostwo Fuzji Żywiołów" else "🧪 Elemental Fusion Mastery"
+    val combatSkillsHeader get() = if (isPl) "🛡️ Fortyfikacje Cytadeli" else "🛡️ Citadel Fortifications"
     val relicActive get() = if (isPl) "AKTYWNY ✓" else "ACTIVE ✓"
     fun relicUnlockBtn(cost: Int) = if (isPl) "ODBLOKUJ \uD83D\uDC8E $cost" else "UNLOCK \uD83D\uDC8E $cost"
     val claimAllBtn get() = if (isPl) "\uD83C\uDF81 Odbierz wszystko" else "\uD83C\uDF81 Claim All"
@@ -365,6 +376,152 @@ Każda wieża zadaje określony typ obrażeń. Wrogowie mają odporności i sła
     val claimedBtn get() = if (isPl) "ODEBRANO ✓" else "CLAIMED ✓"
     fun claimedAllToast(count: Int, diamonds: Int) =
         if (isPl) "Odebrano $count nagród! +$diamonds \uD83D\uDC8E" else "Claimed $count rewards! +$diamonds \uD83D\uDC8E"
+
+    fun getLocalizedRelicTitle(relic: com.example.myapp.game.RelicId): String = when (relic) {
+        com.example.myapp.game.RelicId.ZEPHYR_GREAVES -> if (isPl) "Nagoleniki Zefiru" else relic.title
+        com.example.myapp.game.RelicId.ARTEMIS_QUIVER -> if (isPl) "Kołczan Artemidy" else relic.title
+        com.example.myapp.game.RelicId.CHRONO_HOURGLASS -> if (isPl) "Klepsydra Chrono" else relic.title
+        com.example.myapp.game.RelicId.AEGIS_OF_DAWN -> if (isPl) "Egida Brzasku" else relic.title
+        com.example.myapp.game.RelicId.DEMOLITION_SATCHEL -> if (isPl) "Torba Minerska" else relic.title
+        com.example.myapp.game.RelicId.MIDAS_CRUCIBLE -> if (isPl) "Tygiel Midasa" else relic.title
+        com.example.myapp.game.RelicId.PRISMATIC_CATALYST -> if (isPl) "Pryzmatyczny Katalizator" else relic.title
+        com.example.myapp.game.RelicId.GRIMOIRE_OF_CONDUIT -> if (isPl) "Grimuar Przewodnika" else relic.title
+        com.example.myapp.game.RelicId.ASTRAL_HARVESTER -> if (isPl) "Żniwiarz Astralny" else relic.title
+        com.example.myapp.game.RelicId.TITAN_WARHORN -> if (isPl) "Róg Wojenny Tytana" else relic.title
+        com.example.myapp.game.RelicId.CHRONO_SINGULARITY -> if (isPl) "Osobliwość Chrono" else relic.title
+        com.example.myapp.game.RelicId.ALCHEMIST_PHILOSOPHER_STONE -> if (isPl) "Kamień Filozoficzny" else relic.title
+    }
+
+    fun getLocalizedRelicDesc(relic: com.example.myapp.game.RelicId): String = when (relic) {
+        com.example.myapp.game.RelicId.ZEPHYR_GREAVES -> if (isPl) "+35% prędkości ruchu bohatera. Emituje Aurę Wichru spowalniającą pobliskich wrogów o 25%." else relic.description
+        com.example.myapp.game.RelicId.ARTEMIS_QUIVER -> if (isPl) "Ataki bohatera wystrzeliwują potrójną salwę strzał z +15% szansą na trafienie krytyczne." else relic.description
+        com.example.myapp.game.RelicId.CHRONO_HOURGLASS -> if (isPl) "-25% czasu odnowienia czarów (Kula Ognia, Lód, Błyskawica). Krytyki wywołują 2s globalne spowolnienie." else relic.description
+        com.example.myapp.game.RelicId.AEGIS_OF_DAWN -> if (isPl) "Baza otrzymuje 100 HP boskiej tarczy co falę. Aura bohatera regeneruje bazę o 3 HP co 5s." else relic.description
+        com.example.myapp.game.RelicId.DEMOLITION_SATCHEL -> if (isPl) "Wszystkie pułapki (Kolce, Smoła, Miny) zyskują +2 ładunki oraz +40% obrażeń i zasięgu wybuchu." else relic.description
+        com.example.myapp.game.RelicId.MIDAS_CRUCIBLE -> if (isPl) "+100 złota na start, +30% złota za zabójstwa i +25% większa szansa na drop diamentów." else relic.description
+        com.example.myapp.game.RelicId.PRISMATIC_CATALYST -> if (isPl) "Wszystkie 14 fuzji żywiołów zadaje +40% obrażeń, ma +25% obszaru i 20% szansy na upuszczenie +1 diamentu." else relic.description
+        com.example.myapp.game.RelicId.GRIMOIRE_OF_CONDUIT -> if (isPl) "Strumień Przeciążenia wiąże do 7 wrogów naraz i odbija 60% obrażeń na wszystkich połączonych." else relic.description
+        com.example.myapp.game.RelicId.ASTRAL_HARVESTER -> if (isPl) "Ogniki Rozkładu Astralnego i Piekielnego Ognia zadają 2.5× obrażeń i wciągają pobliskich wrogów w próżnię." else relic.description
+        com.example.myapp.game.RelicId.TITAN_WARHORN -> if (isPl) "Cięcia miecza bohatera ranią wszystkich wrogów w łuku 140° z fizycznym odrzutem o 45px." else relic.description
+        com.example.myapp.game.RelicId.CHRONO_SINGULARITY -> if (isPl) "Wydłuża czas reakcji na telegrafy bossów o +1.2s i spowalnia ładowanie zdolności elit o 40%." else relic.description
+        com.example.myapp.game.RelicId.ALCHEMIST_PHILOSOPHER_STONE -> if (isPl) "Każde 400 złota zdobyte w trakcie gry transmutuje w +1 diament po zakończeniu (do +15 💎 na bieg)." else relic.description
+    }
+
+    fun getLocalizedBlessingTitle(blessing: com.example.myapp.game.DiamondBlessing): String = when (blessing) {
+        com.example.myapp.game.DiamondBlessing.NONE -> if (isPl) "Brak Błogosławieństwa" else blessing.title
+        com.example.myapp.game.DiamondBlessing.MIDAS -> if (isPl) "Błogosławieństwo Midasa" else blessing.title
+        com.example.myapp.game.DiamondBlessing.CATALYST -> if (isPl) "Błogosławieństwo Katalizatora" else blessing.title
+        com.example.myapp.game.DiamondBlessing.HIGH_ROLLER -> if (isPl) "Pakt Wysokich Stawek" else blessing.title
+    }
+
+    fun getLocalizedBlessingDesc(blessing: com.example.myapp.game.DiamondBlessing): String = when (blessing) {
+        com.example.myapp.game.DiamondBlessing.NONE -> if (isPl) "Startujesz z podstawowymi parametrami bez bonusów i kar." else blessing.description
+        com.example.myapp.game.DiamondBlessing.MIDAS -> if (isPl) "+300 złota na start oraz +50% złota za każdego zabitego wroga." else blessing.description
+        com.example.myapp.game.DiamondBlessing.CATALYST -> if (isPl) "Wszystkie 14 fuzji żywiołów zadaje +50% obrażeń i ma powiększony promień wybuchu." else blessing.description
+        com.example.myapp.game.DiamondBlessing.HIGH_ROLLER -> if (isPl) "Wrogowie mają +25% HP i szybkości, ale Elity i Bossowie dają 3× WIĘCEJ DIAMENTÓW!" else blessing.description
+    }
+
+    fun getLocalizedSkillName(id: String): String = when (id) {
+        "start_gold" -> if (isPl) "Złoty Start" else "Golden Start"
+        "base_hp" -> if (isPl) "Umocniona Baza" else "Fortified Base"
+        "player_damage" -> if (isPl) "Ostre Ostrze" else "Sharp Blade"
+        "player_speed" -> if (isPl) "Szybkie Stopy" else "Swift Feet"
+        "player_hp" -> if (isPl) "Twarda Skóra" else "Tough Skin"
+        "tower_damage" -> if (isPl) "Mistrzostwo Wież" else "Tower Mastery"
+        "gold_bonus" -> if (isPl) "Łowca Skarbów" else "Treasure Hunter"
+        "diamond_luck" -> if (isPl) "Magnes na Diamenty" else "Diamond Magnet"
+        "wave_bonus" -> if (isPl) "Weteran Wojny" else "War Veteran"
+        "attack_range" -> if (isPl) "Sokole Oko" else "Eagle Eye"
+        "ice_power" -> if (isPl) "Władca Mrozu" else "Frost Mastery"
+        "ability_cd" -> if (isPl) "Szybkie Czary" else "Quick Cast"
+        "sell_bonus" -> if (isPl) "Targowanie" else "Haggler"
+        "resist_pierce" -> if (isPl) "Kruszenie Pancerza" else "Armor Break"
+        "wave_modifier" -> if (isPl) "Szczęśliwe Fale" else "Lucky Waves"
+        "prestige_gold" -> if (isPl) "Dotyk Midasa" else "Midas Touch"
+        "fusion_potency" -> if (isPl) "Potęga Fuzji" else "Fusion Potency"
+        "catalyst_radius" -> if (isPl) "Promień Katalizatora" else "Catalyst Radius"
+        "conduit_resonance" -> if (isPl) "Łącze Przewodnika" else "Conduit Link"
+        "status_duration" -> if (isPl) "Wydłużone Cierpienie" else "Affliction Mastery"
+        "citadel_barrier" -> if (isPl) "Egida Cytadeli" else "Citadel Aegis"
+        "trap_overhaul" -> if (isPl) "Inżynieria Polowa" else "Combat Engineering"
+        "hero_critical" -> if (isPl) "Precyzyjny Cios" else "Precision Strike"
+        else -> id
+    }
+
+    fun getLocalizedSkillDesc(id: String): String = when (id) {
+        "start_gold" -> if (isPl) "+15 złota na start na poziom" else "+15 starting gold per level"
+        "base_hp" -> if (isPl) "+20 maks. HP bazy na poziom" else "+20 base HP per level"
+        "player_damage" -> if (isPl) "+3 obrażeń ataku bohatera na poziom" else "+3 starting attack damage"
+        "player_speed" -> if (isPl) "+20 prędkości ruchu na poziom" else "+20 starting move speed"
+        "player_hp" -> if (isPl) "+15 maks. HP bohatera na poziom" else "+15 starting player HP"
+        "tower_damage" -> if (isPl) "+8% obrażeń wszystkich wież na poziom" else "+8% tower damage per level"
+        "gold_bonus" -> if (isPl) "+10% złota za zabójstwa na poziom" else "+10% gold from kills per level"
+        "diamond_luck" -> if (isPl) "+5% szansy na drop diamentu na poziom" else "+5% diamond drop chance per level"
+        "wave_bonus" -> if (isPl) "+3 złota bonusu za każdą falę" else "+3 gold per wave bonus"
+        "attack_range" -> if (isPl) "+15 zasięgu ataku bohatera" else "+15 starting attack range"
+        "ice_power" -> if (isPl) "+10% spowolnienia wież lodowych na poziom" else "+10% ice tower slow per level"
+        "ability_cd" -> if (isPl) "-5% czasu odnowienia umiejętności na poziom" else "-5% ability cooldown per level"
+        "sell_bonus" -> if (isPl) "+10% zwrotu przy sprzedaży wieży na poziom" else "+10% tower sell value per level"
+        "resist_pierce" -> if (isPl) "+5% przebicia odporności na poziom" else "+5% resistance pierce per level"
+        "wave_modifier" -> if (isPl) "Lepsze i bogatsze modyfikatory fal" else "Better wave modifier chances"
+        "prestige_gold" -> if (isPl) "+5% złota na poziom prestiżu" else "+5% gold per prestige level"
+        "fusion_potency" -> if (isPl) "+12% obrażeń od fuzji żywiołów na poziom" else "+12% elemental fusion damage per level"
+        "catalyst_radius" -> if (isPl) "+10% promienia wybuchu fuzji na poziom" else "+10% fusion blast & effect radius per level"
+        "conduit_resonance" -> if (isPl) "+6% obrażeń odbitych w Strumieniu Przeciążenia na poziom" else "+6% echoed damage on Overload Flux per level"
+        "status_duration" -> if (isPl) "+0.8s do czasu trwania wszystkich podpaleń i osłabień" else "+0.8s duration to all elemental burns & debuffs"
+        "citadel_barrier" -> if (isPl) "+30 energii tarczy bazy na każdą falę za poziom" else "+30 starting wave energy shield for base per level"
+        "trap_overhaul" -> if (isPl) "+20% obrażeń pułapek i +1 dodatkowe użycie na poziom" else "+20% trap damage & +1 max use per level"
+        "hero_critical" -> if (isPl) "+5% szansy na krytyk bohatera (2.5× obrażeń) na poziom" else "+5% hero crit chance (2.5x damage) per level"
+        else -> ""
+    }
+
+    fun actLore(actNumber: Int): String = if (isPl) {
+        when (actNumber) {
+            1 -> "🌲 Zielone łąki i pagórki królestwa. Orkowe hordy testują twoje pierwsze linie obrony."
+            2 -> "🌋 Złowrogie bagna spowite toksyczną mgłą i rojami zarodników z głębin."
+            3 -> "❄️ Starożytna krypta smoczych władców wśród rzek płynnej lawy i bazaltowych skał."
+            4 -> "☣️ Spaczone lodowce i mroźne przełęcze strzeżone przez prastarych tytanów lodu."
+            5 -> "🔥 Piekielny bastion na szczycie wulkanu, gdzie czas i rzeczywistość ulegają spaczeniu."
+            6 -> "🌌 Kosmiczne szczeliny otchłani, z których wyłaniają się nienarodzone byty próżni."
+            7 -> "👑 Ostateczna twierdza imperium, atakowana przez gigantyczne machiny wojenne."
+            else -> ""
+        }
+    } else {
+        when (actNumber) {
+            1 -> "🌲 Green kingdom meadows and rolling hills. The greenskin hordes test your initial battlements."
+            2 -> "🌋 Perilous swamplands choked with virulent spore blossoms and toxic miasma."
+            3 -> "❄️ Scorched volcanic caverns where ancient dragon broods slumber among magma rivers."
+            4 -> "☣️ Sub-zero mountain glaciers haunted by primeval frost titans and bitter winds."
+            5 -> "🔥 Infernal Bastion at the summit of the volcanic rift, warping spacetime itself."
+            6 -> "🌌 Cosmic abyssal rifts where ancient void entities rupture the mortal plane."
+            7 -> "👑 The empire's grand apex citadel under direct siege by colossal war dreadnoughts."
+            else -> ""
+        }
+    }
+
+    fun actRegionalPerk(actNumber: Int): String = if (isPl) {
+        when (actNumber) {
+            1 -> "🎯 Premia regionalna: Wieże Łucznicze +15% obrażeń"
+            2 -> "☠️ Premia regionalna: Wieże Trujące +20% obrażeń"
+            3 -> "🔥 Premia regionalna: Wieże Płomienne +20% obrażeń"
+            4 -> "❄️ Premia regionalna: Wieże Lodowe +20% obrażeń"
+            5 -> "⚡ Premia regionalna: Wieże Tesli +20% obrażeń"
+            6 -> "🔮 Premia regionalna: Wieże Magiczne i Wiru +20% obrażeń"
+            7 -> "💣 Premia regionalna: Wieże Armatnie i Balisty +20% obrażeń"
+            else -> ""
+        }
+    } else {
+        when (actNumber) {
+            1 -> "🎯 Regional Perk: Arrow Towers +15% Damage"
+            2 -> "☠️ Regional Perk: Poison Towers +20% Damage"
+            3 -> "🔥 Regional Perk: Flame Towers +20% Damage"
+            4 -> "❄️ Regional Perk: Ice Towers +20% Damage"
+            5 -> "⚡ Regional Perk: Tesla Towers +20% Damage"
+            6 -> "🔮 Regional Perk: Magic & Vortex Towers +20% Damage"
+            7 -> "💣 Regional Perk: Cannon & Ballista Towers +20% Damage"
+            else -> ""
+        }
+    }
 
     data class AchDef(val id: String, val title: String, val description: String, val emoji: String, val diamondReward: Int = 10)
 

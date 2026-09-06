@@ -47,6 +47,23 @@ class SkillTree(private val prefs: GamePreferences) {
         Skill("prestige_gold",  "Midas Touch",     "+5% gold per prestige level",       "\uD83D\uDC51",  5, 5, 4)
     )
 
+    /** Elemental Alchemy skills — powers the 14 Elemental & Arcane Fusions */
+    val alchemySkills: List<Skill> = listOf(
+        Skill("fusion_potency",    "Fusion Potency",    "+12% elemental fusion damage per level", "\uD83D\uDCA5", 5, 6, 4),
+        Skill("catalyst_radius",   "Catalyst Radius",   "+10% fusion blast & effect radius per level", "\uD83C\uDF10", 5, 5, 3),
+        Skill("conduit_resonance", "Conduit Link",      "+6% echoed damage on Overload Flux per level", "\uD83D\uDD2E", 5, 6, 4),
+        Skill("status_duration",   "Affliction Mastery", "+0.8s duration to all elemental burns & debuffs", "\u23F3", 5, 4, 3)
+    )
+
+    /** Citadel Fortification & Combat Mastery skills */
+    val combatSkills: List<Skill> = listOf(
+        Skill("citadel_barrier", "Citadel Aegis",       "+30 starting wave energy shield for base per level", "\uD83D\uDEE1\uFE0F", 5, 5, 3),
+        Skill("trap_overhaul",   "Combat Engineering",  "+20% trap damage & +1 max use per level", "\uD83D\uDCA3", 5, 4, 3),
+        Skill("hero_critical",   "Precision Strike",    "+5% hero crit chance (2.5x damage) per level", "\u2694\uFE0F", 5, 6, 4)
+    )
+
+    val allSkills: List<Skill> get() = skills + prestigeSkills + alchemySkills + combatSkills
+
     /** Prestige level — resets skill tree page 1 for permanent bonuses */
     var prestigeLevel: Int = 0
         private set
@@ -61,10 +78,7 @@ class SkillTree(private val prefs: GamePreferences) {
     fun load() {
         diamonds = prefs.getInt("diamonds", 0)
         prestigeLevel = prefs.getInt("prestige_level", 0)
-        skills.forEach { skill ->
-            levels[skill.id] = prefs.getInt("skill_${skill.id}", 0)
-        }
-        prestigeSkills.forEach { skill ->
+        allSkills.forEach { skill ->
             levels[skill.id] = prefs.getInt("skill_${skill.id}", 0)
         }
     }
@@ -81,7 +95,7 @@ class SkillTree(private val prefs: GamePreferences) {
 
     fun getLevel(id: String): Int = levels[id] ?: 0
 
-    private fun findSkill(id: String): Skill? = skills.find { it.id == id } ?: prestigeSkills.find { it.id == id }
+    private fun findSkill(id: String): Skill? = allSkills.find { it.id == id }
 
     fun canUpgrade(id: String): Boolean {
         val skill = findSkill(id) ?: return false
@@ -136,6 +150,7 @@ class SkillTree(private val prefs: GamePreferences) {
     fun bonusPlayerSpeed(): Float   = getLevel("player_speed") * 20f
     fun bonusPlayerHp(): Float      = getLevel("player_hp") * 15f
     fun towerDamageMultiplier(): Float = 1f + getLevel("tower_damage") * 0.08f
+    fun prestigeDamageMultiplier(): Float = 1f + prestigeLevel * 0.05f
     fun goldBonusMultiplier(): Float   = (1f + getLevel("gold_bonus") * 0.10f) * (1f + getLevel("prestige_gold") * 0.05f)
     fun diamondDropBonus(): Float      = getLevel("diamond_luck") * 0.05f
     fun bonusWaveGold(): Int        = getLevel("wave_bonus") * 3
@@ -147,8 +162,39 @@ class SkillTree(private val prefs: GamePreferences) {
     fun sellValueBonus(): Float     = getLevel("sell_bonus") * 0.10f
     fun resistancePierce(): Float   = getLevel("resist_pierce") * 0.05f
 
-    /** Prestige gives a permanent multiplier to all damage */
-    fun prestigeDamageMultiplier(): Float = 1f + prestigeLevel * 0.05f
+    // Alchemy & Fortification effects
+    fun fusionDamageMultiplier(): Float = 1f + getLevel("fusion_potency") * 0.12f + if (isRelicUnlocked(RelicId.PRISMATIC_CATALYST)) 0.40f else 0f
+    fun fusionRadiusMultiplier(): Float = 1f + getLevel("catalyst_radius") * 0.10f + if (isRelicUnlocked(RelicId.PRISMATIC_CATALYST)) 0.25f else 0f
+    fun conduitExtraEcho(): Float = getLevel("conduit_resonance") * 0.06f + if (isRelicUnlocked(RelicId.GRIMOIRE_OF_CONDUIT)) 0.25f else 0f
+    fun statusDurationBonus(): Float = getLevel("status_duration") * 0.8f
+    fun citadelBarrierHp(): Float = getLevel("citadel_barrier") * 30f + if (isRelicUnlocked(RelicId.AEGIS_OF_DAWN)) 100f else 0f
+    fun trapDamageMultiplier(): Float = 1f + getLevel("trap_overhaul") * 0.20f + if (isRelicUnlocked(RelicId.DEMOLITION_SATCHEL)) 0.40f else 0f
+    fun trapBonusUses(): Int = getLevel("trap_overhaul") + if (isRelicUnlocked(RelicId.DEMOLITION_SATCHEL)) 2 else 0
+    fun heroCritChance(): Float = getLevel("hero_critical") * 0.05f + if (isRelicUnlocked(RelicId.ARTEMIS_QUIVER)) 0.15f else 0f
+
+    // ---- Pre-Run Diamond Blessings ----
+
+    fun canAffordBlessing(blessing: DiamondBlessing): Boolean = blessing == DiamondBlessing.NONE || diamonds >= blessing.cost
+
+    fun purchaseBlessing(blessing: DiamondBlessing): Boolean {
+        if (blessing == DiamondBlessing.NONE) {
+            prefs.edit().putString("active_blessing", DiamondBlessing.NONE.name).apply()
+            return true
+        }
+        if (diamonds < blessing.cost) return false
+        diamonds -= blessing.cost
+        prefs.edit().putInt("diamonds", diamonds).putString("active_blessing", blessing.name).apply()
+        return true
+    }
+
+    fun getActiveBlessing(): DiamondBlessing {
+        val name = prefs.getString("active_blessing", DiamondBlessing.NONE.name)
+        return try { DiamondBlessing.valueOf(name) } catch (_: Exception) { DiamondBlessing.NONE }
+    }
+
+    fun clearActiveBlessing() {
+        prefs.edit().putString("active_blessing", DiamondBlessing.NONE.name).apply()
+    }
 
     // ---- Relic Vault ----
 
@@ -168,4 +214,17 @@ class SkillTree(private val prefs: GamePreferences) {
     }
 
     fun unlockedRelicsCount(): Int = RelicId.entries.count { isRelicUnlocked(it) }
+}
+
+enum class DiamondBlessing(
+    val id: String,
+    val title: String,
+    val description: String,
+    val emoji: String,
+    val cost: Int
+) {
+    NONE("none", "No Blessing", "Start run with standard parameters", "", 0),
+    MIDAS("blessing_midas", "Blessing of Midas", "+300 Starting Gold & +50% kill gold reward", "\uD83D\uDCB0", 8),
+    CATALYST("blessing_catalyst", "Catalyst Blessing", "All 14 Fusions deal +50% damage & have larger AoE", "⚗️", 10),
+    HIGH_ROLLER("high_roller", "High Roller Pact", "Enemies +25% HP & Speed, but Elites & Bosses drop 3× Diamonds!", "\uD83C\uDFB2", 15)
 }

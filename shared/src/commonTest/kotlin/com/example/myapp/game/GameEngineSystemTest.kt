@@ -1230,4 +1230,151 @@ class GameEngineSystemTest {
         assertEquals(25, engine.totalElementalReactionsThisRun)
         assertTrue(engine.achievements.first { it.id == "synergy_master" }.unlocked, "Synergy Master achievement must unlock at 25 reactions")
     }
+
+    @Test
+    fun testCampaignRegionalTowerDamageMultipliers() {
+        // Without campaign level, default multiplier is 1.0f
+        assertEquals(1.0f, engine.campaignRegionalTowerDmgMult(TowerType.ARROW))
+
+        // Act I: Levels 1..10 buff ARROW
+        engine.applyCampaign(CampaignData.levels.first { it.id == 5 })
+        assertEquals(1.15f, engine.campaignRegionalTowerDmgMult(TowerType.ARROW), 0.001f)
+        assertEquals(1.0f, engine.campaignRegionalTowerDmgMult(TowerType.CANNON), 0.001f)
+
+        // Act II: Levels 11..20 buff POISON
+        engine.applyCampaign(CampaignData.levels.first { it.id == 15 })
+        assertEquals(1.20f, engine.campaignRegionalTowerDmgMult(TowerType.POISON), 0.001f)
+        assertEquals(1.0f, engine.campaignRegionalTowerDmgMult(TowerType.ARROW), 0.001f)
+
+        // Act III: Levels 21..30 buff FLAME
+        engine.applyCampaign(CampaignData.levels.first { it.id == 25 })
+        assertEquals(1.20f, engine.campaignRegionalTowerDmgMult(TowerType.FLAME), 0.001f)
+
+        // Act IV: Levels 31..40 buff ICE
+        engine.applyCampaign(CampaignData.levels.first { it.id == 35 })
+        assertEquals(1.20f, engine.campaignRegionalTowerDmgMult(TowerType.ICE), 0.001f)
+
+        // Act V: Levels 41..50 buff TESLA
+        engine.applyCampaign(CampaignData.levels.first { it.id == 45 })
+        assertEquals(1.20f, engine.campaignRegionalTowerDmgMult(TowerType.TESLA), 0.001f)
+
+        // Act VI: Levels 51..65 buff MAGIC and VORTEX
+        engine.applyCampaign(CampaignData.levels.first { it.id == 55 })
+        assertEquals(1.20f, engine.campaignRegionalTowerDmgMult(TowerType.MAGIC), 0.001f)
+        assertEquals(1.20f, engine.campaignRegionalTowerDmgMult(TowerType.VORTEX), 0.001f)
+
+        // Act VII: Levels 66..80 buff CANNON and BALLISTA
+        engine.applyCampaign(CampaignData.levels.first { it.id == 70 })
+        assertEquals(1.20f, engine.campaignRegionalTowerDmgMult(TowerType.CANNON), 0.001f)
+        assertEquals(1.20f, engine.campaignRegionalTowerDmgMult(TowerType.BALLISTA), 0.001f)
+    }
+
+    @Test
+    fun testFlawlessBossDefenseDiamondReward() {
+        engine.init(1080f, 1920f)
+        val initialDiamonds = engine.skillTree.diamonds
+        engine.wave = 5 // bossInterval is 5
+        engine.baseHp = 100f
+        engine.baseHpBeforeWave = 100f
+        engine.waveInProgress = true
+        engine.enemies.clear()
+        engine.enemiesRemaining = 0
+
+        // Trigger wave completion check
+        engine.update(0.1f)
+
+        assertFalse(engine.waveInProgress)
+        assertEquals(initialDiamonds + 2, engine.skillTree.diamonds, "Flawless boss defense should award +2 diamonds")
+        assertTrue(engine.floatingTexts.any { it.text.contains("FLAWLESS BOSS DEFENSE") })
+    }
+
+    @Test
+    fun testCampaignClimaxBossAssignment() {
+        engine.init(1080f, 1920f)
+
+        val bossExpectations = mapOf(
+            10 to BossType.ORC_KING,
+            20 to BossType.SPORE_OVERLORD,
+            30 to BossType.DRAGON_QUEEN,
+            40 to BossType.FROST_TITAN,
+            50 to BossType.CHRONO_LICH,
+            65 to BossType.VOID_PHOENIX,
+            80 to BossType.IRON_DREADNOUGHT
+        )
+
+        for ((levelId, expectedBoss) in bossExpectations) {
+            val level = CampaignData.levels.first { it.id == levelId }
+            engine.applyCampaign(level)
+            engine.wave = level.targetWave - 1
+            engine.waveInProgress = false
+            engine.waveTimer = 0f
+            engine.enemies.clear()
+            engine.enemiesRemaining = 0
+
+            engine.update(0.1f) // Starts wave level.targetWave
+
+            assertEquals(level.targetWave, engine.wave)
+            assertEquals(expectedBoss, engine.currentBoss, "Level $levelId climax boss must match $expectedBoss")
+        }
+    }
+
+    @Test
+    fun testShockwaveEmissionOnElementalReaction() {
+        engine.init(1080f, 1920f)
+        engine.pendingShockwaves.clear()
+
+        val enemy = Enemy(x = 350f, y = 450f, speed = 0f, hp = 1000f, maxHp = 1000f, goldReward = 10, damage = 10f, type = EnemyType.ORC)
+        enemy.iceSlowFactor = 0.5f // Chilled
+        engine.enemies.add(enemy)
+
+        engine.triggerElementalReaction(enemy, DamageType.FIRE, null, 40f)
+
+        assertTrue(engine.pendingShockwaves.isNotEmpty(), "Elemental reaction must queue a shockwave")
+        val sw = engine.pendingShockwaves.first()
+        assertEquals(350f, sw.x)
+        assertEquals(450f, sw.y)
+        assertTrue(sw.maxRadius >= 120f)
+    }
+
+    @Test
+    fun testPhilosopherStoneGoldConversionOnRunHistory() {
+        engine.init(1080f, 1920f)
+        engine.skillTree.addDiamonds(50)
+        engine.skillTree.unlockRelic(RelicId.ALCHEMIST_PHILOSOPHER_STONE)
+
+        val diamondsBefore = engine.skillTree.diamonds
+        engine.totalGoldEarned = 1600 // 1600 / 400 = 4 diamonds
+        engine.saveRunHistory("Won")
+
+        assertEquals(diamondsBefore + 4, engine.skillTree.diamonds, "Philosopher Stone should convert 1600 gold into +4 diamonds")
+    }
+
+    @Test
+    fun testPreRunDiamondBlessingInGameEngine() {
+        engine.init(1080f, 1920f)
+        engine.skillTree.addDiamonds(100)
+
+        // Purchase Midas Blessing
+        assertTrue(engine.skillTree.purchaseBlessing(DiamondBlessing.MIDAS))
+        assertEquals(DiamondBlessing.MIDAS, engine.skillTree.getActiveBlessing())
+
+        // Start new game run
+        val initialGold = 50
+        engine.init(1080f, 1920f)
+        // Midas blessing adds +300 starting gold
+        assertEquals(initialGold + 300, engine.gold)
+
+        // Kill an enemy and verify 50% gold bonus
+        val enemy = Enemy(x = 100f, y = 100f, speed = 0f, hp = 0f, maxHp = 10f, goldReward = 20, damage = 10f, type = EnemyType.GOBLIN)
+        engine.enemies.add(enemy)
+        val goldBefore = engine.gold
+        engine.update(0.1f)
+        // 20 * 1.50 = 30 gold
+        assertEquals(goldBefore + 30, engine.gold)
+
+        // Save run history clears the active blessing
+        engine.saveRunHistory("Lost")
+        assertEquals(DiamondBlessing.NONE, engine.skillTree.getActiveBlessing())
+    }
 }
+

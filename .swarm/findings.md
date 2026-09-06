@@ -1,23 +1,20 @@
-# Codebase & Architecture Findings
+# Findings & Discoveries
 
-## 1. Build & Runtime Environment
-- Gradle 9.3.1 with Android Gradle Plugin 9.1.0 and Kotlin 2.2.10.
-- Android SDK located at C:/Users/oliwi/AppData/Local/Android/Sdk (configured in local.properties).
-- Compiles with Java 17 and Android SDK 35.
+## Skill Tree & Diamond Economy
+- Currently, SkillTree.kt has 10 basic skills and 6 prestige skills, plus 6 relics in the Relic Vault.
+- Diamonds were primarily spent on basic stat increments (+15 starting gold, +3 damage), which felt underwhelming relative to the rare feeling of diamonds.
+- Players need high-impact meta-progression:
+  1. **Elemental Alchemy Branch**: Boosts fusions (damage, AoE radius, conduit resonance, status duration).
+  2. **Citadel & Combat Branch**: Base energy barrier shield, trap overhaul (+uses, +damage), hero critical strikes.
+  3. **Relic Vault Expansion (6 -> 12 Relics)**: Truly legendary effects like Prismatic Catalyst, Chrono Singularity, Titan Warhorn, Astral Harvester, Grimoire of Conduit, Philosopher's Stone.
+  4. **Pre-Run Diamond Blessings**: Spend diamonds before a run for run-defining bonuses (Midas King, Catalyst Blessing, High Roller 3x Diamond Bounty).
+  5. **In-game Diamond Excitement**: Flawless boss clears (+2 💎), fusion milestones (+5 💎), and gold-to-diamond conversion.
 
-## 2. In-Game UI Issues (activity_main.xml & MainActivity.kt)
-- **Extreme Bottom Row Clutter**: Two giant HorizontalScrollViews with 16 build buttons and 8 upgrade/tower buttons.
-- **Missing Contextual Inspector**: When a tower is tapped, the upgrade/target/sell/ability buttons stay hidden in a horizontal scroll list rather than presenting a dedicated tower inspector panel.
-- **Placement Trap**: Once a build button is tapped, there is no way to cancel placement without finding an invalid spot or placing unwantedly.
-- **Button Styling**: Buttons use raw hex backgroundTint without rounded corners, ripples, or tactile states.
-- **Top HUD Squish**: 8 separate views jammed into one horizontal bar causing cutoffs on smaller phone screens. Speed is split into two buttons (2x, 3x).
+## Campaign & Boss Mechanics
+- 80 levels across 7 Acts in CampaignLevel.kt.
+- Act Climax levels (10, 20, 30, 40, 50, 65, 80) can have designated signature bosses, custom telegraph moves, and regional elemental modifiers.
+- CampaignActivity.kt will have an Act tab strip and climax boss badges.
 
-## 3. Visual & Styling Deficiencies
-- Only 1 drawable in es/drawable/ (ic_launcher_foreground.xml). No custom shape drawables, card backgrounds, or button selector states.
-- Emojis are hardcoded and text is 10-11sp, hard to read during intense waves.
-- Main Menu is a plain vertical stack of standard buttons with minimal visual hierarchy.
-
-## 4. Gameplay Ergonomics (GameView.kt)
-- Moving the player vs selecting a tower can conflict because tapping near a tower can accidentally move the hero or select the tower.
-- Tower placement preview lacks clear green/red validity feedback and an obvious cancel button.
-- Tower selection needs clear animated pulse/range highlight on Canvas.
+## Audio & Visual Juice
+- SoundManager.kt can generate procedural chiptune battle & menu music via AudioTrack, looping seamlessly without external assets.
+- GameView.kt will maintain zero GC allocations using a preallocated ring buffer of ShockwaveRing instances for reaction impact ripples.

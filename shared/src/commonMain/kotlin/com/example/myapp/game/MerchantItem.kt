@@ -17,7 +17,10 @@ enum class MerchantItemId {
     BLOOD_OFFERING,
     ALCHEMIST_ELIXIR,
     MIDAS_TONIC,
-    FORTRESS_AEGIS
+    FORTRESS_AEGIS,
+    CATALYST_AMPLIFIER,
+    VOID_PACT,
+    ARCANE_SUPERCONDUCTOR
 }
 
 /** Data representation of a draftable shop card */
@@ -130,6 +133,36 @@ object MerchantCatalog {
             synergyFormula = "3 Waves Duration",
             cost = 50,
             durationWaves = 3
+        ),
+        MerchantCard(
+            id = MerchantItemId.CATALYST_AMPLIFIER,
+            tier = MerchantTier.PERMANENT_SYNERGY,
+            title = "Catalyst Amplifier",
+            emoji = "⚗️",
+            description = "Increases all fusion blast radii by 35%, and Napalm ground fire craters persist for 5s (was 3s).",
+            synergyFormula = "All 14 Fusions",
+            cost = 130,
+            durationWaves = 0
+        ),
+        MerchantCard(
+            id = MerchantItemId.VOID_PACT,
+            tier = MerchantTier.HIGH_STAKES_PACT,
+            title = "Void Pact",
+            emoji = "💀",
+            description = "Dark Arts fusions deal +80% damage, but all monsters move 15% faster.",
+            synergyFormula = "High-Stakes Dark Pact",
+            cost = 90,
+            durationWaves = 0
+        ),
+        MerchantCard(
+            id = MerchantItemId.ARCANE_SUPERCONDUCTOR,
+            tier = MerchantTier.PERMANENT_SYNERGY,
+            title = "Arcane Superconductor",
+            emoji = "⚡",
+            description = "Superconductor and Overload Flux shred enemy armor, reducing defense by 40% for 6s.",
+            synergyFormula = "Electric + Ice / Magic",
+            cost = 120,
+            durationWaves = 0
         )
     )
 

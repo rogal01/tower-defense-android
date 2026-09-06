@@ -119,16 +119,50 @@ class CampaignActivity : ImmersiveActivity() {
                 headerRow.addView(actTitle)
                 headerRow.addView(actStarProgress)
                 actHeader.addView(headerRow)
+
+                val loreText = TextView(this).apply {
+                    text = GameStrings.actLore(act.actNumber)
+                    setTextSize(TypedValue.COMPLEX_UNIT_SP, 12f)
+                    setTextColor(Color.parseColor("#B0BEC5"))
+                    layoutParams = LinearLayout.LayoutParams(
+                        LinearLayout.LayoutParams.MATCH_PARENT,
+                        LinearLayout.LayoutParams.WRAP_CONTENT
+                    ).apply {
+                        topMargin = dp(3)
+                        bottomMargin = dp(4)
+                    }
+                }
+                actHeader.addView(loreText)
+
+                val perkBadge = TextView(this).apply {
+                    text = "⚡ " + GameStrings.actRegionalPerk(act.actNumber)
+                    setTextSize(TypedValue.COMPLEX_UNIT_SP, 11f)
+                    setTextColor(Color.parseColor("#FFD54F"))
+                    setTypeface(typeface, Typeface.BOLD)
+                    setPadding(dp(8), dp(3), dp(8), dp(3))
+                    background = getDrawable(R.drawable.bg_hud_chip)
+                    layoutParams = LinearLayout.LayoutParams(
+                        LinearLayout.LayoutParams.WRAP_CONTENT,
+                        LinearLayout.LayoutParams.WRAP_CONTENT
+                    ).apply {
+                        bottomMargin = dp(4)
+                    }
+                }
+                actHeader.addView(perkBadge)
+
                 container.addView(actHeader)
             }
 
+            val isClimaxBoss = level.id in listOf(10, 20, 30, 40, 50, 65, 80)
             val card = LinearLayout(this).apply {
                 orientation = LinearLayout.HORIZONTAL
                 background = getDrawable(
                     when {
+                        !isUnlocked -> R.drawable.bg_card_glass
+                        isClimaxBoss && isCompleted -> R.drawable.bg_card_buff_gold
+                        isClimaxBoss -> R.drawable.bg_card_pact
                         isCompleted -> R.drawable.bg_card_menu_emerald
-                        isUnlocked -> R.drawable.bg_card_menu_action
-                        else -> R.drawable.bg_card_glass
+                        else -> R.drawable.bg_card_menu_action
                     }
                 )
                 setPadding(dp(16), dp(14), dp(16), dp(14))
@@ -177,6 +211,35 @@ class CampaignActivity : ImmersiveActivity() {
             }
 
             textCol.addView(title)
+
+            if (isClimaxBoss) {
+                val bossName = when (level.id) {
+                    10 -> "Grommash Ironhide"
+                    20 -> "Spore Overlord Malgor"
+                    30 -> "Ignis the Fire Drake"
+                    40 -> "Ymir Frost Titan"
+                    50 -> "Chrono-Lich Zalfir"
+                    65 -> "Void Phoenix Xul"
+                    80 -> "Iron Colossus Goliath"
+                    else -> "Boss"
+                }
+                val bossBadge = TextView(this).apply {
+                    text = if (isPl) "👑 BOSS ROZDZIAŁU: $bossName" else "👑 ACT CLIMAX BOSS: $bossName"
+                    setTextSize(TypedValue.COMPLEX_UNIT_SP, 10.5f)
+                    setTextColor(Color.parseColor("#FF5252"))
+                    setTypeface(typeface, Typeface.BOLD)
+                    setPadding(dp(8), dp(2), dp(8), dp(2))
+                    background = getDrawable(R.drawable.bg_hud_chip)
+                    layoutParams = LinearLayout.LayoutParams(
+                        LinearLayout.LayoutParams.WRAP_CONTENT,
+                        LinearLayout.LayoutParams.WRAP_CONTENT
+                    ).apply {
+                        topMargin = dp(2)
+                        bottomMargin = dp(3)
+                    }
+                }
+                textCol.addView(bossBadge)
+            }
 
             if (level.missionType != MissionType.STANDARD) {
                 val badge = TextView(this).apply {

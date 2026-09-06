@@ -12,15 +12,17 @@ import android.widget.TextView
 import android.widget.Toast
 import com.example.myapp.databinding.ActivitySkillTreeBinding
 import com.example.myapp.game.AndroidGamePreferences
+import com.example.myapp.game.DiamondBlessing
 import com.example.myapp.game.RelicId
 import com.example.myapp.game.SfxType
+import com.example.myapp.game.Skill
 import com.example.myapp.game.SkillTree
 
 class SkillTreeActivity : ImmersiveActivity() {
 
     private lateinit var binding: ActivitySkillTreeBinding
     private lateinit var skillTree: SkillTree
-    private var selectedTab: Int = 0 // 0 = Passives, 1 = Relics
+    private var selectedTab: Int = 0 // 0 = Citadel, 1 = Alchemy & Runes, 2 = Relics
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -33,7 +35,8 @@ class SkillTreeActivity : ImmersiveActivity() {
         binding.btnBack.setOnClickListener { finish() }
         GameStrings.init(this)
 
-        binding.btnTabSkills.text = GameStrings.tabPassiveSkills
+        binding.btnTabSkills.text = GameStrings.tabCitadelPassives
+        binding.btnTabAlchemy.text = GameStrings.tabElementalAlchemy
         binding.btnTabRelics.text = GameStrings.tabRelicVault
 
         binding.btnTabSkills.setOnClickListener {
@@ -44,9 +47,17 @@ class SkillTreeActivity : ImmersiveActivity() {
             }
         }
 
-        binding.btnTabRelics.setOnClickListener {
+        binding.btnTabAlchemy.setOnClickListener {
             if (selectedTab != 1) {
                 selectedTab = 1
+                updateTabButtons()
+                buildContent()
+            }
+        }
+
+        binding.btnTabRelics.setOnClickListener {
+            if (selectedTab != 2) {
+                selectedTab = 2
                 updateTabButtons()
                 buildContent()
             }
@@ -57,18 +68,24 @@ class SkillTreeActivity : ImmersiveActivity() {
     }
 
     private fun updateTabButtons() {
-        if (selectedTab == 0) {
-            binding.btnTabSkills.background = getDrawable(R.drawable.bg_tab_active)
-            binding.btnTabSkills.setTextColor(Color.WHITE)
-            binding.btnTabRelics.background = getDrawable(R.drawable.bg_tab_inactive)
-            binding.btnTabRelics.setTextColor(Color.parseColor("#90A4AE"))
-            binding.textSubtitle.text = getString(R.string.skill_tree_subtitle)
-        } else {
-            binding.btnTabRelics.background = getDrawable(R.drawable.bg_tab_active)
-            binding.btnTabRelics.setTextColor(Color.WHITE)
-            binding.btnTabSkills.background = getDrawable(R.drawable.bg_tab_inactive)
-            binding.btnTabSkills.setTextColor(Color.parseColor("#90A4AE"))
-            binding.textSubtitle.text = GameStrings.relicVaultSubtitle
+        val activeBg = getDrawable(R.drawable.bg_tab_active)
+        val inactiveBg = getDrawable(R.drawable.bg_tab_inactive)
+        val activeColor = Color.WHITE
+        val inactiveColor = Color.parseColor("#90A4AE")
+
+        binding.btnTabSkills.background = if (selectedTab == 0) activeBg else inactiveBg
+        binding.btnTabSkills.setTextColor(if (selectedTab == 0) activeColor else inactiveColor)
+
+        binding.btnTabAlchemy.background = if (selectedTab == 1) activeBg else inactiveBg
+        binding.btnTabAlchemy.setTextColor(if (selectedTab == 1) activeColor else inactiveColor)
+
+        binding.btnTabRelics.background = if (selectedTab == 2) activeBg else inactiveBg
+        binding.btnTabRelics.setTextColor(if (selectedTab == 2) activeColor else inactiveColor)
+
+        binding.textSubtitle.text = when (selectedTab) {
+            0 -> GameStrings.citadelSubtitle
+            1 -> GameStrings.alchemySubtitle
+            else -> GameStrings.relicVaultSubtitle
         }
     }
 
@@ -76,14 +93,14 @@ class SkillTreeActivity : ImmersiveActivity() {
         binding.textDiamonds.text = GameStrings.skillDiamonds(skillTree.diamonds)
         binding.skillContainer.removeAllViews()
 
-        if (selectedTab == 0) {
-            buildPassiveSkills()
-        } else {
-            buildRelicVault()
+        when (selectedTab) {
+            0 -> buildCitadelSkills()
+            1 -> buildAlchemyAndBlessings()
+            else -> buildRelicVault()
         }
     }
 
-    private fun buildPassiveSkills() {
+    private fun buildCitadelSkills() {
         // Prestige info
         if (skillTree.prestigeLevel > 0) {
             val prestigeInfo = TextView(this).apply {
@@ -152,11 +169,139 @@ class SkillTreeActivity : ImmersiveActivity() {
             }
             binding.skillContainer.addView(lockText)
         }
+
+        // Citadel Fortifications
+        addSectionHeader(GameStrings.combatSkillsHeader)
+        for (skill in skillTree.combatSkills) {
+            addSkillRow(skill)
+        }
+    }
+
+    private fun buildAlchemyAndBlessings() {
+        // Pre-Run Diamond Blessings section
+        addSectionHeader(GameStrings.blessingSectionTitle)
+
+        val desc = TextView(this).apply {
+            text = GameStrings.blessingSectionDesc
+            setTextSize(TypedValue.COMPLEX_UNIT_SP, 12f)
+            setTextColor(Color.parseColor("#90A4AE"))
+            setPadding(dp(12), 0, dp(12), dp(10))
+        }
+        binding.skillContainer.addView(desc)
+
+        val currentBlessing = skillTree.getActiveBlessing()
+        for (blessing in DiamondBlessing.entries) {
+            addBlessingCard(blessing, currentBlessing == blessing)
+        }
+
+        // Elemental Alchemy section
+        addSectionHeader(GameStrings.alchemySkillsHeader)
+        for (skill in skillTree.alchemySkills) {
+            addSkillRow(skill)
+        }
+    }
+
+    private fun addBlessingCard(blessing: DiamondBlessing, isActive: Boolean) {
+        val canAfford = skillTree.canAffordBlessing(blessing)
+
+        val card = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+            setPadding(dp(14), dp(12), dp(14), dp(12))
+            val bg = GradientDrawable().apply {
+                cornerRadius = dp(10).toFloat()
+                if (isActive) {
+                    setColor(0xFF0C2718.toInt())
+                    setStroke(dp(2), 0xFF00E5FF.toInt())
+                } else {
+                    setColor(0xFF161F30.toInt())
+                    setStroke(dp(1), 0xFF2A3B50.toInt())
+                }
+            }
+            background = bg
+            val lp = LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT
+            ).apply { bottomMargin = dp(10) }
+            layoutParams = lp
+        }
+
+        val icon = TextView(this).apply {
+            text = if (blessing.emoji.isNotBlank()) blessing.emoji else "🛡️"
+            setTextSize(TypedValue.COMPLEX_UNIT_SP, 28f)
+            gravity = Gravity.CENTER
+            layoutParams = LinearLayout.LayoutParams(dp(44), LinearLayout.LayoutParams.WRAP_CONTENT)
+        }
+
+        val infoLayout = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f).apply {
+                marginStart = dp(10)
+                marginEnd = dp(10)
+            }
+        }
+
+        val titleText = TextView(this).apply {
+            text = GameStrings.getLocalizedBlessingTitle(blessing)
+            setTextSize(TypedValue.COMPLEX_UNIT_SP, 15f)
+            setTextColor(if (isActive) Color.parseColor("#00E5FF") else Color.WHITE)
+            setTypeface(typeface, android.graphics.Typeface.BOLD)
+        }
+
+        val descText = TextView(this).apply {
+            text = GameStrings.getLocalizedBlessingDesc(blessing)
+            setTextSize(TypedValue.COMPLEX_UNIT_SP, 12f)
+            setTextColor(Color.parseColor("#CFD8DC"))
+        }
+
+        infoLayout.addView(titleText)
+        infoLayout.addView(descText)
+
+        val rightView: View = if (isActive) {
+            TextView(this).apply {
+                text = GameStrings.blessingActiveBadge
+                setTextSize(TypedValue.COMPLEX_UNIT_SP, 11f)
+                setTextColor(Color.parseColor("#00E5FF"))
+                setTypeface(typeface, android.graphics.Typeface.BOLD)
+                gravity = Gravity.CENTER
+                setPadding(dp(8), dp(4), dp(8), dp(4))
+            }
+        } else {
+            Button(this).apply {
+                val costStr = if (blessing.cost > 0) "💎 ${blessing.cost}" else "FREE"
+                text = "$costStr\n${GameStrings.blessingSelectBtn}"
+                setTextSize(TypedValue.COMPLEX_UNIT_SP, 11f)
+                setTypeface(typeface, android.graphics.Typeface.BOLD)
+                setTextColor(Color.WHITE)
+                background = getDrawable(if (canAfford) R.drawable.bg_btn_primary else R.drawable.bg_tab_inactive)
+                isEnabled = canAfford
+                alpha = if (canAfford) 1f else 0.45f
+                layoutParams = LinearLayout.LayoutParams(
+                    LinearLayout.LayoutParams.WRAP_CONTENT,
+                    dp(44)
+                )
+                setPadding(dp(12), 0, dp(12), 0)
+                setOnClickListener {
+                    if (skillTree.purchaseBlessing(blessing)) {
+                        SoundManager.play(SfxType.REWARD_CHEST)
+                        Toast.makeText(this@SkillTreeActivity,
+                            "${blessing.title} ${if (GameStrings.isPl) "aktywowano na następny bieg!" else "activated for next run!"}", Toast.LENGTH_SHORT).show()
+                        buildContent()
+                    }
+                }
+            }
+        }
+
+        card.addView(icon)
+        card.addView(infoLayout)
+        card.addView(rightView)
+        binding.skillContainer.addView(card)
     }
 
     private fun buildRelicVault() {
         val vaultHeader = TextView(this).apply {
-            text = "🏺 Legendary Relics (${skillTree.unlockedRelicsCount()}/${RelicId.entries.size})"
+            val unlockedCount = skillTree.unlockedRelicsCount()
+            text = "🏺 ${GameStrings.tabRelicVault} ($unlockedCount / ${RelicId.entries.size})"
             setTextSize(TypedValue.COMPLEX_UNIT_SP, 15f)
             setTextColor(0xFFFFD700.toInt())
             setTypeface(typeface, android.graphics.Typeface.BOLD)
@@ -215,14 +360,14 @@ class SkillTreeActivity : ImmersiveActivity() {
         }
 
         val titleText = TextView(this).apply {
-            text = relic.title
+            text = GameStrings.getLocalizedRelicTitle(relic)
             setTextSize(TypedValue.COMPLEX_UNIT_SP, 16f)
             setTextColor(if (isUnlocked) Color.parseColor("#4CAF50") else Color.parseColor("#FFD700"))
             setTypeface(typeface, android.graphics.Typeface.BOLD)
         }
 
         val descText = TextView(this).apply {
-            text = relic.description
+            text = GameStrings.getLocalizedRelicDesc(relic)
             setTextSize(TypedValue.COMPLEX_UNIT_SP, 12f)
             setTextColor(if (isUnlocked) Color.parseColor("#CFD8DC") else Color.parseColor("#90A4AE"))
         }
@@ -259,7 +404,7 @@ class SkillTreeActivity : ImmersiveActivity() {
                     if (skillTree.unlockRelic(relic)) {
                         SoundManager.play(SfxType.ACHIEVEMENT)
                         Toast.makeText(this@SkillTreeActivity,
-                            "🏺 ${relic.title} ${if (GameStrings.isPl) "odblokowany!" else "unlocked!"}", Toast.LENGTH_SHORT).show()
+                            "🏺 ${GameStrings.getLocalizedRelicTitle(relic)} ${if (GameStrings.isPl) "odblokowany!" else "unlocked!"}", Toast.LENGTH_SHORT).show()
                         buildContent()
                     }
                 }
@@ -320,14 +465,15 @@ class SkillTreeActivity : ImmersiveActivity() {
         }
 
         val titleText = TextView(this).apply {
-            text = "${skill.emoji} ${skill.name}"
+            val localizedName = GameStrings.getLocalizedSkillName(skill.id)
+            text = "${skill.emoji} $localizedName"
             setTextSize(TypedValue.COMPLEX_UNIT_SP, 16f)
             setTextColor(if (maxed) 0xFF66BB6A.toInt() else Color.WHITE)
             setTypeface(typeface, android.graphics.Typeface.BOLD)
         }
 
         val descText = TextView(this).apply {
-            text = skill.description
+            text = GameStrings.getLocalizedSkillDesc(skill.id)
             setTextSize(TypedValue.COMPLEX_UNIT_SP, 12f)
             setTextColor(0xFF90A4AE.toInt())
         }
@@ -372,8 +518,9 @@ class SkillTreeActivity : ImmersiveActivity() {
             setOnClickListener {
                 if (skillTree.upgrade(skill.id)) {
                     SoundManager.play(SfxType.PLAYER_UPGRADE)
+                    val locName = GameStrings.getLocalizedSkillName(skill.id)
                     Toast.makeText(this@SkillTreeActivity,
-                        "${skill.emoji} ${skill.name} ${if (GameStrings.isPl) "ulepszono!" else "upgraded!"}", Toast.LENGTH_SHORT).show()
+                        "${skill.emoji} $locName ${if (GameStrings.isPl) "ulepszono!" else "upgraded!"}", Toast.LENGTH_SHORT).show()
                     buildContent()
                 } else {
                     Toast.makeText(this@SkillTreeActivity,

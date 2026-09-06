@@ -45,6 +45,42 @@ enum class RelicId(
         "+100 Starting gold, +30% gold from all kills, and +25% higher Diamond drop chance.",
         "\uD83C\uDFFA",
         20
+    ),
+    PRISMATIC_CATALYST(
+        "Prismatic Catalyst",
+        "All 14 Elemental & Arcane Fusions deal +40% damage, +25% radius, and have a 20% chance to drop +1 Diamond.",
+        "\uD83D\uDD2E",
+        35
+    ),
+    GRIMOIRE_OF_CONDUIT(
+        "Grimoire of Conduit",
+        "Overload Flux binds up to 7 enemies (was 5) and echoes 60% of damage taken across all linked foes.",
+        "\uD83D\uDCD6",
+        30
+    ),
+    ASTRAL_HARVESTER(
+        "Astral Harvester",
+        "Astral Decay void wisps and Hellfire phantom wisps deal 2.5× damage and vacuum nearby foes.",
+        "\u2728",
+        28
+    ),
+    TITAN_WARHORN(
+        "Titan Warhorn",
+        "Hero sword swings cleave all enemies in a 140° frontal arc and knock back non-boss enemies.",
+        "\uD83D\uDCEF",
+        32
+    ),
+    CHRONO_SINGULARITY(
+        "Chrono Singularity",
+        "Extends boss ability telegraphs by +1.2s and slows elite ability recharge by 40%.",
+        "\u23F1\uFE0F",
+        40
+    ),
+    ALCHEMIST_PHILOSOPHER_STONE(
+        "Philosopher's Stone",
+        "Every 400 gold collected during a run converts to +1 permanent Diamond upon completion (up to +15 \uD83D\uDC8E).",
+        "\uD83D\uDC8E",
+        30
     );
 
     val prefKey: String get() = "relic_unlocked_${name}"

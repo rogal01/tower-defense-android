@@ -125,6 +125,42 @@ class GameView @JvmOverloads constructor(
         typeface = Typeface.DEFAULT_BOLD
     }
     private val freezeOverlayPaint = Paint().apply { color = 0x1529B6F6 }
+
+    // Zero-allocation shockwave visual pool
+    private class ShockwaveRing {
+        var active: Boolean = false
+        var x: Float = 0f
+        var y: Float = 0f
+        var currentRadius: Float = 0f
+        var maxRadius: Float = 140f
+        var color: Int = Color.WHITE
+        var life: Float = 0f
+        var maxLife: Float = 0.35f
+        var strokeWidth: Float = 4f
+    }
+    private val shockwavePool = Array(16) { ShockwaveRing() }
+    private val shockwavePaint = Paint().apply {
+        isAntiAlias = true
+        style = Paint.Style.STROKE
+    }
+
+    fun triggerShockwave(x: Float, y: Float, color: Int = 0xFF00E5FF.toInt(), maxRadius: Float = 140f, duration: Float = 0.35f, strokeWidth: Float = 5f) {
+        for (sw in shockwavePool) {
+            if (!sw.active) {
+                sw.active = true
+                sw.x = x
+                sw.y = y
+                sw.currentRadius = 8f
+                sw.maxRadius = maxRadius
+                sw.color = color
+                sw.life = duration
+                sw.maxLife = duration
+                sw.strokeWidth = strokeWidth
+                break
+            }
+        }
+    }
+
     // Pre-allocated reusable paints to avoid GC pressure in render loop
     private val bossHpPaint = Paint().apply { isAntiAlias = true }
     private val bossNamePaint = Paint().apply { isAntiAlias = true; textAlign = Paint.Align.CENTER }
@@ -249,6 +285,17 @@ class GameView @JvmOverloads constructor(
             engine.update(gameDt)
             waterPhase = (waterPhase + dt * 1.8f) % 1000f
 
+            // Drain visual shockwaves from engine (zero GC allocations)
+            synchronized(engine.lock) {
+                if (engine.pendingShockwaves.isNotEmpty()) {
+                    for (i in 0 until engine.pendingShockwaves.size) {
+                        val sw = engine.pendingShockwaves[i]
+                        triggerShockwave(sw.x, sw.y, sw.color, sw.maxRadius)
+                    }
+                    engine.pendingShockwaves.clear()
+                }
+            }
+
             // Synchronize adaptive music intensity and weather ambience
             MusicManager.updateGameState(
                 engine.currentWeather,
@@ -316,6 +363,14 @@ class GameView @JvmOverloads constructor(
                 c.life -= dt
             }
             confettiParticles.removeAll { it.life <= 0 || it.y > (holder.surfaceFrame.height() + 50) }
+
+            // Update active shockwaves (zero GC allocations)
+            for (sw in shockwavePool) {
+                if (sw.active) {
+                    sw.life -= dt
+                    if (sw.life <= 0f) sw.active = false
+                }
+            }
 
             val canvas = holder.lockCanvas()
             if (canvas != null) {
@@ -1367,6 +1422,19 @@ class GameView @JvmOverloads constructor(
             particlePaint.color = p.color
             particlePaint.alpha = (255 * (p.life / p.maxLife).coerceIn(0f, 1f)).toInt()
             canvas.drawCircle(p.x, p.y, p.size * (p.life / p.maxLife).coerceIn(0.3f, 1f), particlePaint)
+        }
+
+        // Shockwaves (zero GC allocations)
+        for (sw in shockwavePool) {
+            if (sw.active) {
+                val prog = 1f - (sw.life / sw.maxLife).coerceIn(0f, 1f)
+                val r = sw.currentRadius + (sw.maxRadius - sw.currentRadius) * prog
+                val alpha = ((1f - prog * prog) * 230).toInt().coerceIn(0, 255)
+                shockwavePaint.color = sw.color
+                shockwavePaint.alpha = alpha
+                shockwavePaint.strokeWidth = sw.strokeWidth * (1f - prog * 0.4f)
+                canvas.drawCircle(sw.x, sw.y, r, shockwavePaint)
+            }
         }
 
         // Player (with perspective)
