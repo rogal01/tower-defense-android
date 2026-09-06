@@ -44,7 +44,7 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:orientation="vertical"
-            android:background="@drawable/bg_hud_chip"
+            android:background="@drawable/bg_card_buff_gold"
             android:padding="14dp"
             android:layout_marginTop="12dp">
 
@@ -84,13 +84,13 @@
             <Button
                 android:id="@+id/btn_pick_buff_1"
                 android:layout_width="match_parent"
-                android:layout_height="40dp"
+                android:layout_height="48dp"
                 android:background="@drawable/bg_btn_green"
                 android:text="SELECT BLESSING"
                 android:textColor="@color/white"
-                android:textSize="12sp"
+                android:textSize="13sp"
                 android:textStyle="bold"
-                android:layout_marginTop="8dp" />
+                android:layout_marginTop="10dp" />
         </LinearLayout>
 
         <!-- Card 2 -->
@@ -99,7 +99,7 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:orientation="vertical"
-            android:background="@drawable/bg_hud_chip"
+            android:background="@drawable/bg_card_buff_cyan"
             android:padding="14dp"
             android:layout_marginTop="10dp">
 
@@ -139,13 +139,13 @@
             <Button
                 android:id="@+id/btn_pick_buff_2"
                 android:layout_width="match_parent"
-                android:layout_height="40dp"
+                android:layout_height="48dp"
                 android:background="@drawable/bg_btn_primary"
                 android:text="SELECT BLESSING"
                 android:textColor="@color/white"
-                android:textSize="12sp"
+                android:textSize="13sp"
                 android:textStyle="bold"
-                android:layout_marginTop="8dp" />
+                android:layout_marginTop="10dp" />
         </LinearLayout>
 
         <!-- Card 3 -->
@@ -154,7 +154,7 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:orientation="vertical"
-            android:background="@drawable/bg_hud_chip"
+            android:background="@drawable/bg_card_buff_green"
             android:padding="14dp"
             android:layout_marginTop="10dp">
 
@@ -176,7 +176,7 @@
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:text="Base Fortification"
-                    android:textColor="#E040FB"
+                    android:textColor="#00E676"
                     android:textSize="15sp"
                     android:textStyle="bold"
                     android:layout_marginStart="8dp" />
@@ -194,13 +194,13 @@
             <Button
                 android:id="@+id/btn_pick_buff_3"
                 android:layout_width="match_parent"
-                android:layout_height="40dp"
+                android:layout_height="48dp"
                 android:background="@drawable/bg_btn_action"
                 android:text="SELECT BLESSING"
                 android:textColor="@color/white"
-                android:textSize="12sp"
+                android:textSize="13sp"
                 android:textStyle="bold"
-                android:layout_marginTop="8dp" />
+                android:layout_marginTop="10dp" />
         </LinearLayout>
     </LinearLayout>
 </ScrollView>

@@ -135,16 +135,17 @@ class AchievementsActivity : ImmersiveActivity() {
             val rightView: View = if (isUnlocked && !isClaimed) {
                 Button(this).apply {
                     text = GameStrings.claimBtn(ach.diamondReward)
-                    setTextSize(TypedValue.COMPLEX_UNIT_SP, 12f)
+                    setTextSize(TypedValue.COMPLEX_UNIT_SP, 13f)
                     setTextColor(Color.WHITE)
                     setTypeface(typeface, android.graphics.Typeface.BOLD)
                     background = getDrawable(R.drawable.bg_btn_green)
+                    minHeight = dp(48)
                     val lp = LinearLayout.LayoutParams(
                         LinearLayout.LayoutParams.WRAP_CONTENT,
-                        dp(38)
+                        dp(48)
                     )
                     layoutParams = lp
-                    setPadding(dp(12), 0, dp(12), 0)
+                    setPadding(dp(16), 0, dp(16), 0)
                     setOnClickListener {
                         claimSingleAchievement(ach)
                     }

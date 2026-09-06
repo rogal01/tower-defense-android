@@ -1,0 +1,190 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-09-06T10:10:00Z",
+  "title": "Design System: Tower Defense Android",
+  "extensions": {
+    "colorMeta": {
+      "primary": {
+        "role": "primary",
+        "displayName": "Sovereign Gold",
+        "canonical": "#FFD700"
+      },
+      "primary-dark": {
+        "role": "primary",
+        "displayName": "Deep Amber",
+        "canonical": "#E65100"
+      },
+      "secondary": {
+        "role": "secondary",
+        "displayName": "Electric Cyan",
+        "canonical": "#00E5FF"
+      },
+      "neutral-bg": {
+        "role": "neutral",
+        "displayName": "Night Slate Base",
+        "canonical": "#1A1A2E"
+      },
+      "neutral-surface": {
+        "role": "neutral",
+        "displayName": "Midnight Navy Glass",
+        "canonical": "#0F2035"
+      },
+      "accent-emerald": {
+        "role": "accent",
+        "displayName": "Action Emerald",
+        "canonical": "#00C853"
+      },
+      "accent-crimson": {
+        "role": "accent",
+        "displayName": "Danger Crimson",
+        "canonical": "#D50000"
+      },
+      "accent-purple": {
+        "role": "accent",
+        "displayName": "Prestige Purple",
+        "canonical": "#BB86FC"
+      }
+    },
+    "typographyMeta": {
+      "display": {
+        "displayName": "Display",
+        "purpose": "Hero headlines and victory screens"
+      },
+      "headline": {
+        "displayName": "Headline",
+        "purpose": "Modal dialog titles"
+      },
+      "title": {
+        "displayName": "Title",
+        "purpose": "Card titles and tower names"
+      },
+      "body": {
+        "displayName": "Body",
+        "purpose": "Descriptions and mechanics"
+      },
+      "label": {
+        "displayName": "Label",
+        "purpose": "Badges and button text"
+      }
+    },
+    "shadows": [
+      {
+        "name": "card-glass-elevation",
+        "value": "0 4dp 12dp rgba(0,0,0,0.35)",
+        "purpose": "Standard elevation for floating cards and inspectors"
+      },
+      {
+        "name": "modal-elevation",
+        "value": "0 8dp 24dp rgba(0,0,0,0.60)",
+        "purpose": "Modal dialog scrim overlay"
+      }
+    ],
+    "motion": [
+      {
+        "name": "card-bounce",
+        "value": "cubic-bezier(0.2, 0.8, 0.2, 1)",
+        "purpose": "Card entrance and pop transitions"
+      }
+    ],
+    "breakpoints": [
+      {
+        "name": "compact",
+        "value": "360dp"
+      },
+      {
+        "name": "medium",
+        "value": "600dp"
+      },
+      {
+        "name": "expanded",
+        "value": "840dp"
+      }
+    ]
+  },
+  "components": [
+    {
+      "name": "Action Emerald Button",
+      "kind": "button",
+      "refersTo": "button-emerald",
+      "description": "Primary action button for upgrades, blessings, and purchases",
+      "html": "<button class=\"ds-btn-emerald\">PURCHASE • 120g</button>",
+      "css": ".ds-btn-emerald { background: #00C853; color: #FFFFFF; min-height: 48px; padding: 12px 20px; font-weight: bold; font-size: 14px; border: none; border-radius: 8px; cursor: pointer; transition: background 0.15s; } .ds-btn-emerald:hover, .ds-btn-emerald:active { background: #1B5E20; }"
+    },
+    {
+      "name": "Primary Amber Button",
+      "kind": "button",
+      "refersTo": "button-primary",
+      "description": "Hero actions, start game, and alternative draft purchase",
+      "html": "<button class=\"ds-btn-amber\">SELECT PATH</button>",
+      "css": ".ds-btn-amber { background: #FF9800; color: #FFFFFF; min-height: 48px; padding: 12px 20px; font-weight: bold; font-size: 14px; border: none; border-radius: 8px; cursor: pointer; transition: background 0.15s; } .ds-btn-amber:hover, .ds-btn-amber:active { background: #E65100; }"
+    },
+    {
+      "name": "Danger Button",
+      "kind": "button",
+      "refersTo": "button-danger",
+      "description": "Abandon run, pause, or cancel placement",
+      "html": "<button class=\"ds-btn-danger\">ABANDON</button>",
+      "css": ".ds-btn-danger { background: #D50000; color: #FFFFFF; min-height: 48px; padding: 10px 18px; font-weight: bold; font-size: 14px; border: none; border-radius: 8px; cursor: pointer; transition: background 0.15s; } .ds-btn-danger:hover, .ds-btn-danger:active { background: #B71C1C; }"
+    },
+    {
+      "name": "HUD Chip",
+      "kind": "chip",
+      "refersTo": "chip-hud",
+      "description": "Status counter in game HUD",
+      "html": "<div class=\"ds-chip-hud\"><span>💰</span> <strong style=\"color:#FFD700\">150</strong></div>",
+      "css": ".ds-chip-hud { display: inline-flex; align-items: center; gap: 6px; background: rgba(15,26,38,0.85); border: 1px solid rgba(69,90,100,0.3); border-radius: 8px; padding: 6px 12px; font-size: 14px; }"
+    },
+    {
+      "name": "Glass Card",
+      "kind": "card",
+      "refersTo": "card-glass",
+      "description": "Card container for dialog options, shop items, and stats",
+      "html": "<div class=\"ds-card-glass\"><h3>Thermal Shock</h3><p>Explosive shatter burst when combining elements.</p></div>",
+      "css": ".ds-card-glass { background: #0F2035; border: 1px solid #2E4A62; border-radius: 12px; padding: 16px; color: #FFFFFF; box-shadow: 0 4px 12px rgba(0,0,0,0.3); }"
+    }
+  ],
+  "narrative": {
+    "northStar": "The Neon Citadel",
+    "overview": "Tower Defense Android combines the precision of high-stakes tactical grid strategy with the electrifying energy of dark fantasy cyberpunk-sorcery.",
+    "keyCharacteristics": [
+      "Obsidian Depths & Radiant Highlights: Deep midnight slate backgrounds (#1A1A2E / #0F2035) pierced by electric cyan (#00E5FF) and sovereign gold (#FFD700).",
+      "Tactile Ergonomics: Every interactive control meets or exceeds Android's 48dp touch target threshold with immediate visual ripple feedback.",
+      "Informative Elemental Language: Immediate color association for statuses.",
+      "Glanceable Status Density: Translucent HUD chips that display vital metrics without obstructing active gameplay."
+    ],
+    "rules": [
+      {
+        "name": "The Rarity of Gold Rule",
+        "body": "Sovereign Gold (#FFD700) is reserved for currency, top achievements, and primary highlights. It never coats general background surfaces.",
+        "section": "colors"
+      },
+      {
+        "name": "The Elemental Fidelity Rule",
+        "body": "An elemental hue is strictly bound to its mechanic (Ice is always Cyan #00E5FF, Fire is always Amber #FF9800, Poison is always Emerald/Lime #00C853, Lightning is always Purple/Electric #BB86FC).",
+        "section": "colors"
+      },
+      {
+        "name": "The Strict SP Rule",
+        "body": "All typography units in XML and programmatic views must use sp units to honor Android accessibility font scaling.",
+        "section": "typography"
+      },
+      {
+        "name": "The Scrim Anchor Rule",
+        "body": "Every interrupting modal must render over a dark scrim to instantly focus player attention on critical decisions.",
+        "section": "elevation"
+      }
+    ],
+    "dos": [
+      "Do maintain a minimum 48x48 dp touch target for all interactive elements.",
+      "Do provide instant visual feedback (ripples, color shifts, haptics) on button touches.",
+      "Do format numbers with clear symbols (💰 Gold, 💎 Diamonds, ⚔️ Waves).",
+      "Do use semantic colors for game mechanics consistently across all activities."
+    ],
+    "donts": [
+      "Don't use tiny sub-40dp buttons that frustrate players with fat-finger misses.",
+      "Don't hide text or stats behind system navigation or status bars.",
+      "Don't invent random neon colors that dilute the core dark-fantasy palette.",
+      "Don't allocate objects inside the GameView.onDraw() loop to prevent garbage collection stutters."
+    ]
+  }
+}

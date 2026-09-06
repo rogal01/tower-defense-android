@@ -47,7 +47,7 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:orientation="vertical"
-            android:background="@drawable/bg_hud_chip"
+            android:background="@drawable/bg_card_buff_gold"
             android:padding="14dp"
             android:layout_marginTop="12dp">
 
@@ -87,7 +87,7 @@
             <Button
                 android:id="@+id/btn_choose_spec_1"
                 android:layout_width="match_parent"
-                android:layout_height="42dp"
+                android:layout_height="48dp"
                 android:background="@drawable/bg_btn_green"
                 android:text="CHOOSE PATH"
                 android:textColor="@color/white"
@@ -102,7 +102,7 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:orientation="vertical"
-            android:background="@drawable/bg_hud_chip"
+            android:background="@drawable/bg_card_buff_cyan"
             android:padding="14dp"
             android:layout_marginTop="10dp">
 
@@ -142,7 +142,7 @@
             <Button
                 android:id="@+id/btn_choose_spec_2"
                 android:layout_width="match_parent"
-                android:layout_height="42dp"
+                android:layout_height="48dp"
                 android:background="@drawable/bg_btn_primary"
                 android:text="CHOOSE PATH"
                 android:textColor="@color/white"
@@ -155,11 +155,12 @@
         <Button
             android:id="@+id/btn_spec_cancel"
             android:layout_width="match_parent"
-            android:layout_height="42dp"
+            android:layout_height="48dp"
             android:background="@drawable/bg_btn_action"
             android:text="Cancel"
             android:textColor="#B0BEC5"
-            android:textSize="13sp"
-            android:layout_marginTop="12dp" />
+            android:textSize="14sp"
+            android:textStyle="bold"
+            android:layout_marginTop="14dp" />
     </LinearLayout>
 </ScrollView>

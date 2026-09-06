@@ -50,7 +50,7 @@
     <Button
         android:id="@+id/btn_resume_run"
         android:layout_width="match_parent"
-        android:layout_height="46dp"
+        android:layout_height="48dp"
         android:background="@drawable/bg_btn_green"
         android:text="🛡️ Hold the Line (Resume)"
         android:textColor="@color/white"
@@ -61,11 +61,11 @@
     <Button
         android:id="@+id/btn_confirm_abandon"
         android:layout_width="match_parent"
-        android:layout_height="44dp"
+        android:layout_height="48dp"
         android:background="@drawable/bg_btn_danger"
         android:text="🏳️ Surrender &amp; Return"
         android:textColor="@color/white"
-        android:textSize="13sp"
+        android:textSize="14sp"
         android:textStyle="bold"
         android:layout_marginTop="8dp" />
 </LinearLayout>
