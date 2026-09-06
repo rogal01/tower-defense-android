@@ -43,6 +43,7 @@ class CampaignActivity : ImmersiveActivity() {
     )
 
     private lateinit var binding: ActivityCampaignBinding
+    private var selectedAct: Int = 0 // 0 = All, 1..7 for Acts
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -51,12 +52,57 @@ class CampaignActivity : ImmersiveActivity() {
         supportActionBar?.hide()
         GameStrings.init(this)
 
+        binding.textCampaignTitle.text = if (GameStrings.isPl) "📜 KAMPANIA" else "📜 CAMPAIGN"
         binding.btnBack.setOnClickListener { finish() }
+        buildActTabs()
     }
 
     override fun onResume() {
         super.onResume()
+        buildActTabs()
         buildLevelList()
+    }
+
+    private fun buildActTabs() {
+        val container = binding.actTabContainer
+        container.removeAllViews()
+        val isPl = GameStrings.isPl
+
+        val tabsData = mutableListOf(
+            Pair(0, if (isPl) "🌐 Wszystkie" else "🌐 All")
+        )
+        for (act in campaignActs) {
+            tabsData.add(Pair(act.actNumber, "${act.emoji} ${if (isPl) "Akt" else "Act"} ${act.actNumber}"))
+        }
+
+        for ((actNum, label) in tabsData) {
+            val tabBtn = Button(this).apply {
+                text = label
+                setTextSize(TypedValue.COMPLEX_UNIT_SP, 12f)
+                setTypeface(typeface, Typeface.BOLD)
+                isAllCaps = false
+                setPadding(dp(12), dp(6), dp(12), dp(6))
+                layoutParams = LinearLayout.LayoutParams(
+                    LinearLayout.LayoutParams.WRAP_CONTENT,
+                    dp(38)
+                ).apply {
+                    if (actNum > 0) marginStart = dp(6)
+                }
+                val isSelected = selectedAct == actNum
+                setBackgroundResource(if (isSelected) R.drawable.bg_tab_active else R.drawable.bg_tab_inactive)
+                setTextColor(if (isSelected) Color.WHITE else Color.parseColor("#B0BEC5"))
+
+                setOnClickListener {
+                    if (selectedAct != actNum) {
+                        selectedAct = actNum
+                        SoundManager.play(SfxType.UI_CLICK)
+                        buildActTabs()
+                        buildLevelList()
+                    }
+                }
+            }
+            container.addView(tabBtn)
+        }
     }
 
     private fun buildLevelList() {
@@ -65,11 +111,25 @@ class CampaignActivity : ImmersiveActivity() {
         container.removeAllViews()
 
         var completed = 0
+        for (lvl in CampaignData.levels) {
+            if (prefs.getBoolean("campaign_${lvl.id}", false)) completed++
+        }
+
         val isPl = GameStrings.isPl
-        for (level in CampaignData.levels) {
+        val levelsToDisplay = if (selectedAct == 0) {
+            CampaignData.levels
+        } else {
+            val targetAct = campaignActs.find { it.actNumber == selectedAct }
+            if (targetAct != null) {
+                CampaignData.levels.filter { it.id in targetAct.startLevel..targetAct.endLevel }
+            } else {
+                CampaignData.levels
+            }
+        }
+
+        for (level in levelsToDisplay) {
             val isCompleted = prefs.getBoolean("campaign_${level.id}", false)
             val isHeroicCompleted = prefs.getBoolean("campaign_${level.id}_heroic", false)
-            if (isCompleted) completed++
             val prevCompleted = level.id == 1 || prefs.getBoolean("campaign_${level.id - 1}", false)
             val isUnlocked = prevCompleted
 
@@ -82,13 +142,14 @@ class CampaignActivity : ImmersiveActivity() {
 
                 val actHeader = LinearLayout(this).apply {
                     orientation = LinearLayout.VERTICAL
-                    setPadding(dp(12), dp(16), dp(12), dp(6))
+                    background = getDrawable(R.drawable.bg_parchment_banner)
+                    setPadding(dp(16), dp(14), dp(16), dp(12))
                     layoutParams = LinearLayout.LayoutParams(
                         LinearLayout.LayoutParams.MATCH_PARENT,
                         LinearLayout.LayoutParams.WRAP_CONTENT
                     ).apply {
-                        topMargin = if (act.actNumber > 1) dp(18) else dp(4)
-                        bottomMargin = dp(4)
+                        topMargin = if (act.actNumber > 1 && selectedAct == 0) dp(20) else dp(6)
+                        bottomMargin = dp(10)
                     }
                 }
 
@@ -103,17 +164,19 @@ class CampaignActivity : ImmersiveActivity() {
 
                 val actTitle = TextView(this).apply {
                     text = "${act.emoji} ${act.title(isPl)}"
-                    setTextSize(TypedValue.COMPLEX_UNIT_SP, 15f)
-                    setTextColor(Color.parseColor("#00E5FF"))
+                    setTextSize(TypedValue.COMPLEX_UNIT_SP, 16f)
+                    setTextColor(Color.parseColor("#FFD54F"))
                     setTypeface(typeface, Typeface.BOLD)
                     layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f)
                 }
 
                 val actStarProgress = TextView(this).apply {
                     text = "⭐ $actStars / $actMaxStars"
-                    setTextSize(TypedValue.COMPLEX_UNIT_SP, 13f)
-                    setTextColor(Color.parseColor("#FFD54F"))
+                    setTextSize(TypedValue.COMPLEX_UNIT_SP, 12f)
+                    setTextColor(Color.parseColor("#FFE082"))
                     setTypeface(typeface, Typeface.BOLD)
+                    background = getDrawable(R.drawable.bg_hud_chip)
+                    setPadding(dp(8), dp(3), dp(8), dp(3))
                 }
 
                 headerRow.addView(actTitle)
@@ -122,14 +185,14 @@ class CampaignActivity : ImmersiveActivity() {
 
                 val loreText = TextView(this).apply {
                     text = GameStrings.actLore(act.actNumber)
-                    setTextSize(TypedValue.COMPLEX_UNIT_SP, 12f)
-                    setTextColor(Color.parseColor("#B0BEC5"))
+                    setTextSize(TypedValue.COMPLEX_UNIT_SP, 12.5f)
+                    setTextColor(Color.parseColor("#D7CCC8"))
                     layoutParams = LinearLayout.LayoutParams(
                         LinearLayout.LayoutParams.MATCH_PARENT,
                         LinearLayout.LayoutParams.WRAP_CONTENT
                     ).apply {
-                        topMargin = dp(3)
-                        bottomMargin = dp(4)
+                        topMargin = dp(6)
+                        bottomMargin = dp(6)
                     }
                 }
                 actHeader.addView(loreText)
@@ -137,16 +200,14 @@ class CampaignActivity : ImmersiveActivity() {
                 val perkBadge = TextView(this).apply {
                     text = "⚡ " + GameStrings.actRegionalPerk(act.actNumber)
                     setTextSize(TypedValue.COMPLEX_UNIT_SP, 11f)
-                    setTextColor(Color.parseColor("#FFD54F"))
+                    setTextColor(Color.parseColor("#00E5FF"))
                     setTypeface(typeface, Typeface.BOLD)
-                    setPadding(dp(8), dp(3), dp(8), dp(3))
+                    setPadding(dp(10), dp(4), dp(10), dp(4))
                     background = getDrawable(R.drawable.bg_hud_chip)
                     layoutParams = LinearLayout.LayoutParams(
                         LinearLayout.LayoutParams.WRAP_CONTENT,
                         LinearLayout.LayoutParams.WRAP_CONTENT
-                    ).apply {
-                        bottomMargin = dp(4)
-                    }
+                    )
                 }
                 actHeader.addView(perkBadge)
 
@@ -159,18 +220,18 @@ class CampaignActivity : ImmersiveActivity() {
                 background = getDrawable(
                     when {
                         !isUnlocked -> R.drawable.bg_card_glass
-                        isClimaxBoss && isCompleted -> R.drawable.bg_card_buff_gold
-                        isClimaxBoss -> R.drawable.bg_card_pact
+                        isClimaxBoss && isCompleted -> R.drawable.bg_card_climax_boss_completed
+                        isClimaxBoss -> R.drawable.bg_card_climax_boss
                         isCompleted -> R.drawable.bg_card_menu_emerald
                         else -> R.drawable.bg_card_menu_action
                     }
                 )
-                setPadding(dp(16), dp(14), dp(16), dp(14))
+                setPadding(dp(16), if (isClimaxBoss) dp(16) else dp(14), dp(16), if (isClimaxBoss) dp(16) else dp(14))
                 gravity = Gravity.CENTER_VERTICAL
                 layoutParams = LinearLayout.LayoutParams(
                     LinearLayout.LayoutParams.MATCH_PARENT,
                     LinearLayout.LayoutParams.WRAP_CONTENT
-                ).apply { bottomMargin = dp(8) }
+                ).apply { bottomMargin = if (isClimaxBoss) dp(12) else dp(8) }
                 if (!isUnlocked) alpha = 0.4f
                 isClickable = isUnlocked
                 isFocusable = isUnlocked
@@ -183,8 +244,11 @@ class CampaignActivity : ImmersiveActivity() {
             }
 
             val emoji = TextView(this).apply {
-                text = if (isUnlocked) level.emoji else "\uD83D\uDD12"
-                setTextSize(TypedValue.COMPLEX_UNIT_SP, 32f)
+                text = if (isUnlocked) {
+                    if (isClimaxBoss) "👑\n${level.emoji}" else level.emoji
+                } else "\uD83D\uDD12"
+                setTextSize(TypedValue.COMPLEX_UNIT_SP, if (isClimaxBoss) 24f else 32f)
+                gravity = Gravity.CENTER
                 layoutParams = LinearLayout.LayoutParams(dp(48), LinearLayout.LayoutParams.WRAP_CONTENT)
             }
 
@@ -226,10 +290,10 @@ class CampaignActivity : ImmersiveActivity() {
                 val bossBadge = TextView(this).apply {
                     text = if (isPl) "👑 BOSS ROZDZIAŁU: $bossName" else "👑 ACT CLIMAX BOSS: $bossName"
                     setTextSize(TypedValue.COMPLEX_UNIT_SP, 10.5f)
-                    setTextColor(Color.parseColor("#FF5252"))
+                    setTextColor(if (isCompleted) Color.parseColor("#FFD700") else Color.parseColor("#FF5252"))
                     setTypeface(typeface, Typeface.BOLD)
-                    setPadding(dp(8), dp(2), dp(8), dp(2))
-                    background = getDrawable(R.drawable.bg_hud_chip)
+                    setPadding(dp(8), dp(3), dp(8), dp(3))
+                    background = getDrawable(if (isCompleted) R.drawable.bg_hud_chip_diamond else R.drawable.bg_hud_chip)
                     layoutParams = LinearLayout.LayoutParams(
                         LinearLayout.LayoutParams.WRAP_CONTENT,
                         LinearLayout.LayoutParams.WRAP_CONTENT

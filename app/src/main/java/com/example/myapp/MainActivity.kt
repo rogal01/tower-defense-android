@@ -36,20 +36,14 @@ class MainActivity : ImmersiveActivity() {
 
     private fun updatePowerButtons() {
         val engine = runCatching { binding.gameView.getEngine() }.getOrNull() ?: return
-        fun applyBtn(btn: android.widget.Button, type: com.example.myapp.game.PowerType, emoji: String, tint: Int) {
+        fun applyOrb(btn: com.example.myapp.game.HeroPowerOrbView, type: com.example.myapp.game.PowerType, emoji: String, haloColor: Int) {
             val cd = engine.getPowerCooldown(type)
-            if (cd > 0f) {
-                btn.text = "${cd.toInt() + 1}"
-                btn.alpha = 0.45f
-            } else {
-                btn.text = emoji
-                btn.alpha = 1f
-            }
-            btn.backgroundTintList = android.content.res.ColorStateList.valueOf(tint)
+            btn.setPowerState(emoji, cd, type.cooldown, haloColor)
         }
-        applyBtn(binding.btnPowerFireball,  com.example.myapp.game.PowerType.FIREBALL,  "\uD83D\uDD25",   0xFFFF7043.toInt())
-        applyBtn(binding.btnPowerFreeze,    com.example.myapp.game.PowerType.FREEZE,    "\u2744\uFE0F", 0xFF42A5F5.toInt())
-        applyBtn(binding.btnPowerLightning, com.example.myapp.game.PowerType.LIGHTNING, "\u26A1",         0xFFFFD700.toInt())
+        applyOrb(binding.btnPowerFireball,  com.example.myapp.game.PowerType.FIREBALL,  "🔥", 0xFFFF7043.toInt())
+        applyOrb(binding.btnPowerFreeze,    com.example.myapp.game.PowerType.FREEZE,    "❄️", 0xFF00E5FF.toInt())
+        applyOrb(binding.btnPowerHeal,      com.example.myapp.game.PowerType.HEAL,      "💚", 0xFF00E676.toInt())
+        applyOrb(binding.btnPowerLightning, com.example.myapp.game.PowerType.LIGHTNING, "⚡", 0xFFFFD700.toInt())
     }
 
     override fun onStart() {
@@ -116,6 +110,7 @@ class MainActivity : ImmersiveActivity() {
             // Hide power buttons not allowed
             binding.btnPowerFireball.visibility = if (PowerType.FIREBALL in campaignLevel.allowedPowers) View.VISIBLE else View.GONE
             binding.btnPowerFreeze.visibility = if (PowerType.FREEZE in campaignLevel.allowedPowers) View.VISIBLE else View.GONE
+            binding.btnPowerHeal.visibility = if (PowerType.HEAL in campaignLevel.allowedPowers) View.VISIBLE else View.GONE
             binding.btnPowerLightning.visibility = if (PowerType.LIGHTNING in campaignLevel.allowedPowers) View.VISIBLE else View.GONE
 
             // Hide powers bar entirely if no powers allowed
@@ -177,8 +172,15 @@ class MainActivity : ImmersiveActivity() {
             }
         }
         gameView.onDiamondsChanged = { diamonds ->
-            binding.textKills.text = S.diamondsHud(diamonds)
+            binding.textDiamonds.text = S.diamondsHud(diamonds)
         }
+        gameView.onKillsChanged = { kills ->
+            binding.textKills.text = S.killsHud(kills)
+        }
+        binding.textGold.text = S.goldHud(engine.gold)
+        binding.textWave.text = S.waveHud(engine.wave)
+        binding.textDiamonds.text = S.diamondsHud(engine.skillTree.diamonds)
+        binding.textKills.text = S.killsHud(engine.totalKills)
         gameView.onWaveStateChanged = { inProgress, waveTimer ->
             updateCallWaveButton(inProgress, waveTimer)
         }
@@ -253,6 +255,14 @@ class MainActivity : ImmersiveActivity() {
             if (engine.usePower(PowerType.FREEZE)) {
                 Toast.makeText(this, S.freezeUsed, Toast.LENGTH_SHORT).show()
             } else Toast.makeText(this, S.freezeNeedGold(PowerType.FREEZE.cost), Toast.LENGTH_SHORT).show()
+        }
+        binding.btnPowerHeal.setOnClickListener {
+            runCatching { binding.btnPowerHeal.performHapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP) }
+            val cd = engine.getPowerCooldown(PowerType.HEAL)
+            if (cd > 0) { Toast.makeText(this, S.cooldownFmt(cd.toInt()), Toast.LENGTH_SHORT).show(); return@setOnClickListener }
+            if (engine.usePower(PowerType.HEAL)) {
+                Toast.makeText(this, S.healUsed, Toast.LENGTH_SHORT).show()
+            } else Toast.makeText(this, S.healNeedGold(PowerType.HEAL.cost), Toast.LENGTH_SHORT).show()
         }
         binding.btnPowerLightning.setOnClickListener {
             runCatching { binding.btnPowerLightning.performHapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP) }
@@ -553,15 +563,17 @@ class MainActivity : ImmersiveActivity() {
 
         val engine = binding.gameView.getEngine()
         val spec = tower.specialization
-        val typeName = tower.type.name.lowercase().replaceFirstChar { it.uppercase() }
         val titleText = if (spec != com.example.myapp.game.TowerSpecialization.NONE) {
-            "${tower.type.emoji} $typeName (Lv. ${tower.level} · ${spec.emoji} ${spec.displayName})"
+            "⭐ Lv.${tower.level} ${tower.type.displayName} · ${spec.emoji} ${spec.displayName}"
         } else {
-            "${tower.type.emoji} $typeName (Lv. ${tower.level})"
+            "⭐ Lv.${tower.level} ${tower.type.displayName}"
         }
         binding.inspectorTowerTitle.text = titleText
         val spd = (tower.fireRate * 10).toInt() / 10f
-        binding.inspectorTowerStats.text = "Dmg: ${tower.damage.toInt()} · Rng: ${tower.range.toInt()} · Spd: ${spd}/s"
+        binding.badgeStatDmg.text = "⚔️ ${tower.damage.toInt()}"
+        binding.badgeStatRng.text = "🎯 ${tower.range.toInt()}"
+        binding.badgeStatSpd.text = "⚡ ${spd}/s"
+        binding.badgeStatKills.text = "💀 ${tower.totalKills}"
 
         if (tower.canSpecialize()) {
             binding.layoutTowerSpec.visibility = View.VISIBLE
@@ -573,25 +585,27 @@ class MainActivity : ImmersiveActivity() {
         }
 
         if (tower.level >= com.example.myapp.game.Tower.MAX_TOWER_LEVEL) {
-            binding.btnUpTower.text = "⚡ Upgrade\nMAX"
-            binding.btnUpTower.alpha = 0.5f
+            binding.btnUpTower.text = "▲ Lv.MAX [MAX]"
+            binding.btnUpTower.alpha = 0.45f
             binding.btnUpTower.isEnabled = false
         } else {
+            val dmgDelta = (tower.type.baseDamage * 0.70f).toInt()
             val upCost = tower.upgradeCost()
-            binding.btnUpTower.text = "⚡ Upgrade\n${upCost}g"
-            binding.btnUpTower.alpha = if (engine.gold >= upCost) 1.0f else 0.5f
+            binding.btnUpTower.text = "▲ Lv.${tower.level + 1} [+$dmgDelta DMG] [💰 $upCost]"
+            val canAfford = engine.gold >= upCost
+            binding.btnUpTower.alpha = if (canAfford) 1.0f else 0.45f
             binding.btnUpTower.isEnabled = true
         }
 
         binding.btnTarget.text = "🎯 ${tower.targetingMode.label}"
 
         val sellVal = (tower.sellValue() * (1f + engine.skillTree.sellValueBonus())).toInt()
-        binding.btnSell.text = "💰 Sell\n+${sellVal}g"
+        binding.btnSell.text = "💸 Sell\n+${sellVal}g"
 
         val cd = tower.abilityTimer.toInt()
         if (cd > 0) {
             binding.btnAbility.text = "✨ ${tower.type.abilityName}\n(${cd}s)"
-            binding.btnAbility.alpha = 0.5f
+            binding.btnAbility.alpha = 0.45f
         } else {
             binding.btnAbility.text = "✨ ${tower.type.abilityName}"
             binding.btnAbility.alpha = 1.0f
@@ -724,6 +738,11 @@ class MainActivity : ImmersiveActivity() {
         }
     }
 
+    private fun formatCost(title: String, cost: Int, canAfford: Boolean): CharSequence {
+        val colorHex = if (canAfford) "#FFD700" else "#FF5252"
+        return android.text.Html.fromHtml("$title<br/><font color='$colorHex'>${cost}g</font>", android.text.Html.FROM_HTML_MODE_LEGACY)
+    }
+
     private fun updateUpgradeCosts() {
         val engine = runCatching { binding.gameView.getEngine() }.getOrNull() ?: return
         val gold = engine.gold
@@ -731,85 +750,110 @@ class MainActivity : ImmersiveActivity() {
         // Hero Upgrades
         if (engine.playerDamageLevel >= com.example.myapp.game.GameEngine.MAX_PLAYER_DAMAGE_LEVEL) {
             binding.btnUpDamage.text = "⚔️ ATK\nMAX"
-            binding.btnUpDamage.alpha = 0.5f
+            binding.btnUpDamage.alpha = 0.45f
             binding.btnUpDamage.isEnabled = false
         } else {
             val dmgCost = engine.getPlayerDamageCost()
-            binding.btnUpDamage.text = "⚔️ ATK\n${dmgCost}g"
-            binding.btnUpDamage.alpha = if (gold >= dmgCost) 1.0f else 0.5f
+            val canAfford = gold >= dmgCost
+            binding.btnUpDamage.text = formatCost("⚔️ ATK", dmgCost, canAfford)
+            binding.btnUpDamage.alpha = if (canAfford) 1.0f else 0.45f
             binding.btnUpDamage.isEnabled = true
         }
 
         if (engine.playerSpeedLevel >= com.example.myapp.game.GameEngine.MAX_PLAYER_SPEED_LEVEL) {
             binding.btnUpSpeed.text = "👟 SPD\nMAX"
-            binding.btnUpSpeed.alpha = 0.5f
+            binding.btnUpSpeed.alpha = 0.45f
             binding.btnUpSpeed.isEnabled = false
         } else {
             val spdCost = engine.getPlayerSpeedCost()
-            binding.btnUpSpeed.text = "👟 SPD\n${spdCost}g"
-            binding.btnUpSpeed.alpha = if (gold >= spdCost) 1.0f else 0.5f
+            val canAfford = gold >= spdCost
+            binding.btnUpSpeed.text = formatCost("👟 SPD", spdCost, canAfford)
+            binding.btnUpSpeed.alpha = if (canAfford) 1.0f else 0.45f
             binding.btnUpSpeed.isEnabled = true
         }
 
         if (engine.playerHpLevel >= com.example.myapp.game.GameEngine.MAX_PLAYER_HP_LEVEL) {
             binding.btnUpHp.text = "❤️ HP\nMAX"
-            binding.btnUpHp.alpha = 0.5f
+            binding.btnUpHp.alpha = 0.45f
             binding.btnUpHp.isEnabled = false
         } else {
             val hpCost = engine.getPlayerHpCost()
-            binding.btnUpHp.text = "❤️ HP\n${hpCost}g"
-            binding.btnUpHp.alpha = if (gold >= hpCost) 1.0f else 0.5f
+            val canAfford = gold >= hpCost
+            binding.btnUpHp.text = formatCost("❤️ HP", hpCost, canAfford)
+            binding.btnUpHp.alpha = if (canAfford) 1.0f else 0.45f
             binding.btnUpHp.isEnabled = true
         }
 
         if (engine.baseHpLevel >= com.example.myapp.game.GameEngine.MAX_BASE_HP_LEVEL) {
             binding.btnUpBase.text = "🏰 BASE\nMAX"
-            binding.btnUpBase.alpha = 0.5f
+            binding.btnUpBase.alpha = 0.45f
             binding.btnUpBase.isEnabled = false
         } else {
             val baseCost = engine.getBaseHpCost()
-            binding.btnUpBase.text = "🏰 BASE\n${baseCost}g"
-            binding.btnUpBase.alpha = if (gold >= baseCost) 1.0f else 0.5f
+            val canAfford = gold >= baseCost
+            binding.btnUpBase.text = formatCost("🏰 BASE", baseCost, canAfford)
+            binding.btnUpBase.alpha = if (canAfford) 1.0f else 0.45f
             binding.btnUpBase.isEnabled = true
         }
 
         val repCost = engine.repairCost
-        binding.btnRepair.text = "🔧 Repair\n${repCost}g"
-        binding.btnRepair.alpha = if (gold >= repCost && engine.baseHp < engine.maxBaseHp) 1.0f else 0.5f
+        val canRep = gold >= repCost && engine.baseHp < engine.maxBaseHp
+        binding.btnRepair.text = formatCost("🔧 Repair", repCost, canRep)
+        binding.btnRepair.alpha = if (canRep) 1.0f else 0.45f
 
-        // Defenses costs alpha
-        binding.btnBlockade.alpha = if (gold >= engine.blockadeCost) 1.0f else 0.5f
-        binding.btnTrapSpike.alpha = if (gold >= TrapType.SPIKE.cost) 1.0f else 0.5f
-        binding.btnTrapTar.alpha = if (gold >= TrapType.TAR.cost) 1.0f else 0.5f
-        binding.btnTrapMine.alpha = if (gold >= TrapType.MINE.cost) 1.0f else 0.5f
+        // Defenses costs with dynamic gold/red color & alpha
+        val bCost = engine.blockadeCost
+        val canB = gold >= bCost
+        binding.btnBlockade.text = formatCost("🪨 Blockade", bCost, canB)
+        binding.btnBlockade.alpha = if (canB) 1.0f else 0.45f
 
-        // Tower button alpha
-        fun applyTowerAlpha(btn: android.widget.Button, type: TowerType) {
-            btn.alpha = if (gold >= engine.getTowerCost(type)) 1.0f else 0.5f
+        val sCost = TrapType.SPIKE.cost
+        val canS = gold >= sCost
+        binding.btnTrapSpike.text = formatCost("📌 Spikes", sCost, canS)
+        binding.btnTrapSpike.alpha = if (canS) 1.0f else 0.45f
+
+        val tCost = TrapType.TAR.cost
+        val canT = gold >= tCost
+        binding.btnTrapTar.text = formatCost("🍯 Tar Pit", tCost, canT)
+        binding.btnTrapTar.alpha = if (canT) 1.0f else 0.45f
+
+        val mCost = TrapType.MINE.cost
+        val canM = gold >= mCost
+        binding.btnTrapMine.text = formatCost("💣 Landmine", mCost, canM)
+        binding.btnTrapMine.alpha = if (canM) 1.0f else 0.45f
+
+        // Tower buttons with dynamic gold/red color & alpha
+        fun updateTowerBtn(btn: android.widget.Button, type: TowerType, label: String) {
+            val cost = engine.getTowerCost(type)
+            val canAfford = gold >= cost
+            btn.text = formatCost(label, cost, canAfford)
+            btn.alpha = if (canAfford) 1.0f else 0.45f
         }
-        applyTowerAlpha(binding.btnTowerArrow, TowerType.ARROW)
-        applyTowerAlpha(binding.btnTowerMagic, TowerType.MAGIC)
-        applyTowerAlpha(binding.btnTowerCannon, TowerType.CANNON)
-        applyTowerAlpha(binding.btnTowerPoison, TowerType.POISON)
-        applyTowerAlpha(binding.btnTowerTesla, TowerType.TESLA)
-        applyTowerAlpha(binding.btnTowerIce, TowerType.ICE)
-        applyTowerAlpha(binding.btnTowerFlame, TowerType.FLAME)
-        applyTowerAlpha(binding.btnTowerNecro, TowerType.NECRO)
-        applyTowerAlpha(binding.btnTowerBallista, TowerType.BALLISTA)
-        applyTowerAlpha(binding.btnTowerVortex, TowerType.VORTEX)
-        applyTowerAlpha(binding.btnTowerHealer, TowerType.HEALER)
+        updateTowerBtn(binding.btnTowerArrow,    TowerType.ARROW,    "🏹 Arrow")
+        updateTowerBtn(binding.btnTowerMagic,    TowerType.MAGIC,    "🧨 Magic")
+        updateTowerBtn(binding.btnTowerCannon,   TowerType.CANNON,   "💣 Cannon")
+        updateTowerBtn(binding.btnTowerPoison,   TowerType.POISON,   "☠️ Poison")
+        updateTowerBtn(binding.btnTowerTesla,    TowerType.TESLA,    "⚡ Tesla")
+        updateTowerBtn(binding.btnTowerIce,      TowerType.ICE,      "❄️ Ice")
+        updateTowerBtn(binding.btnTowerFlame,    TowerType.FLAME,    "🔥 Flame")
+        updateTowerBtn(binding.btnTowerNecro,    TowerType.NECRO,    "💀 Necro")
+        updateTowerBtn(binding.btnTowerBallista, TowerType.BALLISTA, "🎯 Ballista")
+        updateTowerBtn(binding.btnTowerVortex,   TowerType.VORTEX,   "🌀 Vortex")
+        updateTowerBtn(binding.btnTowerHealer,   TowerType.HEALER,   "💚 Healer")
 
         // Selected tower inspector update if visible
         val selected = binding.gameView.getSelectedTower()
         if (selected != null) {
             if (selected.level >= com.example.myapp.game.Tower.MAX_TOWER_LEVEL) {
-                binding.btnUpTower.text = "⚡ Upgrade\nMAX"
-                binding.btnUpTower.alpha = 0.5f
+                binding.btnUpTower.text = "▲ Lv.MAX [MAX]"
+                binding.btnUpTower.alpha = 0.45f
                 binding.btnUpTower.isEnabled = false
             } else {
+                val dmgDelta = (selected.type.baseDamage * 0.70f).toInt()
                 val upCost = selected.upgradeCost()
-                binding.btnUpTower.text = "⚡ Upgrade\n${upCost}g"
-                binding.btnUpTower.alpha = if (gold >= upCost) 1.0f else 0.5f
+                binding.btnUpTower.text = "▲ Lv.${selected.level + 1} [+$dmgDelta DMG] [💰 $upCost]"
+                val canAfford = gold >= upCost
+                binding.btnUpTower.alpha = if (canAfford) 1.0f else 0.45f
                 binding.btnUpTower.isEnabled = true
             }
         }

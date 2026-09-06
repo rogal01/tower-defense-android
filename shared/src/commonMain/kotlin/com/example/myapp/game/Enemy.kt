@@ -395,7 +395,7 @@ enum class BossType(
     ),
     SPORE_OVERLORD(
         "Spore Overlord", "\uD83C\uDF44", 0xFF00E676.toInt(),
-        EnemyType.TREANT, 3, 1500f, 18f, 260f, 60f,
+        EnemyType.TREANT, 3, 1350f, 18f, 260f, 60f,
         BossAbility.SPORE_CLOUD
     ),
     CHRONO_LICH(

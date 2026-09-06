@@ -198,7 +198,7 @@ enum class TowerType(
     ICE("\u2744\uFE0F", 70, 0f, 230f, 0f, DamageType.ICE, 25f, "Deep Freeze"),
     FLAME("\uD83D\uDD25", 90, 12f, 190f, 0.9f, DamageType.FIRE, 30f, "Inferno"),
     NECRO("\uD83D\uDC80", 110, 18f, 200f, 0.6f, DamageType.DARK, 35f, "Soul Harvest"),
-    BALLISTA("\uD83C\uDFAF", 140, 50f, 300f, 0.3f, DamageType.PHYSICAL, 40f, "Siege Shot"),
+    BALLISTA("\uD83C\uDFAF", 140, 68f, 300f, 0.3f, DamageType.PHYSICAL, 40f, "Siege Shot"),
     VORTEX("\uD83C\uDF00", 100, 4f, 240f, 1.5f, DamageType.MAGIC, 28f, "Singularity"),
     HEALER("\uD83D\uDC9A", 80, 0f, 220f, 0.2f, DamageType.MAGIC, 20f, "Mass Heal");
 

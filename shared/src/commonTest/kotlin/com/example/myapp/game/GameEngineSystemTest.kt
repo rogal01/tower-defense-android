@@ -958,9 +958,9 @@ class GameEngineSystemTest {
         val reacted = engine.triggerElementalReaction(enemy1, DamageType.FIRE, null, 25f)
         assertTrue(reacted, "Fire on poisoned enemy must trigger Volatile Detonation")
         assertEquals(0f, enemy1.poisonTimer, "Poison must be consumed by detonation")
-        // Detonation damage: 110 + 3*20*1.5 + 25*0.5 = 110 + 90 + 12.5 = 212.5
-        assertTrue(enemy1.hp <= 200f, "Target should take massive detonation burst")
-        assertTrue(enemy2.hp <= 200f, "Nearby enemy within 120px should take detonation AoE")
+        // Detonation damage with rebalanced formula: 100 + (3*20*1.25) + 25*0.5 = 100 + 75 + 12.5 = 187.5
+        assertTrue(enemy1.hp <= 220f, "Target should take massive detonation burst")
+        assertTrue(enemy2.hp <= 220f, "Nearby enemy within 120px should take detonation AoE")
         assertTrue(engine.floatingTexts.any { it.text.contains("DETONATION") })
     }
 
@@ -1376,5 +1376,192 @@ class GameEngineSystemTest {
         engine.saveRunHistory("Lost")
         assertEquals(DiamondBlessing.NONE, engine.skillTree.getActiveBlessing())
     }
+
+    @Test
+    fun testHealerTowerDynamicLevelScalingAndWaveParticles() {
+        engine.init(1080f, 1920f)
+        engine.paths.clear()
+
+        // Place a Healer tower at level 1
+        val healer = Tower(
+            x = 500f, y = 500f, level = 1,
+            range = 250f, fireRate = 10f, type = TowerType.HEALER
+        )
+        engine.towers.add(healer)
+
+        // Setup damaged base and damaged blockade in range
+        engine.maxBaseHp = 100f
+        engine.baseHp = 50f
+        val blockade = Blockade(x = 550f, y = 500f, hp = 10f, maxHp = 50f)
+        engine.blockades.add(blockade)
+
+        engine.particles.clear()
+        engine.pendingShockwaves.clear()
+
+        // Tick 1: Level 1 healer fires (Base +3 HP, Blockade +5 HP)
+        engine.update(0.1f)
+
+        assertEquals(53.0f, engine.baseHp, 0.001f, "Level 1 Healer should heal base for exactly 3.0 HP (3 + 0 * 1.5)")
+        assertEquals(15.0f, blockade.hp, 0.001f, "Level 1 Healer should repair blockade for exactly 5.0 HP (5 + 0 * 3)")
+        assertTrue(engine.pendingShockwaves.isNotEmpty(), "Healer firing must emit a radiant healing wave shockwave")
+        assertTrue(engine.particles.size >= 8, "Healer firing must emit a burst of radiant healing wave particles")
+
+        // Level 2 upgrade test: Base heal = 3 + 1 * 1.5 = 4.5 HP; Blockade repair = 5 + 1 * 3 = 8.0 HP
+        healer.level = 2
+        healer.fireTimer = 0f
+        engine.baseHp = 50f
+        blockade.hp = 10f
+
+        engine.update(0.1f)
+
+        assertEquals(54.5f, engine.baseHp, 0.001f, "Level 2 Healer should heal base for exactly 4.5 HP (3 + 1 * 1.5)")
+        assertEquals(18.0f, blockade.hp, 0.001f, "Level 2 Healer should repair blockade for exactly 8.0 HP (5 + 1 * 3)")
+
+        // Level 5 upgrade test: Base heal = 3 + 4 * 1.5 = 9.0 HP; Blockade repair = 5 + 4 * 3 = 17.0 HP
+        healer.level = 5
+        healer.fireTimer = 0f
+        engine.baseHp = 50f
+        blockade.hp = 10f
+
+        engine.update(0.1f)
+
+        assertEquals(59.0f, engine.baseHp, 0.001f, "Level 5 Healer should heal base for exactly 9.0 HP (3 + 4 * 1.5)")
+        assertEquals(27.0f, blockade.hp, 0.001f, "Level 5 Healer should repair blockade for exactly 17.0 HP (5 + 4 * 3)")
+    }
+
+    @Test
+    fun testBallistaDamageBuffAndInnateArmorPenetration() {
+        engine.init(1080f, 1920f)
+        engine.paths.clear()
+
+        // 1. Verify base stats
+        assertEquals(68f, TowerType.BALLISTA.baseDamage, 0.001f, "Ballista base damage must be buffed to 68f")
+        assertEquals(20.4f, TowerType.BALLISTA.baseDamage * TowerType.BALLISTA.baseFireRate, 0.01f, "Ballista DPS must be 20.4")
+
+        // 2. Setup Ballista tower
+        val ballista = Tower(
+            x = 300f, y = 300f, level = 1, damage = TowerType.BALLISTA.baseDamage,
+            range = 350f, fireRate = 10f, type = TowerType.BALLISTA
+        )
+        engine.towers.add(ballista)
+
+        // 3. Test against unarmored enemy (GOBLIN has 1.0f physical resistance)
+        val goblin = Enemy(x = 320f, y = 300f, speed = 0f, hp = 500f, maxHp = 500f, goldReward = 1, damage = 5f, type = EnemyType.GOBLIN)
+        engine.enemies.clear()
+        engine.enemies.add(goblin)
+        engine.update(0.1f)
+
+        val damageToGoblin = 500f - goblin.hp
+        assertEquals(68f, damageToGoblin, 0.01f, "Ballista should deal unmitigated 68f damage to unarmored goblin")
+
+        // 4. Test against ARMORED_GOLEM (raw physical resistance is 0.3f, 70% mitigation)
+        // With 25% innate armor penetration: 0.3 + 0.7 * 0.25 = 0.475 multiplier.
+        // Expected damage: 68 * 0.475 = 32.3f (vs 68 * 0.30 = 20.4f without penetration).
+        val armoredGolem = Enemy(x = 320f, y = 300f, speed = 0f, hp = 500f, maxHp = 500f, goldReward = 1, damage = 5f, type = EnemyType.ARMORED_GOLEM)
+        engine.enemies.clear()
+        engine.enemies.add(armoredGolem)
+        ballista.fireTimer = 0f
+        engine.update(0.1f)
+
+        val damageToGolem = 500f - armoredGolem.hp
+        assertEquals(32.3f, damageToGolem, 0.05f, "Ballista should pierce 25% armor on armored golem (expected 32.3f damage)")
+
+        // 5. Test against BOSS enemy (25% innate punch against boss hide)
+        val boss = Enemy(x = 320f, y = 300f, speed = 0f, hp = 1000f, maxHp = 1000f, goldReward = 10, damage = 20f, type = EnemyType.BOSS, bossType = BossType.ORC_KING)
+        engine.enemies.clear()
+        engine.enemies.add(boss)
+        ballista.fireTimer = 0f
+        engine.update(0.1f)
+
+        val damageToBoss = 1000f - boss.hp
+        assertEquals(85.0f, damageToBoss, 0.05f, "Ballista should deal 25% bonus sniper punch against boss enemies (68 * 1.25 = 85.0f)")
+    }
+
+    @Test
+    fun testVolatileDetonationPoisonBurstSoftCap() {
+        engine.init(1080f, 1920f)
+
+        // 1. Extreme poison stack that hits the 450f soft cap
+        // Target with 500 remaining poison (10s * 50 DPS). Without cap: 500 * 1.25 = 625f > 450f.
+        val bossTarget = Enemy(x = 400f, y = 400f, speed = 0f, hp = 5000f, maxHp = 5000f, goldReward = 50, damage = 20f, type = EnemyType.BOSS, bossType = BossType.DRAGON_QUEEN)
+        bossTarget.poisonTimer = 10f
+        bossTarget.poisonDps = 50f // remainingPoison = 500f
+        engine.enemies.clear()
+        engine.enemies.add(bossTarget)
+
+        // Trigger Volatile Detonation with base incoming damage = 20f
+        val reactedHigh = engine.triggerElementalReaction(bossTarget, DamageType.FIRE, null, 20f)
+        assertTrue(reactedHigh, "Fire on poisoned enemy must trigger Volatile Detonation")
+
+        // Formula: (100f + (500f * 1.25f).coerceAtMost(450f) + 20f * 0.5f) * 1.0f = 100 + 450 + 10 = 560f
+        val damageTakenHigh = 5000f - bossTarget.hp
+        assertEquals(560f, damageTakenHigh, 0.01f, "Extreme poison detonation must be soft-capped at 450f poison contribution (total 560f damage)")
+
+        // 2. Moderate poison stack below the 450f soft cap
+        // Target with 40 remaining poison (2s * 20 DPS). 40 * 1.25 = 50f (< 450f).
+        val normalTarget = Enemy(x = 400f, y = 400f, speed = 0f, hp = 1000f, maxHp = 1000f, goldReward = 10, damage = 10f, type = EnemyType.ORC)
+        normalTarget.poisonTimer = 2f
+        normalTarget.poisonDps = 20f // remainingPoison = 40f
+        engine.enemies.clear()
+        engine.enemies.add(normalTarget)
+
+        // Trigger Volatile Detonation with base incoming damage = 20f
+        val reactedLow = engine.triggerElementalReaction(normalTarget, DamageType.FIRE, null, 20f)
+        assertTrue(reactedLow, "Fire on poisoned enemy must trigger Volatile Detonation")
+
+        // Formula: (100f + 50f + 10f) * 1.0f = 160f
+        val damageTakenLow = 1000f - normalTarget.hp
+        assertEquals(160f, damageTakenLow, 0.01f, "Sub-cap poison detonation must scale proportionally without being capped (160f damage)")
+    }
+
+    @Test
+    fun testSporeOverlordBaseHpCurveTuned() {
+        assertEquals(1350f, BossType.SPORE_OVERLORD.baseHp, 0.001f, "Spore Overlord base HP must be tuned down to 1350f")
+
+        // Verify wave 20 spawn scaling
+        val wave = 20
+        val waveScale = 1f + (wave - 1) * 0.15f // 3.85
+        val expectedSpawnHp = (BossType.SPORE_OVERLORD.baseHp + wave * 40f) * waveScale // (1350 + 800) * 3.85 = 8277.5f
+
+        assertEquals(8277.5f, expectedSpawnHp, 0.1f, "Wave 20 Spore Overlord HP curve should be smoothed to 8,277.5 HP")
+        assertTrue(expectedSpawnHp < 8855f, "Smoothed HP must be lower than previous 8,855 HP curve")
+    }
+
+    @Test
+    fun testFlawlessBossDefenseDiamondTrackingAndCounterState() {
+        engine.init(1080f, 1920f)
+        val initialDiamonds = engine.skillTree.diamonds
+        val initialRunDiamonds = engine.diamondsEarnedThisRun
+
+        // Simulate wave 5 (boss wave) ending with 0 citadel damage
+        engine.wave = 5
+        engine.baseHp = 100f
+        engine.baseHpBeforeWave = 100f
+        engine.waveInProgress = true
+        engine.enemies.clear()
+        engine.enemiesRemaining = 0
+
+        engine.update(0.1f)
+
+        assertFalse(engine.waveInProgress, "Wave should complete")
+        assertEquals(initialDiamonds + 2, engine.skillTree.diamonds, "Normal mode flawless boss defense awards +2 diamonds")
+        assertEquals(initialRunDiamonds + 2, engine.diamondsEarnedThisRun, "diamondsEarnedThisRun must track +2 diamonds")
+        assertTrue(engine.floatingTexts.any { it.text.contains("+2 💎 FLAWLESS BOSS DEFENSE!") }, "Flawless defense announcement must be emitted")
+
+        // Verify that taking damage in a boss wave denies the flawless bonus
+        val currentDiamonds = engine.skillTree.diamonds
+        engine.wave = 10
+        engine.baseHp = 80f
+        engine.baseHpBeforeWave = 100f // Took 20 damage
+        engine.waveInProgress = true
+        engine.enemies.clear()
+        engine.enemiesRemaining = 0
+
+        engine.update(0.1f)
+
+        assertEquals(currentDiamonds, engine.skillTree.diamonds, "Damaged base must not award flawless diamond bonus")
+        assertEquals(0, engine.consecutiveFlawlessWaves, "Consecutive flawless wave counter should reset to 0 on base damage")
+    }
 }
+
 

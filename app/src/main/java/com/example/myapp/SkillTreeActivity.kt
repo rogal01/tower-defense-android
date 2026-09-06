@@ -209,12 +209,12 @@ class SkillTreeActivity : ImmersiveActivity() {
             gravity = Gravity.CENTER_VERTICAL
             setPadding(dp(14), dp(12), dp(14), dp(12))
             val bg = GradientDrawable().apply {
-                cornerRadius = dp(10).toFloat()
+                cornerRadius = dp(12).toFloat()
                 if (isActive) {
-                    setColor(0xFF0C2718.toInt())
-                    setStroke(dp(2), 0xFF00E5FF.toInt())
+                    setColor(0xFF1E2818.toInt())
+                    setStroke(dp(2), 0xFFFFD700.toInt())
                 } else {
-                    setColor(0xFF161F30.toInt())
+                    setColor(0xFF141D2B.toInt())
                     setStroke(dp(1), 0xFF2A3B50.toInt())
                 }
             }
@@ -244,7 +244,7 @@ class SkillTreeActivity : ImmersiveActivity() {
         val titleText = TextView(this).apply {
             text = GameStrings.getLocalizedBlessingTitle(blessing)
             setTextSize(TypedValue.COMPLEX_UNIT_SP, 15f)
-            setTextColor(if (isActive) Color.parseColor("#00E5FF") else Color.WHITE)
+            setTextColor(if (isActive) Color.parseColor("#FFD700") else Color.WHITE)
             setTypeface(typeface, android.graphics.Typeface.BOLD)
         }
 
@@ -259,12 +259,17 @@ class SkillTreeActivity : ImmersiveActivity() {
 
         val rightView: View = if (isActive) {
             TextView(this).apply {
-                text = GameStrings.blessingActiveBadge
-                setTextSize(TypedValue.COMPLEX_UNIT_SP, 11f)
-                setTextColor(Color.parseColor("#00E5FF"))
+                text = "✨ " + GameStrings.blessingActiveBadge
+                setTextSize(TypedValue.COMPLEX_UNIT_SP, 12f)
+                setTextColor(Color.parseColor("#FFD700"))
                 setTypeface(typeface, android.graphics.Typeface.BOLD)
                 gravity = Gravity.CENTER
-                setPadding(dp(8), dp(4), dp(8), dp(4))
+                background = GradientDrawable().apply {
+                    cornerRadius = dp(8).toFloat()
+                    setColor(0x33FFD700)
+                    setStroke(dp(1), 0xFFFFD700.toInt())
+                }
+                setPadding(dp(10), dp(6), dp(10), dp(6))
             }
         } else {
             Button(this).apply {
@@ -323,12 +328,12 @@ class SkillTreeActivity : ImmersiveActivity() {
             gravity = Gravity.CENTER_VERTICAL
             setPadding(dp(14), dp(12), dp(14), dp(12))
             val bg = GradientDrawable().apply {
-                cornerRadius = dp(10).toFloat()
+                cornerRadius = dp(12).toFloat()
                 if (isUnlocked) {
-                    setColor(0xFF0C2718.toInt()) // Deep emerald background for unlocked relics
-                    setStroke(dp(2), 0xFF4CAF50.toInt())
+                    setColor(0xFF0F261E.toInt())
+                    setStroke(dp(2), 0xFF00E5FF.toInt())
                 } else {
-                    setColor(0xFF161F30.toInt())
+                    setColor(0xFF141D2B.toInt())
                     setStroke(dp(1), 0xFF2A3B50.toInt())
                 }
             }
@@ -362,7 +367,7 @@ class SkillTreeActivity : ImmersiveActivity() {
         val titleText = TextView(this).apply {
             text = GameStrings.getLocalizedRelicTitle(relic)
             setTextSize(TypedValue.COMPLEX_UNIT_SP, 16f)
-            setTextColor(if (isUnlocked) Color.parseColor("#4CAF50") else Color.parseColor("#FFD700"))
+            setTextColor(if (isUnlocked) Color.parseColor("#00E5FF") else Color.parseColor("#FFD700"))
             setTypeface(typeface, android.graphics.Typeface.BOLD)
         }
 
@@ -378,12 +383,17 @@ class SkillTreeActivity : ImmersiveActivity() {
         // Right Action / Status
         val rightView: View = if (isUnlocked) {
             TextView(this).apply {
-                text = GameStrings.relicActive
+                text = "✨ " + GameStrings.relicActive
                 setTextSize(TypedValue.COMPLEX_UNIT_SP, 12f)
-                setTextColor(Color.parseColor("#4CAF50"))
+                setTextColor(Color.parseColor("#00E5FF"))
                 setTypeface(typeface, android.graphics.Typeface.BOLD)
                 gravity = Gravity.CENTER
-                setPadding(dp(8), dp(4), dp(8), dp(4))
+                background = GradientDrawable().apply {
+                    cornerRadius = dp(8).toFloat()
+                    setColor(0x3300E5FF)
+                    setStroke(dp(1), 0xFF00E5FF.toInt())
+                }
+                setPadding(dp(10), dp(6), dp(10), dp(6))
             }
         } else {
             Button(this).apply {

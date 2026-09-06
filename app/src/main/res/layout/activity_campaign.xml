@@ -15,11 +15,12 @@
         android:gravity="center_horizontal">
 
         <TextView
+            android:id="@+id/text_campaign_title"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:text="📜 Campaign"
             android:textColor="@color/gold"
-            android:textSize="32sp"
+            android:textSize="30sp"
             android:textStyle="bold"
             android:gravity="center" />
 
@@ -28,10 +29,27 @@
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:textColor="@color/text_secondary"
-            android:textSize="16sp"
+            android:textSize="15sp"
             android:gravity="center"
             android:layout_marginTop="4dp" />
     </LinearLayout>
+
+    <!-- Horizontal Act Navigation Bar -->
+    <HorizontalScrollView
+        android:id="@+id/act_scroll_view"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:scrollbars="none"
+        android:clipToPadding="false"
+        android:paddingHorizontal="16dp"
+        android:layout_marginBottom="8dp">
+
+        <LinearLayout
+            android:id="@+id/act_tab_container"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal" />
+    </HorizontalScrollView>
 
     <!-- Scrollable level list -->
     <ScrollView

@@ -30,12 +30,15 @@ object FusionCodexDialog {
 
         val titleView = dialogView.findViewById<TextView>(R.id.text_codex_title)
         val progressView = dialogView.findViewById<TextView>(R.id.text_codex_progress)
+        val progressBar = dialogView.findViewById<android.widget.ProgressBar>(R.id.progress_codex_discovery)
         val closeBtn = dialogView.findViewById<TextView>(R.id.btn_codex_close)
         val dismissBtn = dialogView.findViewById<Button>(R.id.btn_codex_dismiss)
         val container = dialogView.findViewById<LinearLayout>(R.id.codex_content_container)
 
         titleView.text = GameStrings.codexTitle
         progressView.text = GameStrings.codexDiscoveredCount(discoveredFusions.size, FusionCatalog.allFusions.size)
+        progressBar?.max = FusionCatalog.allFusions.size
+        progressBar?.progress = discoveredFusions.size
         dismissBtn.text = GameStrings.codexClose
 
         val tabAll = dialogView.findViewById<Button>(R.id.tab_all)
@@ -44,11 +47,11 @@ object FusionCodexDialog {
         val tabDark = dialogView.findViewById<Button>(R.id.tab_dark)
         val tabSiege = dialogView.findViewById<Button>(R.id.tab_siege)
 
-        tabAll.text = " ()"
-        tabElemental.text = "🔥 "
-        tabArcane.text = "🔮 "
-        tabDark.text = "💀 "
-        tabSiege.text = "💣 "
+        tabAll.text = "${GameStrings.codexFilterAll} (${FusionCatalog.allFusions.size})"
+        tabElemental.text = "🔥 ${GameStrings.codexFilterElemental} (${FusionCatalog.allFusions.count { it.category == FusionCategory.ELEMENTAL }})"
+        tabArcane.text = "🔮 ${GameStrings.codexFilterArcane} (${FusionCatalog.allFusions.count { it.category == FusionCategory.ARCANE }})"
+        tabDark.text = "💀 ${GameStrings.codexFilterDark} (${FusionCatalog.allFusions.count { it.category == FusionCategory.DARK_ARTS }})"
+        tabSiege.text = "💣 ${GameStrings.codexFilterSiege} (${FusionCatalog.allFusions.count { it.category == FusionCategory.SIEGE }})"
 
         val tabs = listOf(
             Pair(tabAll, null as FusionCategory?),
@@ -61,14 +64,14 @@ object FusionCodexDialog {
         fun dp(v: Int): Int = (v * context.resources.displayMetrics.density).toInt()
 
         fun getElementBadge(type: DamageType): Pair<String, String> = when (type) {
-            DamageType.FIRE -> Pair("🔥 FIRE", "#FF5722")
-            DamageType.ICE -> Pair("❄️ ICE", "#80DEEA")
-            DamageType.ELECTRIC -> Pair("⚡ ELEC", "#00E5FF")
-            DamageType.POISON -> Pair("☠️ POISON", "#76FF03")
-            DamageType.MAGIC -> Pair("🔮 MAGIC", "#AB47BC")
-            DamageType.DARK -> Pair("💀 DARK", "#B388FF")
-            DamageType.EXPLOSIVE -> Pair("💣 BOMB", "#FF9800")
-            DamageType.PHYSICAL -> Pair("🏹 PHYS", "#B0BEC5")
+            DamageType.FIRE -> Pair(if (GameStrings.isPl) "🔥 OGIEŃ" else "🔥 FIRE", "#FF5722")
+            DamageType.ICE -> Pair(if (GameStrings.isPl) "❄️ LÓD" else "❄️ ICE", "#80DEEA")
+            DamageType.ELECTRIC -> Pair(if (GameStrings.isPl) "⚡ PRĄD" else "⚡ ELEC", "#00E5FF")
+            DamageType.POISON -> Pair(if (GameStrings.isPl) "☠️ TRUCIZNA" else "☠️ POISON", "#76FF03")
+            DamageType.MAGIC -> Pair(if (GameStrings.isPl) "🔮 MAGIA" else "🔮 MAGIC", "#AB47BC")
+            DamageType.DARK -> Pair(if (GameStrings.isPl) "💀 MROK" else "💀 DARK", "#B388FF")
+            DamageType.EXPLOSIVE -> Pair(if (GameStrings.isPl) "💣 WYBUCH" else "💣 BOMB", "#FF9800")
+            DamageType.PHYSICAL -> Pair(if (GameStrings.isPl) "🏹 FIZYCZNE" else "🏹 PHYS", "#B0BEC5")
         }
 
         fun renderCategory(cat: FusionCategory?) {
@@ -118,7 +121,7 @@ object FusionCodexDialog {
                 headerRow.addView(iconView)
 
                 val nameView = TextView(context).apply {
-                    text = if (isDiscovered) GameStrings.getLocalizedFusionName(fusion.id) else "??? []"
+                    text = if (isDiscovered) GameStrings.getLocalizedFusionName(fusion.id) else "??? [${if (GameStrings.isPl) "Nieodkryta fuzja" else "Undiscovered Fusion"}]"
                     setTextSize(TypedValue.COMPLEX_UNIT_SP, 14f)
                     setTextColor(if (isDiscovered) Color.parseColor("#FFD54F") else Color.parseColor("#90A4AE"))
                     setTypeface(typeface, Typeface.BOLD)
@@ -188,7 +191,7 @@ object FusionCodexDialog {
                 // Row 4: Tactical Role
                 val roleView = TextView(context).apply {
                     val role = if (isDiscovered) GameStrings.getLocalizedTacticalRole(fusion.id) else "???"
-                    text = "🎯 "
+                    text = "🎯 ${GameStrings.codexRoleLabel}$role"
                     setTextSize(TypedValue.COMPLEX_UNIT_SP, 11f)
                     setTypeface(typeface, Typeface.BOLD)
                     setTextColor(if (isDiscovered) Color.parseColor("#00E5FF") else Color.parseColor("#546E7A"))

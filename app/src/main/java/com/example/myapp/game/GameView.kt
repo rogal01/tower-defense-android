@@ -37,6 +37,7 @@ class GameView @JvmOverloads constructor(
     var onWaveChanged: ((Int) -> Unit)? = null
     var onGameOver: ((Int, Int) -> Unit)? = null
     var onDiamondsChanged: ((Int) -> Unit)? = null
+    var onKillsChanged: ((Int) -> Unit)? = null
     var onTowerSelected: ((Tower?) -> Unit)? = null
     var onPlacementModeChanged: ((Boolean) -> Unit)? = null
     var onCampaignVictory: (() -> Unit)? = null
@@ -385,6 +386,7 @@ class GameView @JvmOverloads constructor(
             val goldSnap: Int
             val waveSnap: Int
             val diamondSnap: Int
+            val killsSnap: Int
             val isGameOver: Boolean
             val scoreSnap: Int
             val isVictory: Boolean
@@ -396,6 +398,7 @@ class GameView @JvmOverloads constructor(
                 goldSnap = engine.gold
                 waveSnap = engine.wave
                 diamondSnap = engine.skillTree.diamonds
+                killsSnap = engine.totalKills
                 isGameOver = engine.gameOver
                 scoreSnap = engine.score
                 isVictory = engine.campaignVictory
@@ -408,6 +411,7 @@ class GameView @JvmOverloads constructor(
                 onGoldChanged?.invoke(goldSnap)
                 onWaveChanged?.invoke(waveSnap)
                 onDiamondsChanged?.invoke(diamondSnap)
+                onKillsChanged?.invoke(killsSnap)
                 onWaveStateChanged?.invoke(waveInProgressSnap, waveTimerSnap)
                 // Haptic feedback
                 val haptic = engine.hapticPending

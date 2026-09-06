@@ -771,6 +771,7 @@ Każda wieża zadaje określony typ obrażeń. Wrogowie mają odporności i sła
     fun goldHud(gold: Int) = "💰 $gold"
     fun waveHud(wave: Int) = "⚔️ ${if (isPl) "Fala" else "Wave"} $wave"
     fun diamondsHud(d: Int) = "💎 $d"
+    fun killsHud(k: Int) = "💀 $k"
     fun gameOverHud(score: Int, wave: Int) = if (isPl) "💰 KONIEC GRY" else "💰 GAME OVER"
     fun gameOverWaveHud(score: Int, wave: Int) = "⚔️ ${if (isPl) "Fala" else "Wave"} $wave | ${if (isPl) "Wynik" else "Score"} $score"
 

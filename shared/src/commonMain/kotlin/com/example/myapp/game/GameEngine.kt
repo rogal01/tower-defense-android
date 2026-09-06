@@ -2373,18 +2373,21 @@ class GameEngine(val prefs: GamePreferences, val audio: GameAudio = SilentAudio)
             if (tower.type == TowerType.HEALER) {
                 if (tower.canFire()) {
                     tower.fire()
-                    // Heal base for 2 HP
+                    val baseHeal = 3f + (tower.level - 1) * 1.5f
+                    val blockadeRepair = 5f + (tower.level - 1) * 3f
+                    emitShockwave(tower.x, tower.y, 0xFF66BB6A.toInt(), tower.range.coerceAtMost(180f))
+                    repeat(8) { i -> val a = (i * (Math.PI * 2 / 8)).toFloat(); val speed = 50f; particles.add(Particle(tower.x, tower.y, (Math.cos(a.toDouble()) * speed).toFloat(), (Math.sin(a.toDouble()) * speed).toFloat(), 0.5f, 0xFF66BB6A.toInt(), 5f)) }
+                    // Heal base
                     if (baseHp < maxBaseHp) {
-                        val healAmt = 2f.coerceAtMost(maxBaseHp - baseHp)
+                        val healAmt = baseHeal.coerceAtMost(maxBaseHp - baseHp)
                         baseHp += healAmt
                         floatingTexts.add(FloatingText(baseX, baseY - 60f, "+${healAmt.toInt()} HP", 0xFF66BB6A.toInt(), 0.8f, 20f))
-                        particles.add(Particle(tower.x, tower.y, 0f, -30f, 0.6f, 0xFF66BB6A.toInt(), 5f))
                     }
-                    // Repair nearby blockades for 5 HP each
+                    // Repair nearby blockades
                     blockades.filter { !it.isDead() && tower.distanceTo(it.x, it.y) < tower.range }
                         .forEach { blockade ->
                             if (blockade.hp < blockade.maxHp) {
-                                val repairAmt = 5f.coerceAtMost(blockade.maxHp - blockade.hp)
+                                val repairAmt = blockadeRepair.coerceAtMost(blockade.maxHp - blockade.hp)
                                 blockade.hp += repairAmt
                                 floatingTexts.add(FloatingText(blockade.x, blockade.y - blockade.size, "+${repairAmt.toInt()}", 0xFF66BB6A.toInt(), 0.6f, 16f))
                             }
@@ -2404,8 +2407,13 @@ class GameEngine(val prefs: GamePreferences, val audio: GameAudio = SilentAudio)
                 }
                 if (target != null) {
                     tower.fire()
+                    val isArmored = target.type == EnemyType.ARMORED_GOLEM || currentWaveModifier == WaveModifier.ARMORED
+                    val isBossTarget = target.isBoss || target.type == EnemyType.BOSS || target.bossType != null
+                    val ballistaPierce = if (tower.type == TowerType.BALLISTA && isArmored) 0.25f else 0f
+                    val effectivePierce = (skillTree.resistancePierce() + ballistaPierce).coerceAtMost(1f)
                     val rawResist = EnemyResistances.getMultiplier(target.type, tower.type.damageType)
-                    val resistMult = if (rawResist < 1f) rawResist + (1f - rawResist) * skillTree.resistancePierce() else rawResist
+                    val resistMult = if (rawResist < 1f) rawResist + (1f - rawResist) * effectivePierce else rawResist
+                    val ballistaBossMult = if (tower.type == TowerType.BALLISTA && isBossTarget) 1.25f else 1f
                     val synergyMult = synergyMap[tower] ?: 1f
                     val isCrit = Math.random() < critChance
                     val critMult = if (isCrit) critMultiplier else 1f
@@ -2414,7 +2422,7 @@ class GameEngine(val prefs: GamePreferences, val audio: GameAudio = SilentAudio)
                     val superconductMult = if (target.superconductTimer > 0f) 1.25f else 1f
                     val brittleMult = if (target.brittleTimer > 0f && (tower.type.damageType == DamageType.PHYSICAL || tower.type.damageType == DamageType.EXPLOSIVE)) 1.4f else 1f
                     val astralMult = if (target.astralDecayTimer > 0f) 1.2f else 1f
-                    var dmg = tower.damage * towerDmgMult * campaignRegionalTowerDmgMult(tower.type) * resistMult * synergyMult * critMult * shieldMult * glassMult * superconductMult * brittleMult * astralMult
+                    var dmg = tower.damage * towerDmgMult * campaignRegionalTowerDmgMult(tower.type) * resistMult * synergyMult * critMult * shieldMult * glassMult * superconductMult * brittleMult * astralMult * ballistaBossMult
 
                     // Necro execute: massive bonus damage to low-HP enemies
                     if (tower.type == TowerType.NECRO && target.hp < target.maxHp * 0.15f) {
@@ -2734,7 +2742,7 @@ class GameEngine(val prefs: GamePreferences, val audio: GameAudio = SilentAudio)
             (incomingElement == DamageType.POISON && target.burnTimer > 0f)
         ) {
             val remainingPoison = target.poisonTimer * target.poisonDps
-            val detDmg = (110f + remainingPoison * 1.5f + baseDamage * 0.5f) * alchemyDmgMult
+            val detDmg = (100f + (remainingPoison * 1.25f).coerceAtMost(450f) + baseDamage * 0.5f) * alchemyDmgMult
             val aoeRadius = 120f * alchemyRadiusMult
 
             target.poisonTimer = 0f
