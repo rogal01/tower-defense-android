@@ -16,3 +16,6 @@ Thumbs.db
 # Signing
 *.jks
 *.keystore
+
+# Local artifact downloads
+build_artifacts/

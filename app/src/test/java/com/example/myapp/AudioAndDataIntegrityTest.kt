@@ -1,5 +1,7 @@
 package com.example.myapp
 
+import com.example.myapp.game.DailyChallengeHelper
+
 import com.example.myapp.game.*
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -157,5 +159,30 @@ class AudioAndDataIntegrityTest {
         MusicManager.updateGameState(WeatherEvent.CLEAR, false, false)
         assertEquals(WeatherEvent.CLEAR, MusicManager.currentWeather)
         assertTrue(!MusicManager.isWaveActive)
+    }
+    @Test
+    fun testDailyChallengeHelperDataIntegrity() {
+        val seed = DailyChallengeHelper.getTodaySeed()
+        assertTrue(seed > 20240000L, "Seed should be a valid formatted date integer")
+
+        val challenge = DailyChallengeHelper.getDailyChallenge(seed)
+        assertTrue(challenge.title.isNotBlank(), "Daily challenge title must not be blank")
+        assertTrue(challenge.dateString.matches(Regex("\\d{4}-\\d{2}-\\d{2}")), "Date string must match YYYY-MM-DD format")
+        assertTrue(challenge.modifiers.isNotEmpty(), "Daily challenge must include active modifiers")
+        assertTrue(challenge.diamondReward == 10, "Daily trial awards 10 diamonds")
+    }
+
+    @Test
+    fun testAchievementDefinitionsDataIntegrity() {
+        val achievements = GameStrings.achievements()
+        assertTrue(achievements.size >= 40, "Must have comprehensive achievement definitions")
+
+        for (ach in achievements) {
+            assertTrue(ach.id.isNotBlank(), "Achievement ID must not be blank")
+            assertTrue(ach.title.isNotBlank(), "Achievement title must not be blank")
+            assertTrue(ach.description.isNotBlank(), "Achievement description must not be blank")
+            assertTrue(ach.emoji.isNotBlank(), "Achievement emoji must not be blank")
+            assertTrue(ach.diamondReward > 0, "Achievement diamond bounty must be positive")
+        }
     }
 }

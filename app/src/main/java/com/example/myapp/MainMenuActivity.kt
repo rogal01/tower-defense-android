@@ -205,10 +205,9 @@ class MainMenuActivity : ImmersiveActivity() {
 
         // Daily Challenge
         findViewById<Button>(R.id.btn_daily).setOnClickListener {
-            val intent = Intent(this, MainActivity::class.java)
-            intent.putExtra("difficulty", 1)
-            intent.putExtra("daily_challenge", true)
-            startActivity(intent)
+            DailyChallengeDialog.show(this) { intent ->
+                startActivity(intent)
+            }
         }
 
         // Help

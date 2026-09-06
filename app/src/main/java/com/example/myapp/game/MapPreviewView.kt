@@ -21,6 +21,7 @@ class MapPreviewView @JvmOverloads constructor(
 
     // Cached paths & geometries
     private val cachedPaths = mutableListOf<Path>()
+    private val cachedObstacles = mutableListOf<ObstacleZone>()
     private val spawnPoints = mutableListOf<PointF>()
     private var basePoint = PointF(0f, 0f)
     private val cardClipPath = Path()
@@ -85,13 +86,16 @@ class MapPreviewView @JvmOverloads constructor(
 
         cachedPaths.clear()
         spawnPoints.clear()
+        cachedObstacles.clear()
 
         val bx = w * 0.50f
         val by = h * 0.88f
         basePoint.set(bx, by)
 
-        // Generate deterministic canonical waypoints for this map preview (seed 42)
-        val gamePaths = MapPathGenerator.generate(currentMapType, w, h, bx, by, Random(42L))
+        // Generate deterministic canonical waypoints and obstacles for this map preview (seed 42)
+        val layout = MapPathGenerator.generateLayout(currentMapType, w, h, bx, by, Random(42L))
+        val gamePaths = layout.paths
+        cachedObstacles.addAll(layout.obstacles)
         for (gp in gamePaths) {
             val p = Path()
             val wps = gp.waypoints
@@ -218,6 +222,29 @@ class MapPreviewView @JvmOverloads constructor(
             landmarkPaint.color = 0x9990A4AE.toInt()
             canvas.drawCircle(cx, cy, 18f, landmarkPaint)
             landmarkPaint.style = Paint.Style.FILL
+        }
+
+        // 3.5 Terrain Obstacles Preview
+        for (obs in cachedObstacles) {
+            val ox = obs.x
+            val oy = obs.y
+            val r = obs.radius * 0.65f
+            when (obs.type) {
+                ObstacleType.BOULDER -> {
+                    landmarkPaint.color = 0xFF455A64.toInt()
+                    canvas.drawCircle(ox, oy, r, landmarkPaint)
+                    landmarkPaint.color = 0xFF78909C.toInt()
+                    canvas.drawCircle(ox - r * 0.3f, oy - r * 0.3f, r * 0.4f, landmarkPaint)
+                }
+                ObstacleType.CHASM -> {
+                    landmarkPaint.color = 0xFF0A0D14.toInt()
+                    canvas.drawOval(ox - r * 1.1f, oy - r * 0.4f, ox + r * 1.1f, oy + r * 0.4f, landmarkPaint)
+                }
+                ObstacleType.RUINS -> {
+                    landmarkPaint.color = 0xFF546E7A.toInt()
+                    canvas.drawRoundRect(ox - r, oy - r * 0.5f, ox + r, oy + r * 0.5f, 2f, 2f, landmarkPaint)
+                }
+            }
         }
 
         // 4. Paths with Layered Stroke

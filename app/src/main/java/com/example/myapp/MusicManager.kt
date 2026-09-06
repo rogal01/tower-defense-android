@@ -82,38 +82,54 @@ object MusicManager {
             var phasePad2 = 0.0
             var phaseLead = 0.0
 
-            // Musical tempo: 105 BPM -> ~0.571s per beat -> ~25,183 samples per beat
-            // 16th note = ~6,295 samples
             var beatSampleCounter = 0L
-            val samplesPer16th = (SAMPLE_RATE * 60.0 / (105.0 * 4.0)).toInt()
 
-            // Frequencies for D minor / Dorian scale
-            // D2, F2, G2, A2, Bb2, C3, D3, E3, F3, G3, A3, C4, D4
+            // Note frequencies for D minor / Aeolian mode
             val d2 = 73.42
             val f2 = 87.31
             val g2 = 98.00
             val a2 = 110.00
             val bb2 = 116.54
             val c3 = 130.81
+            val cs3 = 138.59
             val d3 = 146.83
+            val e3 = 164.81
             val f3 = 174.61
             val a3 = 220.00
+            val bb3 = 233.08
             val c4 = 261.63
+            val cs4 = 277.18
             val d4 = 293.66
             val e4 = 329.63
             val f4 = 349.23
+            val g4 = 392.00
             val a4 = 440.00
+            val bb4 = 466.16
 
-            // Chord progression across 4 bars (Dm -> Bb -> C -> Am)
-            val padChords = arrayOf(
-                doubleArrayOf(d3, f3, a3),  // Dm
-                doubleArrayOf(bb2, d3, f3), // Bb
-                doubleArrayOf(c3, e4 / 2.0, g2 * 2.0), // C
-                doubleArrayOf(a2, c3, e4 / 2.0)  // Am
+            // Battle chords (4 bars: Dm -> Bb -> C -> Am)
+            val battleChords = arrayOf(
+                doubleArrayOf(d3, f3, a3),
+                doubleArrayOf(bb2, d3, f3),
+                doubleArrayOf(c3, e4 / 2.0, g2 * 2.0),
+                doubleArrayOf(a2, c3, e4 / 2.0)
             )
-            val bassNotes = doubleArrayOf(d2, bb2, c3, a2)
+            val battleBass = doubleArrayOf(d2, bb2, c3, a2)
 
-            // Battle melody motifs (16 steps per bar, 4 bars = 64 steps)
+            // Menu Chords: 8-bar dark fantasy modal soundscape
+            // (Dm -> Bb -> F -> C -> Gm -> Dm -> Bb -> A)
+            val menuChords = arrayOf(
+                doubleArrayOf(d3, f3, a3),       // Dm
+                doubleArrayOf(bb2, d3, f3),      // Bb
+                doubleArrayOf(f3, a3, c4),       // F
+                doubleArrayOf(c3, e3, g2 * 2.0), // C
+                doubleArrayOf(g2 * 2.0, bb3, d4),// Gm
+                doubleArrayOf(d3, f3, a3),       // Dm
+                doubleArrayOf(bb2, d3, f3),      // Bb
+                doubleArrayOf(a2, cs3 * 2.0, e4 / 2.0) // A
+            )
+            val menuBass = doubleArrayOf(d2, bb2, f2, c3, g2, d2, bb2, a2)
+
+            // Battle melody motifs (64 steps)
             val battleMelody = doubleArrayOf(
                 d4, 0.0, f4, d4,   a4, 0.0, f4, 0.0,  d4, e4, f4, d4,   c4, 0.0, d4, 0.0,
                 bb2 * 2, 0.0, d4, f4,  a4, 0.0, f4, 0.0,  bb2 * 2, d4, f4, a4,  g2 * 2, 0.0, f4, e4,
@@ -121,12 +137,24 @@ object MusicManager {
                 a3, 0.0, c4, e4,   a4, 0.0, g2 * 2, 0.0,  f4, e4, d4, c4,  d4, 0.0, 0.0, 0.0
             )
 
-            // Menu melody motifs (peaceful, spacious harp arpeggios)
+            // Menu melody motifs: spacious, dark fantasy acoustic harp & bell chimes (128 steps, 8 bars)
             val menuMelody = doubleArrayOf(
-                d3, 0.0, a3, 0.0,  d4, 0.0, f4, 0.0,  a4, 0.0, f4, 0.0,  d4, 0.0, a3, 0.0,
-                bb2, 0.0, f3, 0.0, bb2 * 2, 0.0, d4, 0.0, f4, 0.0, d4, 0.0, bb2 * 2, 0.0, f3, 0.0,
-                c3, 0.0, g2 * 2, 0.0, c4, 0.0, e4, 0.0, g2 * 4, 0.0, e4, 0.0, c4, 0.0, g2 * 2, 0.0,
-                a2, 0.0, e4 / 2, 0.0, a3, 0.0, c4, 0.0, e4, 0.0, c4, 0.0, a3, 0.0, e4 / 2, 0.0
+                // Bar 1: Dm
+                d4, 0.0, 0.0, 0.0,  a4, 0.0, 0.0, 0.0,  f4, 0.0, 0.0, 0.0,  d4, 0.0, e4, 0.0,
+                // Bar 2: Bb
+                f4, 0.0, 0.0, 0.0,  d4, 0.0, 0.0, 0.0,  bb3, 0.0, 0.0, 0.0, d4, 0.0, 0.0, 0.0,
+                // Bar 3: F
+                c4, 0.0, 0.0, 0.0,  a4, 0.0, 0.0, 0.0,  f4, 0.0, 0.0, 0.0,  a4, 0.0, 0.0, 0.0,
+                // Bar 4: C
+                g4, 0.0, 0.0, 0.0,  e4, 0.0, 0.0, 0.0,  c4, 0.0, 0.0, 0.0,  e4, 0.0, 0.0, 0.0,
+                // Bar 5: Gm
+                d4, 0.0, 0.0, 0.0,  bb4, 0.0, 0.0, 0.0, g4, 0.0, 0.0, 0.0,  f4, 0.0, 0.0, 0.0,
+                // Bar 6: Dm
+                f4, 0.0, 0.0, 0.0,  d4, 0.0, 0.0, 0.0,  a3, 0.0, 0.0, 0.0,  d4, 0.0, 0.0, 0.0,
+                // Bar 7: Bb
+                d4, 0.0, 0.0, 0.0,  f4, 0.0, 0.0, 0.0,  bb4, 0.0, 0.0, 0.0, a4, 0.0, 0.0, 0.0,
+                // Bar 8: A
+                g4, 0.0, 0.0, 0.0,  e4, 0.0, 0.0, 0.0,  cs4, 0.0, 0.0, 0.0, d4, 0.0, 0.0, 0.0
             )
 
             var currentChordIdx = 0
@@ -159,6 +187,11 @@ object MusicManager {
 
                 val isBattle = currentTrack == Track.BATTLE
                 val melodyArr = if (isBattle) battleMelody else menuMelody
+                val chordArr = if (isBattle) battleChords else menuChords
+                val bassArr = if (isBattle) battleBass else menuBass
+                val totalSteps = if (isBattle) 64 else 128
+                val bpm = if (isBattle) 105.0 else 72.0
+                val samplesPer16th = (SAMPLE_RATE * 60.0 / (bpm * 4.0)).toInt()
 
                 // Weather audio targets in battle mode
                 if (isBattle) {
@@ -174,8 +207,8 @@ object MusicManager {
                 for (i in 0 until chunkSize) {
                     // Update musical step
                     if (beatSampleCounter % samplesPer16th == 0L) {
-                        val activeStep = (step16th % 64)
-                        currentChordIdx = (activeStep / 16) % 4
+                        val activeStep = (step16th % totalSteps)
+                        currentChordIdx = (activeStep / 16) % chordArr.size
                         val rawMelody = melodyArr[activeStep]
                         if (rawMelody > 0.0) {
                             currentTargetLeadFreq = rawMelody
@@ -190,27 +223,24 @@ object MusicManager {
                     currentLeadFreq += (currentTargetLeadFreq - currentLeadFreq) * 0.005
 
                     // Lead envelope (gentle plucked decay)
-                    val leadEnv = exp(-stepProgress * (if (isBattle) 4.0 else 2.5))
+                    val leadEnv = exp(-stepProgress * (if (isBattle) 4.0 else 1.8))
 
                     // Voice 1: Bass
-                    val bassTarget = bassNotes[currentChordIdx]
-                    val bassEnv = if (isBattle) exp(-(stepProgress % 0.5) * 6.0) else exp(-stepProgress * 3.0)
-                    val sBass = fastSin(phaseBass) * bassEnv * 0.35
+                    val bassTarget = bassArr[currentChordIdx]
+                    val bassEnv = if (isBattle) exp(-(stepProgress % 0.5) * 6.0) else exp(-stepProgress * 1.5)
+                    val sBass = fastSin(phaseBass) * bassEnv * (if (isBattle) 0.35 else 0.28)
 
-                    // Voice 2 & 3: Warm Pad Chords
-                    val chord = padChords[currentChordIdx]
-                    val sPad1 = fastSin(phasePad1) * 0.18
-                    val sPad2 = fastSin(phasePad2) * 0.15
+                    // Voice 2 & 3: Warm Detuned Pad Chords
+                    val chord = chordArr[currentChordIdx]
+                    val sPad1 = fastSin(phasePad1) * (if (isBattle) 0.18 else 0.22)
+                    val sPad2 = fastSin(phasePad2) * (if (isBattle) 0.15 else 0.19)
 
-                    // Voice 4: Melody Lead (crystalline sine + soft 2nd harmonic)
+                    // Voice 4: Melody Lead (crystalline harp / bells with soft 2nd harmonic)
                     val sLead = if (currentLeadFreq > 20.0) {
-                        (fastSin(phaseLead) * 0.7f + fastSin(phaseLead * 2.0) * 0.3f) * leadEnv * (if (isBattle) 0.30 else 0.22)
+                        (fastSin(phaseLead) * 0.7f + fastSin(phaseLead * 2.0) * 0.3f) * leadEnv * (if (isBattle) 0.30 else 0.25)
                     } else 0.0
 
-                    // Dynamic Percussion:
-                    // During inter-wave preparation: calm acoustic arrangement (no kick)
-                    // During active wave: driving combat kicks on 1 & 3
-                    // Boss encounters: intense taiko/war-drum double-kicks
+                    // Dynamic Percussion: only during battle wave action
                     val sPerc = if (isBattle && isWaveActive) {
                         val isKickStep = if (isBossPresent) {
                             (step16th % 8 == 1 || step16th % 8 == 3 || step16th % 8 == 5)
@@ -218,16 +248,14 @@ object MusicManager {
                             (step16th % 8 == 1 || step16th % 8 == 5)
                         }
                         val kickEnv = if (isKickStep) exp(-stepProgress * (if (isBossPresent) 8.0 else 12.0)) else 0.0
-                        val kickTone = fastSin(phaseBass * 0.75) * kickEnv * (if (isBossPresent) 0.36 else 0.25)
-                        kickTone
+                        fastSin(phaseBass * 0.75) * kickEnv * (if (isBossPresent) 0.36 else 0.25)
                     } else 0.0
 
-                    // Smooth slew for atmospheric weather audio gains
+                    // Atmospheric weather slew & layers
                     currentRainGain += (targetRainGain - currentRainGain) * 0.0003
                     currentBloodGain += (targetBloodGain - currentBloodGain) * 0.0003
                     currentAstralGain += (targetAstralGain - currentAstralGain) * 0.0003
 
-                    // Weather Layer 1: Thunderstorm Pink-Noise Rainfall
                     val sRain = if (currentRainGain > 0.001) {
                         val rawNoise = atmoRng.nextDouble() * 2.0 - 1.0
                         rainLp1 += 0.07 * (rawNoise - rainLp1)
@@ -235,12 +263,10 @@ object MusicManager {
                         rainLp2 * currentRainGain
                     } else 0.0
 
-                    // Weather Layer 2: Blood Moon Sub-Harmonic Drone (D1 36.71Hz)
                     val sBlood = if (currentBloodGain > 0.001) {
                         fastSin(phaseBloodDrone) * (0.8f + 0.2f * fastSin(phaseBloodDrone * 0.15)) * currentBloodGain
                     } else 0.0
 
-                    // Weather Layer 3: Solar Eclipse Ethereal Astral Shimmer
                     val sAstral = if (currentAstralGain > 0.001) {
                         (fastSin(phaseAstral) * 0.6f + fastSin(phaseAstral * 1.5) * 0.4f) * currentAstralGain
                     } else 0.0
@@ -248,10 +274,11 @@ object MusicManager {
                     val mix = (sBass + sPad1 + sPad2 + sLead + sPerc + sRain + sBlood + sAstral) * vol
                     buf[i] = (mix * 32767).toInt().coerceIn(-32768, 32767).toShort()
 
-                    // Advance oscillator phases
+                    // Advance oscillator phases with subtle pad detune
                     phaseBass += 2.0 * PI * bassTarget / SAMPLE_RATE
-                    phasePad1 += 2.0 * PI * chord[0] / SAMPLE_RATE
-                    phasePad2 += 2.0 * PI * chord[1] / SAMPLE_RATE
+                    val padDetune = if (!isBattle) 1.0015 else 1.0
+                    phasePad1 += 2.0 * PI * (chord[0] * padDetune) / SAMPLE_RATE
+                    phasePad2 += 2.0 * PI * (chord[1] / padDetune) / SAMPLE_RATE
                     if (currentLeadFreq > 20.0) {
                         phaseLead += 2.0 * PI * currentLeadFreq / SAMPLE_RATE
                     }
@@ -263,7 +290,7 @@ object MusicManager {
                     }
                 }
 
-                // Wrap phases to prevent precision drift
+                // Wrap phases
                 phaseBass %= (2.0 * PI)
                 phasePad1 %= (2.0 * PI)
                 phasePad2 %= (2.0 * PI)

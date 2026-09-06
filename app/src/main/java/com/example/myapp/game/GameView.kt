@@ -12,6 +12,7 @@ import android.view.HapticFeedbackConstants
 import android.view.MotionEvent
 import android.view.SurfaceHolder
 import android.view.SurfaceView
+import android.view.WindowManager
 import com.example.myapp.AndroidGameAudio
 import com.example.myapp.GameStrings
 import com.example.myapp.MusicManager
@@ -234,10 +235,27 @@ class GameView @JvmOverloads constructor(
     private val arrowPaint = Paint().apply { isAntiAlias = true; style = Paint.Style.FILL }
     private val arrowPath = Path()
 
-    // Battery saver / adaptive performance
+    // Battery saver / adaptive performance / 120 FPS high refresh rate
     private var batterySaverOn = false
     private var lastBatteryCheck = 0L
-    private val frameMs: Long get() = if (batterySaverOn) 33L else 16L  // 30 vs 60 fps
+    private var detectedRefreshRate: Float = 60f
+    private val frameMs: Long
+        get() = if (batterySaverOn) 33L else (1000f / detectedRefreshRate).toLong().coerceIn(4L, 16L)
+
+    private fun detectRefreshRate() {
+        val display = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+            context.display
+        } else {
+            @Suppress("DEPRECATION")
+            (context.getSystemService(Context.WINDOW_SERVICE) as? WindowManager)?.defaultDisplay
+        }
+        val rate = display?.refreshRate ?: 60f
+        detectedRefreshRate = when {
+            rate >= 110f -> 120f
+            rate >= 85f -> 90f
+            else -> 60f
+        }
+    }
 
     init {
         holder.addCallback(this)
@@ -248,6 +266,7 @@ class GameView @JvmOverloads constructor(
     fun getEngine(): GameEngine = engine
 
     override fun surfaceCreated(holder: SurfaceHolder) {
+        detectRefreshRate()
         SpriteManager.initialize()
         engine.init(width.toFloat(), height.toFloat())
         updateThemeColors()
@@ -754,6 +773,16 @@ class GameView @JvmOverloads constructor(
                 pathPaint.strokeWidth = 36f
                 canvas.drawPath(p, pathPaint)
             }
+            // Red highlight on obstacles: can't place towers on boulders, chasms, ruins
+            for (obs in engine.obstacleZones) {
+                pathPaint.style = Paint.Style.FILL
+                pathPaint.color = 0x33FF1744.toInt()
+                canvas.drawCircle(obs.x, obs.y, obs.radius + 12f, pathPaint)
+                pathPaint.style = Paint.Style.STROKE
+                pathPaint.strokeWidth = 3f
+                pathPaint.color = 0x99FF1744.toInt()
+                canvas.drawCircle(obs.x, obs.y, obs.radius + 12f, pathPaint)
+            }
         } else if (trapPlacementMode != null) {
             // Green highlight: can only place traps near paths
             for (p in pathCache) {
@@ -817,6 +846,9 @@ class GameView @JvmOverloads constructor(
             paint.style = Paint.Style.FILL
             paint.alpha = 255
         }
+
+        // Strategic Terrain Obstacles (boulders, chasms, ancient ruins)
+        drawObstacles(canvas)
 
         // Decorations (trees, rocks, bushes, flowers)
         drawDecorations(canvas)
@@ -2625,6 +2657,73 @@ class GameView @JvmOverloads constructor(
         val last = waypoints.last()
         p.lineTo(last.x, last.y)
         return p
+    }
+
+    /** Draw strategic terrain obstacles (boulders, chasms, ancient ruins) */
+    private fun drawObstacles(canvas: Canvas) {
+        if (engine.obstacleZones.isEmpty()) return
+        for (obs in engine.obstacleZones) {
+            val ox = obs.x
+            val oy = obs.y
+            val r = obs.radius
+            when (obs.type) {
+                ObstacleType.BOULDER -> {
+                    // Soft drop shadow
+                    terrainPaint.color = 0x55000000
+                    canvas.drawOval(ox - r * 1.1f, oy + r * 0.3f, ox + r * 1.1f, oy + r * 0.9f, terrainPaint)
+                    // Slate boulder body
+                    terrainPaint.color = 0xFF455A64.toInt()
+                    canvas.drawCircle(ox, oy, r, terrainPaint)
+                    // Facet shadow
+                    terrainPaint.color = 0xFF37474F.toInt()
+                    canvas.drawCircle(ox + r * 0.25f, oy + r * 0.25f, r * 0.7f, terrainPaint)
+                    // Top highlight
+                    terrainPaint.color = 0xFF78909C.toInt()
+                    canvas.drawCircle(ox - r * 0.3f, oy - r * 0.3f, r * 0.45f, terrainPaint)
+                    // Crack lines
+                    terrainPaint.color = 0xFF263238.toInt()
+                    terrainPaint.strokeWidth = 2.5f
+                    terrainPaint.style = Paint.Style.STROKE
+                    canvas.drawLine(ox - r * 0.35f, oy, ox, oy + r * 0.3f, terrainPaint)
+                    canvas.drawLine(ox, oy + r * 0.3f, ox + r * 0.3f, oy + r * 0.1f, terrainPaint)
+                    terrainPaint.style = Paint.Style.FILL
+                }
+                ObstacleType.CHASM -> {
+                    // Dark abyssal fissure
+                    terrainPaint.color = 0xDD10121A.toInt()
+                    canvas.drawOval(ox - r * 1.2f, oy - r * 0.5f, ox + r * 1.2f, oy + r * 0.5f, terrainPaint)
+                    // Inner depth
+                    terrainPaint.color = 0xFF05060A.toInt()
+                    canvas.drawOval(ox - r * 0.9f, oy - r * 0.3f, ox + r * 0.9f, oy + r * 0.3f, terrainPaint)
+                    // Glow rim
+                    terrainPaint.style = Paint.Style.STROKE
+                    terrainPaint.strokeWidth = 2.5f
+                    terrainPaint.color = when (engine.mapType) {
+                        MapType.LAVA, MapType.VOLCANO -> 0x99FF3D00.toInt()
+                        MapType.SNOW -> 0x8880D8FF.toInt()
+                        MapType.ENCHANTED -> 0x88E040FB.toInt()
+                        else -> 0x6678909C.toInt()
+                    }
+                    canvas.drawOval(ox - r * 1.2f, oy - r * 0.5f, ox + r * 1.2f, oy + r * 0.5f, terrainPaint)
+                    terrainPaint.style = Paint.Style.FILL
+                }
+                ObstacleType.RUINS -> {
+                    // Ancient stone slab & fallen column
+                    terrainPaint.color = 0x55000000
+                    canvas.drawRoundRect(ox - r + 3f, oy - r * 0.6f + 3f, ox + r + 3f, oy + r * 0.6f + 3f, 4f, 4f, terrainPaint)
+                    terrainPaint.color = 0xFF546E7A.toInt()
+                    canvas.drawRoundRect(ox - r, oy - r * 0.6f, ox + r, oy + r * 0.6f, 4f, 4f, terrainPaint)
+                    // Broken pillar
+                    terrainPaint.color = 0xFF90A4AE.toInt()
+                    canvas.drawCircle(ox - r * 0.4f, oy - r * 0.1f, r * 0.4f, terrainPaint)
+                    terrainPaint.color = 0xFF37474F.toInt()
+                    canvas.drawCircle(ox - r * 0.4f, oy - r * 0.1f, r * 0.25f, terrainPaint)
+                    // Weathered moss
+                    terrainPaint.color = 0xAA2E7D32.toInt()
+                    canvas.drawCircle(ox + r * 0.3f, oy + r * 0.15f, r * 0.22f, terrainPaint)
+                }
+            }
+        }
     }
 
     /** Draw terrain decorations — trees, rocks, bushes, flowers */

@@ -64,6 +64,13 @@ class MainActivity : ImmersiveActivity() {
         setContentView(binding.root)
         supportActionBar?.hide()
 
+        // Request 120 FPS high refresh rate on supported displays
+        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.R) {
+            window.attributes = window.attributes.apply {
+                preferredRefreshRate = 120f
+            }
+        }
+
         SoundManager.init(this)
         GameStrings.init(this)
 
@@ -1164,7 +1171,6 @@ class MainActivity : ImmersiveActivity() {
         super.onResume()
         binding.gameView.resume()
         cooldownHandler.post(cooldownRunnable)
-        MusicManager.playTrack(MusicManager.Track.BATTLE)
     }
 
     @Deprecated("Use OnBackPressedDispatcher")

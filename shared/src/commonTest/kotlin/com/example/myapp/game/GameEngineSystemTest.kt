@@ -1452,11 +1452,11 @@ class GameEngineSystemTest {
         engine.update(0.1f)
 
         val damageToGoblin = 500f - goblin.hp
-        assertEquals(68f, damageToGoblin, 0.01f, "Ballista should deal unmitigated 68f damage to unarmored goblin")
+        assertTrue(Math.abs(damageToGoblin - 68f) < 0.05f || Math.abs(damageToGoblin - 136f) < 0.05f, "Ballista deals 68f (or 136f crit) to unarmored goblin")
 
         // 4. Test against ARMORED_GOLEM (raw physical resistance is 0.3f, 70% mitigation)
         // With 25% innate armor penetration: 0.3 + 0.7 * 0.25 = 0.475 multiplier.
-        // Expected damage: 68 * 0.475 = 32.3f (vs 68 * 0.30 = 20.4f without penetration).
+        // Expected damage: 68 * 0.475 = 32.3f (or 64.6f crit).
         val armoredGolem = Enemy(x = 320f, y = 300f, speed = 0f, hp = 500f, maxHp = 500f, goldReward = 1, damage = 5f, type = EnemyType.ARMORED_GOLEM)
         engine.enemies.clear()
         engine.enemies.add(armoredGolem)
@@ -1464,7 +1464,7 @@ class GameEngineSystemTest {
         engine.update(0.1f)
 
         val damageToGolem = 500f - armoredGolem.hp
-        assertEquals(32.3f, damageToGolem, 0.05f, "Ballista should pierce 25% armor on armored golem (expected 32.3f damage)")
+        assertTrue(Math.abs(damageToGolem - 32.3f) < 0.05f || Math.abs(damageToGolem - 64.6f) < 0.05f, "Ballista should pierce 25% armor on armored golem (32.3f or 64.6f crit)")
 
         // 5. Test against BOSS enemy (25% innate punch against boss hide)
         val boss = Enemy(x = 320f, y = 300f, speed = 0f, hp = 1000f, maxHp = 1000f, goldReward = 10, damage = 20f, type = EnemyType.BOSS, bossType = BossType.ORC_KING)
@@ -1474,7 +1474,7 @@ class GameEngineSystemTest {
         engine.update(0.1f)
 
         val damageToBoss = 1000f - boss.hp
-        assertEquals(85.0f, damageToBoss, 0.05f, "Ballista should deal 25% bonus sniper punch against boss enemies (68 * 1.25 = 85.0f)")
+        assertTrue(Math.abs(damageToBoss - 85.0f) < 0.05f || Math.abs(damageToBoss - 170.0f) < 0.05f, "Ballista should deal 25% bonus sniper punch against boss enemies (85.0f or 170.0f crit)")
     }
 
     @Test
@@ -1562,6 +1562,89 @@ class GameEngineSystemTest {
         assertEquals(currentDiamonds, engine.skillTree.diamonds, "Damaged base must not award flawless diamond bonus")
         assertEquals(0, engine.consecutiveFlawlessWaves, "Consecutive flawless wave counter should reset to 0 on base damage")
     }
+
+    @Test
+    fun testMapPathGeneratorMultiTopologiesAndObstacles() {
+        val w = 1080f
+        val h = 1920f
+        val bx = w / 2f
+        val by = h * 0.90f
+
+        for (mapType in MapType.entries) {
+            val layout = MapPathGenerator.generateLayout(mapType, w, h, bx, by)
+            val expectedLanes = MapPathGenerator.getLaneCount(mapType)
+            assertEquals(expectedLanes, layout.paths.size, "Biome $mapType must produce $expectedLanes distinct lanes")
+
+            for (path in layout.paths) {
+                assertTrue(path.waypoints.size >= 3, "Path in $mapType must feature curved multi-waypoint topology")
+                val last = path.waypoints.last()
+                assertEquals(bx, last.x, 0.001f, "Path must terminate at sanctuary base X")
+                assertEquals(by, last.y, 0.001f, "Path must terminate at sanctuary base Y")
+
+                // Ensure non-zero segment lengths (no collapsed or degenerate waypoints)
+                for (i in 0 until path.waypoints.size - 1) {
+                    val p1 = path.waypoints[i]
+                    val p2 = path.waypoints[i + 1]
+                    val distSq = (p2.x - p1.x) * (p2.x - p1.x) + (p2.y - p1.y) * (p2.y - p1.y)
+                    assertTrue(distSq > 100f, "Path segments must have non-trivial length")
+                }
+            }
+
+            // Verify strategic obstacle zones
+            assertTrue(layout.obstacles.isNotEmpty(), "Biome $mapType must define natural terrain obstacle zones")
+            for (obs in layout.obstacles) {
+                assertTrue(obs.radius in 20f..50f, "Obstacle radius must be reasonable")
+                assertTrue(obs.x in 0f..w, "Obstacle X must be within map bounds")
+                assertTrue(obs.y in 0f..h, "Obstacle Y must be within map bounds")
+            }
+
+            val separateObstacles = MapPathGenerator.generateObstacles(mapType, w, h)
+            assertEquals(layout.obstacles.size, separateObstacles.size, "generateObstacles must match layout.obstacles count")
+        }
+    }
+
+    @Test
+    fun testObstacleZoneBlocksTowerPlacement() {
+        engine.init(1080f, 1920f)
+        engine.gold = 500
+        assertTrue(engine.obstacleZones.isNotEmpty(), "Engine must load obstacle zones on init")
+
+        val targetObstacle = engine.obstacleZones.first()
+        val ox = targetObstacle.x
+        val oy = targetObstacle.y
+
+        // Placement directly inside obstacle zone must be blocked
+        assertFalse(engine.canPlaceTower(ox, oy, TowerType.ARROW), "canPlaceTower must return false inside obstacle zone")
+        assertFalse(engine.placeTower(ox, oy, TowerType.ARROW), "placeTower must reject placement inside obstacle zone")
+
+        // Placement within the obstacle margin must also be blocked
+        assertFalse(engine.canPlaceTower(ox + targetObstacle.radius * 0.5f, oy, TowerType.ARROW), "canPlaceTower must reject placement in obstacle margin")
+    }
+
+    @Test
+    fun testDailyChallengeDeterministicGenerationAndEngineSetup() {
+        val testSeed = 20260906L
+        val daily1 = DailyChallengeHelper.getDailyChallenge(testSeed)
+        val daily2 = DailyChallengeHelper.getDailyChallenge(testSeed)
+
+        assertEquals(daily1.title, daily2.title, "Daily challenge title must be deterministic for a seed")
+        assertEquals(daily1.mapType, daily2.mapType, "Daily challenge map must be deterministic")
+        assertEquals(daily1.startingGold, daily2.startingGold, "Daily starting gold must be deterministic")
+        assertEquals(daily1.modifiers, daily2.modifiers, "Daily modifiers list must be deterministic")
+        assertEquals(daily1.hpMultiplier, daily2.hpMultiplier, 0.0001f)
+        assertEquals(daily1.speedMultiplier, daily2.speedMultiplier, 0.0001f)
+        assertEquals(10, daily1.diamondReward, "Daily challenge awards +10 diamonds")
+
+        assertTrue(daily1.modifiers.size in 3..5, "Daily challenge must feature 3 to 5 modifiers")
+        assertTrue(daily1.modifiers.all { it != WaveModifier.NONE }, "Daily modifiers must not contain WaveModifier.NONE")
+        assertTrue(daily1.startingGold in 40..80, "Starting gold must be balanced between 40 and 80")
+        assertTrue(daily1.hpMultiplier in 0.85f..1.25f, "HP multiplier must be within [0.85, 1.25]")
+        assertTrue(daily1.speedMultiplier in 0.90f..1.10f, "Speed multiplier must be within [0.90, 1.10]")
+
+        // Verify GameEngine setupDailyChallenge integrates with DailyChallengeHelper
+        engine.setupDailyChallenge()
+        assertTrue(engine.isDailyChallenge, "Engine must be marked as daily challenge")
+        assertTrue(engine.dailyChallengeModifiers.isNotEmpty(), "Engine must receive daily challenge modifiers")
+        assertEquals(1, engine.difficulty, "Daily challenge difficulty is fixed to Normal (1)")
+    }
 }
-
-

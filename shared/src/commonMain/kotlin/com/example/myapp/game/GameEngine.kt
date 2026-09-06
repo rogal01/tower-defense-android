@@ -192,6 +192,7 @@ class GameEngine(val prefs: GamePreferences, val audio: GameAudio = SilentAudio)
     val blockades = mutableListOf<Blockade>()
     val traps = mutableListOf<Trap>()
     val activeFirePatches = mutableListOf<FirePatch>()
+    val obstacleZones = mutableListOf<ObstacleZone>()
     val discoveredFusions: MutableSet<String> = prefs.getString("discovered_fusions", "").split(",").filter { it.isNotBlank() }.toMutableSet()
     private var isEchoingConduit: Boolean = false
     val supplyDrops = mutableListOf<SupplyDrop>()
@@ -867,8 +868,10 @@ class GameEngine(val prefs: GamePreferences, val audio: GameAudio = SilentAudio)
             volcanoCenterY = vc.second
         }
 
-        val generated = MapPathGenerator.generate(mapType, w, h, bx, by, rng)
-        paths.addAll(generated)
+        val layout = MapPathGenerator.generateLayout(mapType, w, h, bx, by, rng)
+        paths.addAll(layout.paths)
+        obstacleZones.clear()
+        obstacleZones.addAll(layout.obstacles)
 
         paths.forEach { path ->
             val sp = path.spawnPoint
@@ -884,24 +887,14 @@ class GameEngine(val prefs: GamePreferences, val audio: GameAudio = SilentAudio)
 
     fun setupDailyChallenge() {
         isDailyChallenge = true
-        // Seed based on current day
-        val cal = java.util.Calendar.getInstance()
-        dailyChallengeSeed = (cal.get(java.util.Calendar.YEAR) * 10000L +
-                (cal.get(java.util.Calendar.MONTH) + 1) * 100L + cal.get(java.util.Calendar.DAY_OF_MONTH))
-        val rng = java.util.Random(dailyChallengeSeed)
-        val allMods = WaveModifier.entries.filter { it != WaveModifier.NONE }
-        val modCount = 3 + rng.nextInt(3) // 3-5 modifiers
-        dailyChallengeModifiers = List(modCount) { allMods[rng.nextInt(allMods.size)] }
-        // Daily challenge uses fixed difficulty
+        val challenge = DailyChallengeHelper.getDailyChallenge()
+        dailyChallengeSeed = challenge.seed
+        dailyChallengeModifiers = challenge.modifiers
         applyDifficulty(1)
-        // Deterministic daily map
-        mapType = MapType.entries[rng.nextInt(MapType.entries.size)]
-        // Slightly varied starting gold (40-80)
-        gold = 40 + rng.nextInt(41)
-        // Random enemy scaling twist
-        val twistMult = 0.85f + rng.nextFloat() * 0.4f  // 0.85 - 1.25
-        enemyHpMult *= twistMult
-        enemySpeedMult *= (0.9f + rng.nextFloat() * 0.2f)
+        mapType = challenge.mapType
+        gold = challenge.startingGold
+        enemyHpMult *= challenge.hpMultiplier
+        enemySpeedMult *= challenge.speedMultiplier
     }
 
     /** Set up randomizer mode — scramble tower costs, power cooldowns, multipliers, etc. */
@@ -3976,6 +3969,10 @@ class GameEngine(val prefs: GamePreferences, val audio: GameAudio = SilentAudio)
         val distToBase = Math.sqrt(((x - baseX) * (x - baseX) + (y - baseY) * (y - baseY)).toDouble()).toFloat()
         if (distToBase < 60f) return false
 
+        for (zone in obstacleZones) {
+            if (zone.contains(x, y, margin = 20f)) return false
+        }
+
         for (gamePath in paths) {
             val wps = gamePath.waypoints
             for (i in 0 until wps.size - 1) {
@@ -4006,6 +4003,10 @@ class GameEngine(val prefs: GamePreferences, val audio: GameAudio = SilentAudio)
         if (distToBase < 60f) return false
 
         // Block placement on/near enemy paths
+        for (zone in obstacleZones) {
+            if (zone.contains(x, y, margin = 20f)) return false
+        }
+
         for (gamePath in paths) {
             val wps = gamePath.waypoints
             for (i in 0 until wps.size - 1) {
