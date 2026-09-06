@@ -78,6 +78,24 @@ data class Enemy(
     var superconductTimer: Float = 0f
     /** Stun timer — when > 0, enemy cannot move or attack */
     var stunTimer: Float = 0f
+    /** Dark curse mark from Necro tower */
+    var necroMarkTimer: Float = 0f
+    /** Bombardment mark from Cannon tower */
+    var bombardTimer: Float = 0f
+    /** Solar burn timer — suppresses all enemy HP regen */
+    var solarBurnTimer: Float = 0f
+    /** Conduit resonance timer — echoes damage taken to other linked enemies */
+    var conduitTimer: Float = 0f
+    /** Astral decay timer — necrotic DoT and resistance shred */
+    var astralDecayTimer: Float = 0f
+    /** Soulburn timer — cursed flames that spawn a vengeful phantom on death */
+    var soulburnTimer: Float = 0f
+    /** Brittle timer — enemy takes +40% increased physical and explosive damage */
+    var brittleTimer: Float = 0f
+    /** Enfeeble timer — enemy deals 50% reduced damage to base and blockades */
+    var enfeebleTimer: Float = 0f
+    /** Silence timer — silences elite/boss ability charging and execution */
+    var silenceTimer: Float = 0f
     /** Tar slow timer — when > 0, enemy is slowed by tar trap */
     var tarSlowTimer: Float = 0f
     /** Last tower that hit this enemy — used for kill attribution */

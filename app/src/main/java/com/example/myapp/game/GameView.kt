@@ -870,6 +870,15 @@ class GameView @JvmOverloads constructor(
             }
         }
 
+        // === FIRE PATCHES (Napalm Conflagration) ===
+        for (fp in engine.activeFirePatches) {
+            val progress = (fp.duration / 3.0f).coerceIn(0f, 1f)
+            paint.color = ((0x55 * progress).toInt() shl 24) or 0x00FF3D00
+            canvas.drawCircle(fp.x, fp.y, fp.radius, paint)
+            paint.color = ((0x77 * progress).toInt() shl 24) or 0x00FFAB00
+            canvas.drawCircle(fp.x, fp.y, fp.radius * 0.55f, paint)
+        }
+
         // === SUPPLY DROP RENDERING ===
         for (drop in engine.supplyDrops) {
             val dx = drop.x; val dy = drop.y; val ds = drop.size
@@ -1224,6 +1233,34 @@ class GameView @JvmOverloads constructor(
             if (enemy.stunTimer > 0) {
                 paint.color = 0x55FFEB3B
                 canvas.drawCircle(enemy.x, enemy.y, enemy.size + 5f, paint)
+            }
+            if (enemy.solarBurnTimer > 0) {
+                paint.color = 0x55FFD700
+                canvas.drawCircle(enemy.x, enemy.y, enemy.size + 5f, paint)
+            }
+            if (enemy.soulburnTimer > 0) {
+                paint.color = 0x559C27B0
+                canvas.drawCircle(enemy.x, enemy.y, enemy.size + 6f, paint)
+            }
+            if (enemy.conduitTimer > 0) {
+                paint.color = 0x55E040FB
+                canvas.drawCircle(enemy.x, enemy.y, enemy.size + 5f, paint)
+            }
+            if (enemy.silenceTimer > 0) {
+                paint.color = 0x5500E5FF
+                canvas.drawCircle(enemy.x, enemy.y, enemy.size + 4f, paint)
+            }
+            if (enemy.brittleTimer > 0) {
+                paint.color = 0x5580DEEA
+                canvas.drawCircle(enemy.x, enemy.y, enemy.size + 4f, paint)
+            }
+            if (enemy.enfeebleTimer > 0) {
+                paint.color = 0x557C4DFF
+                canvas.drawCircle(enemy.x, enemy.y, enemy.size + 5f, paint)
+            }
+            if (enemy.astralDecayTimer > 0) {
+                paint.color = 0x55BA68C8
+                canvas.drawCircle(enemy.x, enemy.y, enemy.size + 6f, paint)
             }
 
             // HP bar — rounded with color gradient

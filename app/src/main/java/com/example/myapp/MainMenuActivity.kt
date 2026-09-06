@@ -221,6 +221,15 @@ class MainMenuActivity : ImmersiveActivity() {
             startActivity(Intent(this, BestiaryActivity::class.java))
         }
 
+        // Elemental Fusions Codex
+        findViewById<Button>(R.id.btn_fusions)?.setOnClickListener {
+            val discovered = prefs.getString("discovered_fusions", "")
+                ?.split(",")
+                ?.filter { it.isNotBlank() }
+                ?.toSet() ?: emptySet()
+            FusionCodexDialog.show(this, discovered)
+        }
+
         // Run History
         findViewById<Button>(R.id.btn_history).setOnClickListener {
             startActivity(Intent(this, RunHistoryActivity::class.java))

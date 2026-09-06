@@ -445,6 +445,7 @@ Każda wieża zadaje określony typ obrażeń. Wrogowie mają odporności i sła
             AchDef("booster_alchemist", "Elixir Draught", "Draft any 3-wave booster potion", "🧪", 15),
             AchDef("synergy_proc", "Elemental Fusion", "Trigger an Elemental Synergy in combat", "💥", 25),
             AchDef("synergy_master", "Elemental Catalyst", "Trigger 25 Elemental Reactions in a single game", "🔮", 35),
+            AchDef("fusion_scholar", "Fusion Scholar", "Discover all 14 Elemental & Arcane Fusions", "📜", 50),
             AchDef("pact_survivor", "Devil's Bargain", "Survive 5 waves while bound to a High-Stakes Pact", "📜", 30),
             AchDef("greed_curse_diamonds", "Avarice Reward", "Earn bonus diamonds through the Curse of Greed", "😈", 25),
             AchDef("weather_thunder", "Lightning Rod", "Clear a Thunderstorm wave without losing Base HP", "🌩️", 25),
@@ -536,6 +537,7 @@ Każda wieża zadaje określony typ obrażeń. Wrogowie mają odporności i sła
             AchDef("booster_alchemist", "Eliksir alchemika", "Wypij dowolną 3-falową miksturę wzmacniającą", "🧪", 15),
             AchDef("synergy_proc", "Elementarna fuzja", "Aktywuj elementarną synergię podczas walki", "💥", 25),
             AchDef("synergy_master", "Elementarny katalizator", "Aktywuj 25 reakcji elementarnych w jednej grze", "🔮", 35),
+            AchDef("fusion_scholar", "Uczony fuzji", "Odkryj wszystkie 14 elementarnych i tajemnych fuzji", "📜", 50),
             AchDef("pact_survivor", "Cyrograf", "Przetrwaj 5 fal będąc związanym Ryzykownym Paktem", "📜", 30),
             AchDef("greed_curse_diamonds", "Nagroda chciwości", "Zdobądź dodatkowe diamenty dzięki Klątwie Chciwości", "😈", 25),
             AchDef("weather_thunder", "Piorunochron", "Ukończ falę Burzy z piorunami bez utraty punktów bazy", "🌩️", 25),
@@ -835,4 +837,75 @@ Użyj 2× i 3× by przyspieszyć. Dotknij Pauza, by wstrzymać.
     fun bossChargingFmt(ability: String, seconds: Float) =
         if (isPl) "⚠️ ŁADOWANIE: $ability (${String.format("%.1f", seconds)}s)"
         else "⚠️ CHARGING: $ability (${String.format("%.1f", seconds)}s)"
+
+    // ─── Fusion Codex ───
+    val codexTitle get() = if (isPl) "⚡ KODEX FUZJI" else "⚡ FUSION CODEX"
+    val codexSubtitle get() = if (isPl) "Katalog 14 reakcji i syntez żywiołów" else "Catalog of 14 Elemental & Arcane Fusions"
+    val codexFilterAll get() = if (isPl) "Wszystkie" else "All"
+    val codexFilterElemental get() = if (isPl) "Elementarne" else "Elemental"
+    val codexFilterArcane get() = if (isPl) "Tajemne" else "Arcane"
+    val codexFilterDark get() = if (isPl) "Mroczne" else "Dark Arts"
+    val codexFilterSiege get() = if (isPl) "Oblężnicze" else "Siege"
+    val codexStatusDiscovered get() = if (isPl) "✅ ODKRYTA" else "✅ DISCOVERED"
+    val codexStatusUndiscovered get() = if (isPl) "🔒 ZABLOKOWANA" else "🔒 UNDISCOVERED"
+    val codexHintUndiscovered get() = if (isPl) "Połącz te żywioły na polu bitwy, aby odkryć pełną formułę!" else "Trigger this elemental reaction in combat to unveil the formula!"
+    val codexRoleLabel get() = if (isPl) "Rola taktyczna: " else "Tactical Role: "
+    val codexRecipeLabel get() = if (isPl) "Połączenie: " else "Combination: "
+    val codexClose get() = if (isPl) "Zamknij" else "Close"
+    fun codexDiscoveredCount(discovered: Int, total: Int) =
+        if (isPl) "Odkryto: $discovered / $total fuzji" else "Discovered: $discovered / $total Fusions"
+
+    fun getLocalizedFusionName(id: String): String = when (id) {
+        "steam_burst" -> if (isPl) "Wybuch Pary" else "Steam Burst"
+        "volatile_detonation" -> if (isPl) "Niestabilna Detonacja" else "Volatile Detonation"
+        "superconductor" -> if (isPl) "Nadprzewodnik" else "Superconductor"
+        "corrosive_shock" -> if (isPl) "Żrący Szok" else "Corrosive Shock"
+        "solar_flare" -> if (isPl) "Rozbłysk Słoneczny" else "Solar Flare"
+        "glacial_singularity" -> if (isPl) "Lodowa Osobliwość" else "Glacial Singularity"
+        "overload_flux" -> if (isPl) "Strumień Przeciążenia" else "Overload Flux"
+        "astral_decay" -> if (isPl) "Rozkład Astralny" else "Astral Decay"
+        "hellfire" -> if (isPl) "Piekielny Ogień" else "Hellfire"
+        "frost_tomb" -> if (isPl) "Grobowiec Mrozu" else "Frost Tomb"
+        "shadow_surge" -> if (isPl) "Fala Cienia" else "Shadow Surge"
+        "corpse_miasma" -> if (isPl) "Miazmat Trupich Jadów" else "Corpse Miasma"
+        "napalm_conflagration" -> if (isPl) "Napalmowa Pożoga" else "Napalm Conflagration"
+        "emp_shockwave" -> if (isPl) "Fala EMP" else "EMP Shockwave"
+        else -> id
+    }
+
+    fun getLocalizedFusionDesc(id: String): String = when (id) {
+        "steam_burst" -> if (isPl) "Szok termiczny wywołuje eksplozję pary (obszar 130px), która spowalnia okolicznych wrogów na 2s." else "Thermal shock causes an explosive vapor burst (130px AoE) that slows surrounding foes for 2s."
+        "volatile_detonation" -> if (isPl) "Podpala toksyczne opary, natychmiast detonując pozostałe obrażenia trucizny w potężny wybuch." else "Ignites concentrated toxic fumes, detonating remaining poison DoT into a massive immediate blast."
+        "superconductor" -> if (isPl) "Przewodzący szron przeskakuje na 3 wrogów, nakładając +25% podatności na wszystkie obrażenia przez 4s." else "Conductive frost chains to up to 3 nearby foes, inflicting +25% vulnerability to all damage for 4s."
+        "corrosive_shock" -> if (isPl) "Reakcja elektrochemiczna ogłusza cel (0.6s) i rozpryskuje toksyny na okolicznych wrogów." else "Electro-chemical reaction stuns target (0.6s) and splatters virulent toxins across surrounding foes."
+        "solar_flare" -> if (isPl) "Słoneczna radiacja zdejmuje tarcze (+50% obrażeń na osłony) i całkowicie blokuje regenerację HP na 3.5s." else "Arcane radiance strips enemy shields (+50% bonus damage against shields) and halts HP regeneration for 3.5s."
+        "glacial_singularity" -> if (isPl) "Arktyczny wir przyciąga wrogów w promieniu 150px do środka i zamraża ich w bryle lodu (1.2s ogłuszenia, 90% spowolnienia)." else "Sub-zero vortex pulls foes within 150px inward and flash-freezes them solid (1.2s stun, 90% slow)."
+        "overload_flux" -> if (isPl) "Wiąże cel i do 4 wrogów rezonującym łączem — 35% wszelkich otrzymanych obrażeń odbija się na połączonych wrogach przez 4s." else "Binds target and up to 4 nearby enemies into a resonance link, echoing 35% of all damage taken for 4s."
+        "astral_decay" -> if (isPl) "Kosmiczny uwiąd zadaje 35 DPS, zwiększa otrzymywane obrażenia o +20% i zapewnia +50% złota oraz widmowy ognik po śmierci." else "Cosmic wither inflicts 35 DPS, +20% damage vulnerability, and grants +50% bonus gold + void wisp on death."
+        "hellfire" -> if (isPl) "Przeklęty płomień zadaje 45 DPS. Po śmierci dusza wroga eksploduje mściwym widmem zadającym 150 obrażeń." else "Cursed infernal flame deals 45 DPS. On death, the soul detonates into a vengeful phantom wisp exploding for 150 damage."
+        "frost_tomb" -> if (isPl) "Krystalizuje pancerz wroga lodem otchłani (+40% obrażeń fizycznych i wybuchowych, zatrzymana regeneracja HP przez 4s)." else "Abyssal frost crystallizes foe armor, applying +40% physical & explosive vulnerability and halting HP regen for 4s."
+        "shadow_surge" -> if (isPl) "Eteryczne wyładowanie ogłusza cel i osłabia go na 5s, zmniejszając o połowę zadawane przez niego obrażenia bazie i barykadom." else "Ethereal static shocks and enfeebles target for 5s, halving all damage dealt against base and barricades."
+        "corpse_miasma" -> if (isPl) "Wyzwala nekrotyczny wyziew zadający obrażenia obszarowe powiększone o 3.5% maksymalnego HP wroga oraz 35% spowolnienia." else "Unleashes necrotic pestilence dealing heavy damage plus 3.5% max HP and applying a 35% slow in 140px AoE."
+        "napalm_conflagration" -> if (isPl) "Uderzenie uderzeniowe (150px AoE), które podpala podłoże na 3s, zadając 40 DPS przechodzącym wrogom." else "Concussive blast (150px AoE) that leaves behind a scorched fire crater dealing 40 DPS to enemies on it for 3s."
+        "emp_shockwave" -> if (isPl) "Impuls elektromagnetyczny usuwa tarcze, przerywa telegrafy i ucisza zdolności elitarnych wrogów na 2.5s." else "Electromagnetic shockwave cleanses energy shields, cancels ability telegraphs, and silences elite abilities for 2.5s."
+        else -> ""
+    }
+
+    fun getLocalizedTacticalRole(id: String): String = when (id) {
+        "steam_burst" -> if (isPl) "Kontrola tłumu i obszar" else "Crowd Control & AoE"
+        "volatile_detonation" -> if (isPl) "Zabójczy wybuch" else "Burst Finisher"
+        "superconductor" -> if (isPl) "Osłabienie wielu celów" else "Debuff & Multi-Target"
+        "corrosive_shock" -> if (isPl) "Ogłuszenie i zatrucie" else "Stun & Toxic Spread"
+        "solar_flare" -> if (isPl) "Łamacz tarcz i blokada leczenia" else "Shield Breaker & Anti-Regen"
+        "glacial_singularity" -> if (isPl) "Wir grawitacyjny i twarda kontrola" else "Mass Vacuum & Hard CC"
+        "overload_flux" -> if (isPl) "Mnożnik obrażeń łańcuchowych" else "Damage Multiplication"
+        "astral_decay" -> if (isPl) "Niszczenie bossów i nagroda" else "Boss Shred & Bounty"
+        "hellfire" -> if (isPl) "Cel pojedynczy i wybuch duszy" else "Single Target & Phantom Burst"
+        "frost_tomb" -> if (isPl) "Kruszenie pancerza i anty-regen" else "Armor Shred & Anti-Regen"
+        "shadow_surge" -> if (isPl) "Ochrona bazy i osłabienie" else "Objective Protection"
+        "corpse_miasma" -> if (isPl) "Pogromca tanków i elit" else "Tank & Elite Slaying"
+        "napalm_conflagration" -> if (isPl) "Blokada terenu i pułapka ognia" else "Area Denial & Hazard"
+        "emp_shockwave" -> if (isPl) "Czyszczenie tarcz i uciszenie" else "Shield Purge & Silence"
+        else -> ""
+    }
 }

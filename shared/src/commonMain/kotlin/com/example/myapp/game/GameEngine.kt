@@ -183,6 +183,9 @@ class GameEngine(val prefs: GamePreferences, val audio: GameAudio = SilentAudio)
     val particles = mutableListOf<Particle>()
     val blockades = mutableListOf<Blockade>()
     val traps = mutableListOf<Trap>()
+    val activeFirePatches = mutableListOf<FirePatch>()
+    val discoveredFusions: MutableSet<String> = prefs.getString("discovered_fusions", "").split(",").filter { it.isNotBlank() }.toMutableSet()
+    private var isEchoingConduit: Boolean = false
     val supplyDrops = mutableListOf<SupplyDrop>()
     var supplyDropTimer: Float = 0f
 
@@ -352,6 +355,7 @@ class GameEngine(val prefs: GamePreferences, val audio: GameAudio = SilentAudio)
         Achievement("booster_alchemist", "Elixir Draught", "Draft any 3-wave booster potion", "🧪", false, 15),
         Achievement("synergy_proc", "Elemental Fusion", "Trigger an Elemental Synergy in combat", "💥", false, 25),
         Achievement("synergy_master", "Elemental Catalyst", "Trigger 25 Elemental Reactions in a single game", "🔮", false, 35),
+        Achievement("fusion_scholar", "Fusion Scholar", "Discover all 14 Elemental & Arcane Fusions", "📜", false, 50),
         Achievement("pact_survivor", "Devil's Bargain", "Survive 5 waves while bound to a High-Stakes Pact", "📜", false, 30),
         Achievement("greed_curse_diamonds", "Avarice Reward", "Earn bonus diamonds through the Curse of Greed", "😈", false, 25),
         Achievement("weather_thunder", "Lightning Rod", "Clear a Thunderstorm wave without losing Base HP", "🌩️", false, 25),
@@ -1339,7 +1343,7 @@ class GameEngine(val prefs: GamePreferences, val audio: GameAudio = SilentAudio)
             val iceRange = tower.range * (if (currentWaveModifier == WaveModifier.INVISIBLE) 0.7f else 1f)
             enemies.forEach { enemy ->
                 if (enemy.distanceTo(tower.x, tower.y) < iceRange) {
-                    if (enemy.burnTimer > 0f || enemy.shockTimer > 0f || enemy.arcaneMarkTimer > 0f) {
+                    if (enemy.burnTimer > 0f || enemy.shockTimer > 0f || enemy.arcaneMarkTimer > 0f || enemy.necroMarkTimer > 0f) {
                         triggerElementalReaction(enemy, DamageType.ICE, tower, 20f + tower.level * 8f)
                     }
                     val slowPower = (0.5f - tower.level * 0.03f - skillTree.iceSlowBonus()).coerceAtLeast(0.05f)
@@ -1369,10 +1373,35 @@ class GameEngine(val prefs: GamePreferences, val audio: GameAudio = SilentAudio)
             // Skip enemies in death animation
             if (enemy.deathProcessed) return@forEach
 
-            // Decrement elemental status timers
+            // Decrement elemental & fusion status timers
             if (enemy.shockTimer > 0) enemy.shockTimer -= dt
             if (enemy.arcaneMarkTimer > 0) enemy.arcaneMarkTimer -= dt
             if (enemy.superconductTimer > 0) enemy.superconductTimer -= dt
+            if (enemy.necroMarkTimer > 0) enemy.necroMarkTimer -= dt
+            if (enemy.bombardTimer > 0) enemy.bombardTimer -= dt
+            if (enemy.solarBurnTimer > 0) enemy.solarBurnTimer -= dt
+            if (enemy.conduitTimer > 0) enemy.conduitTimer -= dt
+            if (enemy.brittleTimer > 0) enemy.brittleTimer -= dt
+            if (enemy.enfeebleTimer > 0) enemy.enfeebleTimer -= dt
+            if (enemy.silenceTimer > 0) enemy.silenceTimer -= dt
+            if (enemy.astralDecayTimer > 0 && !enemy.isDead()) {
+                enemy.astralDecayTimer -= dt
+                enemy.hp -= 35f * dt
+                if (Math.random() < 0.2) {
+                    particles.add(Particle(enemy.x, enemy.y,
+                        ((Math.random() - 0.5) * 20).toFloat(), -15f - Math.random().toFloat() * 15f,
+                        0.3f, 0xFFCE93D8.toInt(), 3f))
+                }
+            }
+            if (enemy.soulburnTimer > 0 && !enemy.isDead()) {
+                enemy.soulburnTimer -= dt
+                enemy.hp -= 45f * dt
+                if (Math.random() < 0.2) {
+                    particles.add(Particle(enemy.x, enemy.y,
+                        ((Math.random() - 0.5) * 25).toFloat(), -20f - Math.random().toFloat() * 20f,
+                        0.35f, 0xFFFF1744.toInt(), 3.5f))
+                }
+            }
             if (enemy.stunTimer > 0) {
                 enemy.stunTimer -= dt
                 if (Math.random() < 0.2) {
@@ -1383,8 +1412,8 @@ class GameEngine(val prefs: GamePreferences, val audio: GameAudio = SilentAudio)
                 if (enemy.hitFlash > 0) enemy.hitFlash -= dt
                 return@forEach
             }
-            // Regen from wave modifier
-            if (enemy.regenRate > 0 && enemy.hp < enemy.maxHp) {
+            // Regen from wave modifier (suppressed by Solar Burn and Frost Tomb)
+            if (enemy.regenRate > 0 && enemy.hp < enemy.maxHp && enemy.solarBurnTimer <= 0f && enemy.brittleTimer <= 0f) {
                 enemy.hp = (enemy.hp + enemy.regenRate * dt).coerceAtMost(enemy.maxHp)
             }
             // Burn DoT from Flame tower (Treant suffers 2x burn DPS)
@@ -1414,8 +1443,8 @@ class GameEngine(val prefs: GamePreferences, val audio: GameAudio = SilentAudio)
                     ))
                 }
             }
-            // Elite ability effects
-            if (enemy.isElite && !enemy.isDead()) {
+            // Elite ability effects (silenced by EMP Shockwave)
+            if (enemy.isElite && !enemy.isDead() && enemy.silenceTimer <= 0f) {
                 enemy.eliteAuraTimer -= dt
                 when (enemy.eliteAbility) {
                     EliteAbility.SPEED_AURA -> {
@@ -1531,9 +1560,9 @@ class GameEngine(val prefs: GamePreferences, val audio: GameAudio = SilentAudio)
                     }
                 }
             }
-            // Treant: passive wood bark regeneration (8 HP/s), suppressed while burning
+            // Treant: passive wood bark regeneration (8 HP/s), suppressed while burning, solar burned, or brittle
             if (enemy.type == EnemyType.TREANT && !enemy.isDead()) {
-                if (enemy.burnTimer <= 0f && enemy.hp < enemy.maxHp) {
+                if (enemy.burnTimer <= 0f && enemy.solarBurnTimer <= 0f && enemy.brittleTimer <= 0f && enemy.hp < enemy.maxHp) {
                     enemy.hp = (enemy.hp + 8f * dt).coerceAtMost(enemy.maxHp)
                     if (Math.random() < 0.1) {
                         particles.add(Particle(enemy.x, enemy.y, 0f, -15f, 0.4f, 0xFF81C784.toInt(), 4f))
@@ -1551,6 +1580,7 @@ class GameEngine(val prefs: GamePreferences, val audio: GameAudio = SilentAudio)
             val chargeBoost = if (enemy.isCharging) 3f else 1f
             val roarBoost = enemy.roarSpeedBoost
             val iceSlow = enemy.iceSlowFactor
+            val enfeebleMult = if (enemy.enfeebleTimer > 0f) 0.5f else 1.0f
 
             // Check for blockade collision — enemy stops and attacks it
             val nearestBlockade = blockades.filter { !it.isDead() }
@@ -1558,7 +1588,7 @@ class GameEngine(val prefs: GamePreferences, val audio: GameAudio = SilentAudio)
             val blockedByBlockade = nearestBlockade != null && nearestBlockade.distanceTo(enemy.x, enemy.y) < nearestBlockade.size + enemy.size
             if (blockedByBlockade) {
                 // Attack the blockade instead of moving
-                nearestBlockade!!.hp -= enemy.damage * 0.3f * dt  // Constant DPS
+                nearestBlockade!!.hp -= enemy.damage * 0.3f * dt * enfeebleMult  // Constant DPS
                 if (nearestBlockade.isDead()) {
                     // Blockade destroyed effect
                     repeat(10) {
@@ -1601,7 +1631,7 @@ class GameEngine(val prefs: GamePreferences, val audio: GameAudio = SilentAudio)
                 if (enemy.roarBoostTimer <= 0f) enemy.roarSpeedBoost = 1f
             }
             if (enemy.isAtBase(baseX, baseY)) {
-                damageBase(enemy.damage * currentWeather.enemyDamageMultiplier)
+                damageBase(enemy.damage * currentWeather.enemyDamageMultiplier * enfeebleMult)
                 audio.play(SfxType.BASE_HIT)
                 hapticPending = 1  // light haptic on base damage
                 enemy.reachedBase = true
@@ -1737,6 +1767,50 @@ class GameEngine(val prefs: GamePreferences, val audio: GameAudio = SilentAudio)
                         particles.add(Particle(enemy.x, enemy.y,
                             (Math.cos(a) * spd).toFloat(), (Math.sin(a) * spd).toFloat(),
                             0.6f, 0xFFAB47BC.toInt(), 5f))
+                    }
+                }
+            }
+
+            // Hellfire: soul detonate into vengeful phantom wisp
+            if (enemy.soulburnTimer > 0f) {
+                val soulTarget = enemies.filter { it.hp > 0 && it != enemy && !it.isDead() && it.distanceTo(enemy.x, enemy.y) <= 200f }
+                    .minByOrNull { it.distanceTo(enemy.x, enemy.y) }
+                if (soulTarget != null) {
+                    soulTarget.hp -= 150f
+                    soulTarget.hitFlash = 0.3f
+                    enemy.lastHitTower?.let {
+                        soulTarget.lastHitTower = it
+                        it.totalDamageDealt += 150f
+                    }
+                    floatingTexts.add(FloatingText(soulTarget.x, soulTarget.y - soulTarget.size, "💀 SOUL EXPLOSION! -150", 0xFFFF1744.toInt(), 1.2f, 22f))
+                    repeat(12) {
+                        val a = Math.random() * Math.PI * 2
+                        val spd = 60f + Math.random().toFloat() * 60f
+                        particles.add(Particle(soulTarget.x, soulTarget.y, (Math.cos(a) * spd).toFloat(), (Math.sin(a) * spd).toFloat(), 0.5f, 0xFFFF1744.toInt(), 4f))
+                    }
+                }
+            }
+
+            // Astral Decay: +50% bonus gold and void wisp
+            if (enemy.astralDecayTimer > 0f) {
+                val bonusGold = (comboGold * 0.5f).toInt().coerceAtLeast(1)
+                gold += bonusGold
+                totalGoldEarned += bonusGold
+                floatingTexts.add(FloatingText(enemy.x, enemy.y - 45f, "+${bonusGold}g ASTRAL HARVEST! ✨", 0xFFBA68C8.toInt(), 1.2f, 22f))
+                val voidTarget = enemies.filter { it.hp > 0 && it != enemy && !it.isDead() && it.distanceTo(enemy.x, enemy.y) <= 220f }
+                    .minByOrNull { it.distanceTo(enemy.x, enemy.y) }
+                if (voidTarget != null) {
+                    voidTarget.hp -= 90f
+                    voidTarget.hitFlash = 0.25f
+                    enemy.lastHitTower?.let {
+                        voidTarget.lastHitTower = it
+                        it.totalDamageDealt += 90f
+                    }
+                    floatingTexts.add(FloatingText(voidTarget.x, voidTarget.y - voidTarget.size, "✨ VOID WISP! -90", 0xFFCE93D8.toInt(), 1.0f, 20f))
+                    repeat(8) {
+                        val a = Math.random() * Math.PI * 2
+                        val spd = 50f + Math.random().toFloat() * 40f
+                        particles.add(Particle(voidTarget.x, voidTarget.y, (Math.cos(a) * spd).toFloat(), (Math.sin(a) * spd).toFloat(), 0.4f, 0xFFE1BEE7.toInt(), 4f))
                     }
                 }
             }
@@ -2114,6 +2188,48 @@ class GameEngine(val prefs: GamePreferences, val audio: GameAudio = SilentAudio)
         }
         traps.removeAll { it.isSpent() }
 
+        // === FIRE PATCHES (Napalm Conflagration) ===
+        val patchIter = activeFirePatches.iterator()
+        while (patchIter.hasNext()) {
+            val patch = patchIter.next()
+            patch.duration -= dt
+            if (patch.duration <= 0f) {
+                patchIter.remove()
+                continue
+            }
+            for (enemy in enemies) {
+                if (enemy.isDead() || enemy.deathProcessed) continue
+                if (enemy.distanceTo(patch.x, patch.y) <= patch.radius) {
+                    val pDmg = patch.dps * dt
+                    enemy.hp -= pDmg
+                    if (patch.sourceTower != null) {
+                        enemy.lastHitTower = patch.sourceTower
+                        patch.sourceTower.totalDamageDealt += pDmg
+                    }
+                    if (Math.random() < 0.12) {
+                        particles.add(Particle(
+                            enemy.x + (Math.random().toFloat() - 0.5f) * enemy.size,
+                            enemy.y + (Math.random().toFloat() - 0.5f) * enemy.size,
+                            (Math.random().toFloat() - 0.5f) * 20f,
+                            -25f - Math.random().toFloat() * 20f,
+                            0.3f, 0xFFFF5722.toInt(), 3f
+                        ))
+                    }
+                }
+            }
+            if (Math.random() < 0.25) {
+                val ang = Math.random() * Math.PI * 2
+                val rad = Math.random().toFloat() * patch.radius * 0.8f
+                particles.add(Particle(
+                    patch.x + (Math.cos(ang) * rad).toFloat(),
+                    patch.y + (Math.sin(ang) * rad).toFloat(),
+                    (Math.random().toFloat() - 0.5f) * 15f,
+                    -20f - Math.random().toFloat() * 25f,
+                    0.4f, 0xFFFF7043.toInt(), 3.5f
+                ))
+            }
+        }
+
         // === VOLCANO ERUPTION ===
         if (mapType == MapType.VOLCANO && waveInProgress) {
             volcanoEruptionTimer -= dt
@@ -2219,7 +2335,9 @@ class GameEngine(val prefs: GamePreferences, val audio: GameAudio = SilentAudio)
                     val shieldMult = if (target.shieldTimer > 0) 0.3f else 1f
                     val glassMult = if (hasMerchantItem(MerchantItemId.GLASS_CANNON)) 1.50f else 1f
                     val superconductMult = if (target.superconductTimer > 0f) 1.25f else 1f
-                    var dmg = tower.damage * towerDmgMult * resistMult * synergyMult * critMult * shieldMult * glassMult * superconductMult
+                    val brittleMult = if (target.brittleTimer > 0f && (tower.type.damageType == DamageType.PHYSICAL || tower.type.damageType == DamageType.EXPLOSIVE)) 1.4f else 1f
+                    val astralMult = if (target.astralDecayTimer > 0f) 1.2f else 1f
+                    var dmg = tower.damage * towerDmgMult * resistMult * synergyMult * critMult * shieldMult * glassMult * superconductMult * brittleMult * astralMult
 
                     // Necro execute: massive bonus damage to low-HP enemies
                     if (tower.type == TowerType.NECRO && target.hp < target.maxHp * 0.15f) {
@@ -2299,6 +2417,9 @@ class GameEngine(val prefs: GamePreferences, val audio: GameAudio = SilentAudio)
                     target.hitFlash = 0.15f
                     tower.totalDamageDealt += dmg
                     target.lastHitTower = tower
+                    if (target.conduitTimer > 0f) {
+                        echoConduitDamage(target, dmg, tower)
+                    }
                     if (tower.type == TowerType.FLAME) {
                         val reacted = triggerElementalReaction(target, DamageType.FIRE, tower, dmg)
                         if (!reacted) {
@@ -2326,6 +2447,20 @@ class GameEngine(val prefs: GamePreferences, val audio: GameAudio = SilentAudio)
                         val reacted = triggerElementalReaction(target, DamageType.MAGIC, tower, dmg)
                         if (!reacted) {
                             target.arcaneMarkTimer = 3.5f
+                        }
+                    }
+
+                    if (tower.type == TowerType.NECRO) {
+                        val reacted = triggerElementalReaction(target, DamageType.DARK, tower, dmg)
+                        if (!reacted) {
+                            target.necroMarkTimer = 3.5f
+                        }
+                    }
+
+                    if (tower.type == TowerType.CANNON) {
+                        val reacted = triggerElementalReaction(target, DamageType.EXPLOSIVE, tower, dmg)
+                        if (!reacted) {
+                            target.bombardTimer = 3.5f
                         }
                     }
 
@@ -2471,7 +2606,7 @@ class GameEngine(val prefs: GamePreferences, val audio: GameAudio = SilentAudio)
     ): Boolean {
         if (target.isDead()) return false
 
-        // 1. Melt / Steam Burst (FIRE + ICE)
+        // 1. Steam Burst (FIRE + ICE)
         if ((incomingElement == DamageType.FIRE && (target.iceSlowFactor < 0.95f || target.deepFreezeTimer > 0f || freezeTimer > 0f)) ||
             (incomingElement == DamageType.ICE && target.burnTimer > 0f)
         ) {
@@ -2506,7 +2641,7 @@ class GameEngine(val prefs: GamePreferences, val audio: GameAudio = SilentAudio)
                     (Math.cos(a) * spd).toFloat(), (Math.sin(a) * spd).toFloat(),
                     0.6f, 0xFFE0F7FA.toInt(), 5f))
             }
-            onElementalReactionTriggered()
+            onElementalReactionTriggered("steam_burst")
             return true
         }
 
@@ -2540,7 +2675,7 @@ class GameEngine(val prefs: GamePreferences, val audio: GameAudio = SilentAudio)
                     (Math.cos(a) * spd).toFloat(), (Math.sin(a) * spd).toFloat(),
                     0.6f, col, 5f))
             }
-            onElementalReactionTriggered()
+            onElementalReactionTriggered("volatile_detonation")
             return true
         }
 
@@ -2578,7 +2713,7 @@ class GameEngine(val prefs: GamePreferences, val audio: GameAudio = SilentAudio)
                     (Math.cos(a) * spd).toFloat(), (Math.sin(a) * spd).toFloat(),
                     0.5f, 0xFF00E5FF.toInt(), 4f))
             }
-            onElementalReactionTriggered()
+            onElementalReactionTriggered("superconductor")
             return true
         }
 
@@ -2617,67 +2752,414 @@ class GameEngine(val prefs: GamePreferences, val audio: GameAudio = SilentAudio)
                     (Math.cos(a) * spd).toFloat(), (Math.sin(a) * spd).toFloat(),
                     0.5f, col, 5f))
             }
-            onElementalReactionTriggered()
+            onElementalReactionTriggered("corrosive_shock")
             return true
         }
 
-        // 5. Arcane Implosion (MAGIC/VORTEX + FIRE/ICE/ELECTRIC/POISON)
-        val targetHasOtherElement = target.burnTimer > 0f || target.iceSlowFactor < 0.95f || target.deepFreezeTimer > 0f || freezeTimer > 0f || target.shockTimer > 0f || target.poisonTimer > 0f
-        val incomingIsOtherElement = incomingElement == DamageType.FIRE || incomingElement == DamageType.ICE || incomingElement == DamageType.ELECTRIC || incomingElement == DamageType.POISON
-
-        if ((incomingElement == DamageType.MAGIC && targetHasOtherElement) ||
-            (target.arcaneMarkTimer > 0f && incomingIsOtherElement)
+        // 5. Solar Flare (MAGIC + FIRE)
+        if ((incomingElement == DamageType.MAGIC && target.burnTimer > 0f) ||
+            (incomingElement == DamageType.FIRE && target.arcaneMarkTimer > 0f)
         ) {
-            val implosionDmg = 110f + baseDamage * 0.5f
-            val pullRadius = 140f
+            val baseBurst = 140f + baseDamage * 0.6f
+            val aoeRadius = 140f
+
+            target.burnTimer = 0f
+            target.arcaneMarkTimer = 0f
+            target.solarBurnTimer = 3.5f
+
+            val aoeEnemies = enemies.filter { it.hp > 0 && it.distanceTo(target.x, target.y) <= aoeRadius }
+            for (ae in aoeEnemies) {
+                val isShielded = ae.shieldTimer > 0f
+                if (isShielded) ae.shieldTimer = 0f
+                val effectiveDmg = if (isShielded) baseBurst * 1.5f else baseBurst
+                ae.hp -= effectiveDmg
+                ae.hitFlash = 0.3f
+                ae.solarBurnTimer = 3.5f
+                if (sourceTower != null) {
+                    ae.lastHitTower = sourceTower
+                    sourceTower.totalDamageDealt += effectiveDmg
+                }
+            }
+            floatingTexts.add(FloatingText(target.x, target.y - target.size - 15f, "☀️ SOLAR FLARE!", 0xFFFFD54F.toInt(), 1.3f, 28f))
+            audio.play(SfxType.POWER_FIREBALL)
+            repeat(18) {
+                val a = Math.random() * Math.PI * 2
+                val spd = 60f + Math.random().toFloat() * 80f
+                val col = if (it % 2 == 0) 0xFFFFD54F.toInt() else 0xFFFF5722.toInt()
+                particles.add(Particle(target.x, target.y,
+                    (Math.cos(a) * spd).toFloat(), (Math.sin(a) * spd).toFloat(),
+                    0.6f, col, 5f))
+            }
+            onElementalReactionTriggered("solar_flare")
+            return true
+        }
+
+        // 6. Glacial Singularity (MAGIC + ICE)
+        if ((incomingElement == DamageType.MAGIC && (target.iceSlowFactor < 0.95f || target.deepFreezeTimer > 0f || freezeTimer > 0f)) ||
+            (incomingElement == DamageType.ICE && target.arcaneMarkTimer > 0f)
+        ) {
+            val singDmg = 125f + baseDamage * 0.5f
+            val pullRadius = 150f
 
             target.arcaneMarkTimer = 0f
-            target.burnTimer = 0f
-            target.poisonTimer = 0f
-            target.shockTimer = 0f
             target.deepFreezeTimer = 0f
-            target.iceSlowFactor = 1f
+            target.iceSlowFactor = 0.1f
+            target.stunTimer = target.stunTimer.coerceAtLeast(1.2f)
 
             val nearby = enemies.filter { it.hp > 0 && it.distanceTo(target.x, target.y) <= pullRadius }
             for (ne in nearby) {
-                ne.hp -= implosionDmg
+                ne.hp -= singDmg
                 ne.hitFlash = 0.25f
+                ne.stunTimer = ne.stunTimer.coerceAtLeast(1.2f)
+                ne.iceSlowFactor = ne.iceSlowFactor.coerceAtMost(0.1f)
                 if (sourceTower != null) {
                     ne.lastHitTower = sourceTower
-                    sourceTower.totalDamageDealt += implosionDmg
+                    sourceTower.totalDamageDealt += singDmg
                 }
                 if (ne != target) {
                     val dx = target.x - ne.x
                     val dy = target.y - ne.y
                     val d = kotlin.math.hypot(dx, dy)
                     if (d > 10f) {
-                        val pullDist = 40f
+                        val pullDist = 45f
                         ne.x += (dx / d) * pullDist
                         ne.y += (dy / d) * pullDist
                     }
                 }
             }
-            floatingTexts.add(FloatingText(target.x, target.y - target.size - 15f, "🌌 ARCANE IMPLOSION!", 0xFFBA68C8.toInt(), 1.2f, 26f))
+            floatingTexts.add(FloatingText(target.x, target.y - target.size - 15f, "🌌 GLACIAL SINGULARITY!", 0xFF80D8FF.toInt(), 1.3f, 28f))
             audio.play(SfxType.TOWER_UPGRADE)
-            repeat(16) {
+            repeat(20) {
                 val a = Math.random() * Math.PI * 2
-                val spd = 60f + Math.random().toFloat() * 60f
+                val spd = 70f + Math.random().toFloat() * 70f
+                val col = if (it % 2 == 0) 0xFF00E5FF.toInt() else 0xFFBA68C8.toInt()
                 particles.add(Particle(target.x, target.y,
                     (Math.cos(a) * spd).toFloat(), (Math.sin(a) * spd).toFloat(),
-                    0.6f, 0xFFAB47BC.toInt(), 5f))
+                    0.6f, col, 5f))
             }
-            onElementalReactionTriggered()
+            onElementalReactionTriggered("glacial_singularity")
+            return true
+        }
+
+        // 7. Overload Flux (MAGIC + ELECTRIC)
+        if ((incomingElement == DamageType.MAGIC && target.shockTimer > 0f) ||
+            (incomingElement == DamageType.ELECTRIC && target.arcaneMarkTimer > 0f)
+        ) {
+            val fluxDmg = 100f + baseDamage * 0.5f
+            val linkRadius = 160f
+
+            target.arcaneMarkTimer = 0f
+            target.shockTimer = 0f
+            target.conduitTimer = 4.0f
+            target.hp -= fluxDmg
+            target.hitFlash = 0.25f
+            if (sourceTower != null) {
+                target.lastHitTower = sourceTower
+                sourceTower.totalDamageDealt += fluxDmg
+            }
+
+            val linkTargets = enemies.filter { it.hp > 0 && it != target && it.distanceTo(target.x, target.y) <= linkRadius }.take(4)
+            for (lt in linkTargets) {
+                lt.conduitTimer = 4.0f
+                lt.hitFlash = 0.2f
+                repeat(4) {
+                    particles.add(Particle(lt.x, lt.y,
+                        ((Math.random() - 0.5) * 50).toFloat(), ((Math.random() - 0.5) * 50).toFloat(),
+                        0.4f, 0xFFE040FB.toInt(), 4f))
+                }
+            }
+            floatingTexts.add(FloatingText(target.x, target.y - target.size - 15f, "🔮 OVERLOAD FLUX!", 0xFFE040FB.toInt(), 1.3f, 28f))
+            audio.play(SfxType.TESLA_FIRE)
+            repeat(16) {
+                val a = Math.random() * Math.PI * 2
+                val spd = 60f + Math.random().toFloat() * 70f
+                particles.add(Particle(target.x, target.y,
+                    (Math.cos(a) * spd).toFloat(), (Math.sin(a) * spd).toFloat(),
+                    0.5f, 0xFFE040FB.toInt(), 5f))
+            }
+            onElementalReactionTriggered("overload_flux")
+            return true
+        }
+
+        // 8. Astral Decay (MAGIC + POISON)
+        if ((incomingElement == DamageType.MAGIC && target.poisonTimer > 0f) ||
+            (incomingElement == DamageType.POISON && target.arcaneMarkTimer > 0f)
+        ) {
+            val burstDmg = 90f + baseDamage * 0.4f
+            target.poisonTimer = 0f
+            target.arcaneMarkTimer = 0f
+            target.astralDecayTimer = 4.0f
+            target.hp -= burstDmg
+            target.hitFlash = 0.25f
+            if (sourceTower != null) {
+                target.lastHitTower = sourceTower
+                sourceTower.totalDamageDealt += burstDmg
+            }
+
+            floatingTexts.add(FloatingText(target.x, target.y - target.size - 15f, "✨ ASTRAL DECAY!", 0xFFCE93D8.toInt(), 1.3f, 28f))
+            audio.play(SfxType.MAGIC_FIRE)
+            repeat(14) {
+                val a = Math.random() * Math.PI * 2
+                val spd = 50f + Math.random().toFloat() * 60f
+                val col = if (it % 2 == 0) 0xFFCE93D8.toInt() else 0xFF66BB6A.toInt()
+                particles.add(Particle(target.x, target.y,
+                    (Math.cos(a) * spd).toFloat(), (Math.sin(a) * spd).toFloat(),
+                    0.5f, col, 4.5f))
+            }
+            onElementalReactionTriggered("astral_decay")
+            return true
+        }
+
+        // 9. Hellfire (DARK + FIRE)
+        if ((incomingElement == DamageType.DARK && target.burnTimer > 0f) ||
+            (incomingElement == DamageType.FIRE && target.necroMarkTimer > 0f)
+        ) {
+            val hellDmg = 130f + baseDamage * 0.6f
+            target.burnTimer = 0f
+            target.necroMarkTimer = 0f
+            target.soulburnTimer = 3.5f
+            target.hp -= hellDmg
+            target.hitFlash = 0.3f
+            if (sourceTower != null) {
+                target.lastHitTower = sourceTower
+                sourceTower.totalDamageDealt += hellDmg
+            }
+
+            floatingTexts.add(FloatingText(target.x, target.y - target.size - 15f, "💀 HELLFIRE!", 0xFFFF1744.toInt(), 1.3f, 28f))
+            audio.play(SfxType.NECRO_FIRE)
+            repeat(16) {
+                val a = Math.random() * Math.PI * 2
+                val spd = 60f + Math.random().toFloat() * 80f
+                val col = if (it % 2 == 0) 0xFFFF1744.toInt() else 0xFF9C27B0.toInt()
+                particles.add(Particle(target.x, target.y,
+                    (Math.cos(a) * spd).toFloat(), (Math.sin(a) * spd).toFloat(),
+                    0.6f, col, 5f))
+            }
+            onElementalReactionTriggered("hellfire")
+            return true
+        }
+
+        // 10. Frost Tomb (DARK + ICE)
+        if ((incomingElement == DamageType.DARK && (target.iceSlowFactor < 0.95f || target.deepFreezeTimer > 0f || freezeTimer > 0f)) ||
+            (incomingElement == DamageType.ICE && target.necroMarkTimer > 0f)
+        ) {
+            val tombDmg = 110f + baseDamage * 0.5f
+            target.necroMarkTimer = 0f
+            target.deepFreezeTimer = 0f
+            target.iceSlowFactor = 1f
+            target.stunTimer = target.stunTimer.coerceAtLeast(2.0f)
+            target.brittleTimer = 4.0f
+            target.hp -= tombDmg
+            target.hitFlash = 0.25f
+            if (sourceTower != null) {
+                target.lastHitTower = sourceTower
+                sourceTower.totalDamageDealt += tombDmg
+            }
+
+            floatingTexts.add(FloatingText(target.x, target.y - target.size - 15f, "❄️ FROST TOMB!", 0xFF80DEEA.toInt(), 1.3f, 28f))
+            audio.play(SfxType.ICE_FIRE)
+            repeat(14) {
+                val a = Math.random() * Math.PI * 2
+                val spd = 50f + Math.random().toFloat() * 60f
+                val col = if (it % 2 == 0) 0xFF80DEEA.toInt() else 0xFF7B1FA2.toInt()
+                particles.add(Particle(target.x, target.y,
+                    (Math.cos(a) * spd).toFloat(), (Math.sin(a) * spd).toFloat(),
+                    0.5f, col, 4.5f))
+            }
+            onElementalReactionTriggered("frost_tomb")
+            return true
+        }
+
+        // 11. Shadow Surge (DARK + ELECTRIC)
+        if ((incomingElement == DamageType.DARK && target.shockTimer > 0f) ||
+            (incomingElement == DamageType.ELECTRIC && target.necroMarkTimer > 0f)
+        ) {
+            val surgeDmg = 95f + baseDamage * 0.5f
+            target.necroMarkTimer = 0f
+            target.shockTimer = 0f
+            target.stunTimer = target.stunTimer.coerceAtLeast(0.5f)
+            target.enfeebleTimer = 5.0f
+            target.hp -= surgeDmg
+            target.hitFlash = 0.25f
+            if (sourceTower != null) {
+                target.lastHitTower = sourceTower
+                sourceTower.totalDamageDealt += surgeDmg
+            }
+
+            floatingTexts.add(FloatingText(target.x, target.y - target.size - 15f, "👻 SHADOW SURGE!", 0xFF7C4DFF.toInt(), 1.3f, 28f))
+            audio.play(SfxType.NECRO_FIRE)
+            repeat(14) {
+                val a = Math.random() * Math.PI * 2
+                val spd = 60f + Math.random().toFloat() * 60f
+                val col = if (it % 2 == 0) 0xFF7C4DFF.toInt() else 0xFF00E5FF.toInt()
+                particles.add(Particle(target.x, target.y,
+                    (Math.cos(a) * spd).toFloat(), (Math.sin(a) * spd).toFloat(),
+                    0.5f, col, 4.5f))
+            }
+            onElementalReactionTriggered("shadow_surge")
+            return true
+        }
+
+        // 12. Corpse Miasma (DARK + POISON)
+        if ((incomingElement == DamageType.DARK && target.poisonTimer > 0f) ||
+            (incomingElement == DamageType.POISON && target.necroMarkTimer > 0f)
+        ) {
+            val miasmaRadius = 140f
+            val hpBonusDmg = target.maxHp * 0.035f
+            val baseMiasmaDmg = 85f + baseDamage * 0.4f + hpBonusDmg
+
+            target.poisonTimer = 0f
+            target.necroMarkTimer = 0f
+
+            val caught = enemies.filter { it.hp > 0 && it.distanceTo(target.x, target.y) <= miasmaRadius }
+            for (ce in caught) {
+                ce.hp -= baseMiasmaDmg
+                ce.hitFlash = 0.2f
+                ce.iceSlowFactor = ce.iceSlowFactor.coerceAtMost(0.65f)
+                if (sourceTower != null) {
+                    ce.lastHitTower = sourceTower
+                    sourceTower.totalDamageDealt += baseMiasmaDmg
+                }
+            }
+
+            floatingTexts.add(FloatingText(target.x, target.y - target.size - 15f, "☠️ CORPSE MIASMA!", 0xFF69F0AE.toInt(), 1.3f, 28f))
+            audio.play(SfxType.POISON_FIRE)
+            repeat(16) {
+                val a = Math.random() * Math.PI * 2
+                val spd = 40f + Math.random().toFloat() * 70f
+                val col = if (it % 2 == 0) 0xFF69F0AE.toInt() else 0xFF4A148C.toInt()
+                particles.add(Particle(target.x, target.y,
+                    (Math.cos(a) * spd).toFloat(), (Math.sin(a) * spd).toFloat(),
+                    0.6f, col, 5f))
+            }
+            onElementalReactionTriggered("corpse_miasma")
+            return true
+        }
+
+        // 13. Napalm Conflagration (EXPLOSIVE + FIRE)
+        if ((incomingElement == DamageType.EXPLOSIVE && target.burnTimer > 0f) ||
+            (incomingElement == DamageType.FIRE && target.bombardTimer > 0f)
+        ) {
+            val blastDmg = 150f + baseDamage * 0.6f
+            val blastRadius = 150f
+
+            target.burnTimer = 0f
+            target.bombardTimer = 0f
+
+            val hitEnemies = enemies.filter { it.hp > 0 && it.distanceTo(target.x, target.y) <= blastRadius }
+            for (he in hitEnemies) {
+                he.hp -= blastDmg
+                he.hitFlash = 0.3f
+                if (sourceTower != null) {
+                    he.lastHitTower = sourceTower
+                    sourceTower.totalDamageDealt += blastDmg
+                }
+            }
+
+            // Spawn ground FirePatch for 3.0s dealing 40 DPS
+            activeFirePatches.add(FirePatch(target.x, target.y, radius = 90f, duration = 3.0f, dps = 40f, sourceTower = sourceTower))
+            shakeTimer = 0.2f
+            shakeIntensity = 6f
+
+            floatingTexts.add(FloatingText(target.x, target.y - target.size - 15f, "🔥 CONFLAGRATION!", 0xFFFF3D00.toInt(), 1.3f, 28f))
+            audio.play(SfxType.POWER_FIREBALL)
+            repeat(20) {
+                val a = Math.random() * Math.PI * 2
+                val spd = 70f + Math.random().toFloat() * 90f
+                val col = if (it % 2 == 0) 0xFFFF3D00.toInt() else 0xFFFFAB00.toInt()
+                particles.add(Particle(target.x, target.y,
+                    (Math.cos(a) * spd).toFloat(), (Math.sin(a) * spd).toFloat(),
+                    0.6f, col, 5f))
+            }
+            onElementalReactionTriggered("napalm_conflagration")
+            return true
+        }
+
+        // 14. EMP Shockwave (EXPLOSIVE + ELECTRIC)
+        if ((incomingElement == DamageType.EXPLOSIVE && target.shockTimer > 0f) ||
+            (incomingElement == DamageType.ELECTRIC && target.bombardTimer > 0f)
+        ) {
+            val empDmg = 95f + baseDamage * 0.5f
+            val empRadius = 140f
+
+            target.shockTimer = 0f
+            target.bombardTimer = 0f
+
+            val hitEnemies = enemies.filter { it.hp > 0 && it.distanceTo(target.x, target.y) <= empRadius }
+            for (he in hitEnemies) {
+                he.hp -= empDmg
+                he.hitFlash = 0.25f
+                he.shieldTimer = 0f
+                he.silenceTimer = 2.5f
+                he.isTelegraphing = false
+                he.telegraphTimer = 0f
+                if (sourceTower != null) {
+                    he.lastHitTower = sourceTower
+                    sourceTower.totalDamageDealt += empDmg
+                }
+            }
+
+            floatingTexts.add(FloatingText(target.x, target.y - target.size - 15f, "⚡ EMP SHOCKWAVE!", 0xFF00E5FF.toInt(), 1.3f, 28f))
+            audio.play(SfxType.TESLA_FIRE)
+            repeat(18) {
+                val a = Math.random() * Math.PI * 2
+                val spd = 60f + Math.random().toFloat() * 80f
+                val col = if (it % 2 == 0) 0xFF00E5FF.toInt() else 0xFFFFFFFF.toInt()
+                particles.add(Particle(target.x, target.y,
+                    (Math.cos(a) * spd).toFloat(), (Math.sin(a) * spd).toFloat(),
+                    0.5f, col, 4.5f))
+            }
+            onElementalReactionTriggered("emp_shockwave")
             return true
         }
 
         return false
     }
 
-    private fun onElementalReactionTriggered() {
+    fun echoConduitDamage(sourceEnemy: Enemy, rawDmg: Float, sourceTower: Tower? = null) {
+        if (isEchoingConduit || rawDmg <= 0f) return
+        val echoDmg = rawDmg * 0.35f
+        if (echoDmg < 1f) return
+        isEchoingConduit = true
+        try {
+            val linked = enemies.filter { it.hp > 0 && it != sourceEnemy && it.conduitTimer > 0f }
+            for (le in linked) {
+                le.hp -= echoDmg
+                le.hitFlash = 0.15f
+                if (sourceTower != null) {
+                    le.lastHitTower = sourceTower
+                    sourceTower.totalDamageDealt += echoDmg
+                }
+                repeat(2) {
+                    particles.add(Particle(le.x, le.y,
+                        ((Math.random() - 0.5) * 40).toFloat(), ((Math.random() - 0.5) * 40).toFloat(),
+                        0.3f, 0xFFE040FB.toInt(), 3f))
+                }
+            }
+        } finally {
+            isEchoingConduit = false
+        }
+    }
+
+    private fun onElementalReactionTriggered(fusionId: String = "") {
         totalElementalReactionsThisRun++
+        if (fusionId.isNotBlank()) {
+            recordFusionDiscovery(fusionId)
+        }
         checkAchievement("synergy_proc")
         if (totalElementalReactionsThisRun >= 25) {
             checkAchievement("synergy_master")
+        }
+    }
+
+
+    fun recordFusionDiscovery(fusionId: String) = synchronized(lock) {
+        if (discoveredFusions.add(fusionId)) {
+            prefs.edit().putString("discovered_fusions", discoveredFusions.joinToString(",")).apply()
+            floatingTexts.add(FloatingText(baseX, baseY - 120f, "📖 NEW FUSION DISCOVERED!", 0xFFFFD700.toInt(), 1.8f, 28f))
+        }
+        if (discoveredFusions.size >= FusionCatalog.allFusions.size) {
+            checkAchievement("fusion_scholar")
         }
     }
 
@@ -4347,6 +4829,7 @@ class GameEngine(val prefs: GamePreferences, val audio: GameAudio = SilentAudio)
 
         // Restore Traps
         traps.clear()
+        activeFirePatches.clear()
         val trapsRaw = prefs.getString("save_traps", "")
         if (trapsRaw.isNotBlank()) {
             for (trStr in trapsRaw.split(";")) {
@@ -4408,6 +4891,7 @@ class GameEngine(val prefs: GamePreferences, val audio: GameAudio = SilentAudio)
         particles.clear()
         blockades.clear()
         traps.clear()
+        activeFirePatches.clear()
         supplyDrops.clear()
         supplyDropTimer = 15f
         activeBounties.clear()

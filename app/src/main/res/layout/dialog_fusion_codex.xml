@@ -1,0 +1,161 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:orientation="vertical"
+    android:background="@drawable/bg_card_glass"
+    android:padding="16dp">
+
+    <!-- Header -->
+    <RelativeLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content">
+
+        <LinearLayout
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:layout_toStartOf="@id/btn_codex_close">
+
+            <TextView
+                android:id="@+id/text_codex_title"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="⚗️ Fusion Codex"
+                android:textColor="@color/gold"
+                android:textSize="20sp"
+                android:textStyle="bold" />
+
+            <TextView
+                android:id="@+id/text_codex_progress"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Discovered: 0 / 14"
+                android:textColor="#00E5FF"
+                android:textSize="12sp"
+                android:textStyle="bold"
+                android:layout_marginTop="2dp" />
+        </LinearLayout>
+
+        <TextView
+            android:id="@+id/btn_codex_close"
+            android:layout_width="36dp"
+            android:layout_height="36dp"
+            android:layout_alignParentEnd="true"
+            android:background="@drawable/bg_hud_chip"
+            android:gravity="center"
+            android:text="✕"
+            android:textColor="@color/white"
+            android:textSize="18sp"
+            android:textStyle="bold" />
+    </RelativeLayout>
+
+    <!-- Horizontal Category Filter Tabs -->
+    <HorizontalScrollView
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:scrollbars="none"
+        android:layout_marginTop="12dp">
+
+        <LinearLayout
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal">
+
+            <Button
+                android:id="@+id/tab_all"
+                android:layout_width="wrap_content"
+                android:layout_height="38dp"
+                android:background="@drawable/bg_tab_active"
+                android:text="All (14)"
+                android:textColor="@color/white"
+                android:textSize="12sp"
+                android:textStyle="bold"
+                android:textAllCaps="false"
+                android:paddingHorizontal="12dp" />
+
+            <Button
+                android:id="@+id/tab_elemental"
+                android:layout_width="wrap_content"
+                android:layout_height="38dp"
+                android:layout_marginStart="6dp"
+                android:background="@drawable/bg_tab_inactive"
+                android:text="🔥 Elemental"
+                android:textColor="#B0BEC5"
+                android:textSize="12sp"
+                android:textAllCaps="false"
+                android:paddingHorizontal="12dp" />
+
+            <Button
+                android:id="@+id/tab_arcane"
+                android:layout_width="wrap_content"
+                android:layout_height="38dp"
+                android:layout_marginStart="6dp"
+                android:background="@drawable/bg_tab_inactive"
+                android:text="🔮 Arcane"
+                android:textColor="#B0BEC5"
+                android:textSize="12sp"
+                android:textAllCaps="false"
+                android:paddingHorizontal="12dp" />
+
+            <Button
+                android:id="@+id/tab_dark"
+                android:layout_width="wrap_content"
+                android:layout_height="38dp"
+                android:layout_marginStart="6dp"
+                android:background="@drawable/bg_tab_inactive"
+                android:text="💀 Dark Arts"
+                android:textColor="#B0BEC5"
+                android:textSize="12sp"
+                android:textAllCaps="false"
+                android:paddingHorizontal="12dp" />
+
+            <Button
+                android:id="@+id/tab_siege"
+                android:layout_width="wrap_content"
+                android:layout_height="38dp"
+                android:layout_marginStart="6dp"
+                android:background="@drawable/bg_tab_inactive"
+                android:text="💣 Siege"
+                android:textColor="#B0BEC5"
+                android:textSize="12sp"
+                android:textAllCaps="false"
+                android:paddingHorizontal="12dp" />
+        </LinearLayout>
+    </HorizontalScrollView>
+
+    <!-- Scrollable Content Container -->
+    <ScrollView
+        android:layout_width="match_parent"
+        android:layout_height="380dp"
+        android:layout_marginTop="12dp"
+        android:background="#20101824"
+        android:padding="8dp">
+
+        <LinearLayout
+            android:id="@+id/codex_content_container"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical" />
+    </ScrollView>
+
+    <!-- Bottom Actions -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="12dp"
+        android:gravity="end">
+
+        <Button
+            android:id="@+id/btn_codex_dismiss"
+            android:layout_width="wrap_content"
+            android:layout_height="42dp"
+            android:background="@drawable/bg_btn_action"
+            android:text="Close"
+            android:textColor="#CFD8DC"
+            android:textSize="13sp"
+            android:textAllCaps="false"
+            android:paddingHorizontal="20dp" />
+    </LinearLayout>
+
+</LinearLayout>

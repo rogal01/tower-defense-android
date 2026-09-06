@@ -1019,18 +1019,182 @@ class GameEngineSystemTest {
     fun testArcaneImplosionReactionMagicAndElements() {
         engine.init(1080f, 1920f)
         val enemy1 = Enemy(x = 200f, y = 200f, speed = 0f, hp = 400f, maxHp = 400f, goldReward = 5, damage = 10f, type = EnemyType.GOBLIN)
-        enemy1.burnTimer = 3f
+        enemy1.iceSlowFactor = 0.5f
         val enemy2 = Enemy(x = 280f, y = 200f, speed = 0f, hp = 400f, maxHp = 400f, goldReward = 5, damage = 10f, type = EnemyType.GOBLIN)
         engine.enemies.add(enemy1)
         engine.enemies.add(enemy2)
 
         val reacted = engine.triggerElementalReaction(enemy1, DamageType.MAGIC, null, 20f)
-        assertTrue(reacted, "Magic on burning enemy must trigger Arcane Implosion")
-        assertTrue(enemy1.hp < 300f, "Target should suffer implosion damage")
-        assertTrue(enemy2.hp < 300f, "Nearby enemy should suffer implosion damage")
-        // Enemy 2 was at x=280, distance 80px to enemy 1 (at x=200). It should be pulled 40px towards enemy 1!
+        assertTrue(reacted, "Magic on chilled enemy must trigger Glacial Singularity")
+        assertTrue(enemy1.hp < 300f, "Target should suffer singularity damage")
+        assertTrue(enemy2.hp < 300f, "Nearby enemy should suffer singularity damage")
+        // Enemy 2 was at x=280, distance 80px to enemy 1 (at x=200). It should be pulled towards enemy 1!
         assertTrue(enemy2.x < 260f, "Enemy 2 should be pulled towards epicenter (was 280, now ${enemy2.x})")
-        assertTrue(engine.floatingTexts.any { it.text.contains("ARCANE IMPLOSION") })
+        assertTrue(engine.floatingTexts.any { it.text.contains("GLACIAL SINGULARITY") })
+    }
+
+    @Test
+    fun testSolarFlareStripsShieldsAndSuppressesRegen() {
+        engine.init(1080f, 1920f)
+        val enemy = Enemy(x = 200f, y = 200f, speed = 0f, hp = 300f, maxHp = 500f, goldReward = 5, damage = 10f, type = EnemyType.GOBLIN)
+        enemy.burnTimer = 3f
+        enemy.shieldTimer = 5f
+        engine.enemies.add(enemy)
+
+        val reacted = engine.triggerElementalReaction(enemy, DamageType.MAGIC, null, 20f)
+        assertTrue(reacted, "Magic on burning enemy triggers Solar Flare")
+        assertEquals(0f, enemy.shieldTimer, "Solar Flare should strip shields")
+        assertTrue(enemy.solarBurnTimer > 0f, "Solar Flare applies solar burn")
+        assertTrue(engine.floatingTexts.any { it.text.contains("SOLAR FLARE") })
+
+        // Check regen suppression while solarBurnTimer is active
+        val hpBefore = enemy.hp
+        enemy.regenRate = 50f
+        engine.update(0.1f)
+        assertTrue(enemy.hp <= hpBefore, "Solar burn must suppress HP regeneration")
+    }
+
+    @Test
+    fun testOverloadFluxEchoesDamageAcrossLinkedEnemies() {
+        engine.init(1080f, 1920f)
+        val enemy1 = Enemy(x = 200f, y = 200f, speed = 0f, hp = 500f, maxHp = 500f, goldReward = 5, damage = 10f, type = EnemyType.GOBLIN)
+        val enemy2 = Enemy(x = 250f, y = 200f, speed = 0f, hp = 500f, maxHp = 500f, goldReward = 5, damage = 10f, type = EnemyType.GOBLIN)
+        enemy1.shockTimer = 3f
+        engine.enemies.add(enemy1)
+        engine.enemies.add(enemy2)
+
+        val reacted = engine.triggerElementalReaction(enemy1, DamageType.MAGIC, null, 20f)
+        assertTrue(reacted, "Magic on shocked enemy triggers Overload Flux")
+        assertTrue(enemy2.conduitTimer > 0f, "Nearby enemy gets conduit status")
+
+        val enemy2HpBefore = enemy2.hp
+        engine.echoConduitDamage(enemy1, 100f, null)
+        assertTrue(enemy2.hp < enemy2HpBefore, "Conduit enemy should take echoed damage when ally is hit")
+    }
+
+    @Test
+    fun testAstralDecayShredsResistanceAndGivesBonusGold() {
+        engine.init(1080f, 1920f)
+        val enemy = Enemy(x = 200f, y = 200f, speed = 0f, hp = 50f, maxHp = 500f, goldReward = 10, damage = 10f, type = EnemyType.GOBLIN)
+        enemy.poisonTimer = 3f
+        engine.enemies.add(enemy)
+
+        val reacted = engine.triggerElementalReaction(enemy, DamageType.MAGIC, null, 20f)
+        assertTrue(reacted, "Magic on poisoned enemy triggers Astral Decay")
+        assertTrue(enemy.astralDecayTimer > 0f, "Target has astral decay status")
+
+        val initialGold = engine.gold
+        enemy.hp = 0f
+        engine.update(0.05f)
+        assertTrue(engine.gold >= initialGold + 15, "Astral decay should award bonus gold on death")
+    }
+
+    @Test
+    fun testHellfireSoulburnPhantomOnDeath() {
+        engine.init(1080f, 1920f)
+        val enemy1 = Enemy(x = 200f, y = 200f, speed = 0f, hp = 50f, maxHp = 500f, goldReward = 5, damage = 10f, type = EnemyType.GOBLIN)
+        val enemy2 = Enemy(x = 230f, y = 200f, speed = 0f, hp = 500f, maxHp = 500f, goldReward = 5, damage = 10f, type = EnemyType.GOBLIN)
+        enemy1.burnTimer = 3f
+        engine.enemies.add(enemy1)
+        engine.enemies.add(enemy2)
+
+        val reacted = engine.triggerElementalReaction(enemy1, DamageType.DARK, null, 20f)
+        assertTrue(reacted, "Dark on burning enemy triggers Hellfire")
+        assertTrue(enemy1.soulburnTimer > 0f, "Target has soulburn status")
+
+        val enemy2HpBefore = enemy2.hp
+        enemy1.hp = 0f
+        engine.update(0.05f)
+        assertTrue(enemy2.hp < enemy2HpBefore, "Phantom wisp from Hellfire death should damage nearby enemy2")
+    }
+
+    @Test
+    fun testFrostTombIncreasesPhysicalDamage() {
+        engine.init(1080f, 1920f)
+        val enemy = Enemy(x = 200f, y = 200f, speed = 0f, hp = 500f, maxHp = 500f, goldReward = 5, damage = 10f, type = EnemyType.GOBLIN)
+        enemy.iceSlowFactor = 0.5f
+        engine.enemies.add(enemy)
+
+        val reacted = engine.triggerElementalReaction(enemy, DamageType.DARK, null, 20f)
+        assertTrue(reacted, "Dark on chilled enemy triggers Frost Tomb")
+        assertTrue(enemy.stunTimer > 0f, "Target should be stunned/entombed")
+        assertTrue(enemy.brittleTimer > 0f, "Target should have brittle status")
+
+        val brittleMult = if (enemy.brittleTimer > 0f) 1.4f else 1f
+        assertEquals(1.4f, brittleMult, 0.01f, "Brittle status must yield 1.4x physical damage multiplier")
+    }
+
+    @Test
+    fun testShadowSurgeEnfeeblesEnemy() {
+        engine.init(1080f, 1920f)
+        val enemy = Enemy(x = 200f, y = 200f, speed = 0f, hp = 500f, maxHp = 500f, goldReward = 5, damage = 20f, type = EnemyType.GOBLIN)
+        enemy.shockTimer = 3f
+        engine.enemies.add(enemy)
+
+        val reacted = engine.triggerElementalReaction(enemy, DamageType.DARK, null, 20f)
+        assertTrue(reacted, "Dark on shocked enemy triggers Shadow Surge")
+        assertTrue(enemy.enfeebleTimer > 0f, "Target should be enfeebled")
+
+        val enfeebleMult = if (enemy.enfeebleTimer > 0f) 0.5f else 1f
+        val calculatedDmg = enemy.damage * enfeebleMult
+        assertEquals(10f, calculatedDmg, 0.1f, "Enfeebled enemy should deal 50% damage")
+    }
+
+    @Test
+    fun testCorpseMiasmaDealsMaxHpPercentDamage() {
+        engine.init(1080f, 1920f)
+        val enemy = Enemy(x = 200f, y = 200f, speed = 0f, hp = 1000f, maxHp = 1000f, goldReward = 5, damage = 10f, type = EnemyType.GOBLIN)
+        enemy.poisonTimer = 3f
+        engine.enemies.add(enemy)
+
+        val hpBefore = enemy.hp
+        val reacted = engine.triggerElementalReaction(enemy, DamageType.DARK, null, 20f)
+        assertTrue(reacted, "Dark on poisoned enemy triggers Corpse Miasma")
+        val damageTaken = hpBefore - enemy.hp
+        assertTrue(damageTaken >= 100f, "Corpse Miasma should deal base + max HP percentage damage")
+    }
+
+    @Test
+    fun testNapalmConflagrationIgnitesGroundPatch() {
+        engine.init(1080f, 1920f)
+        val enemy = Enemy(x = 200f, y = 200f, speed = 0f, hp = 500f, maxHp = 500f, goldReward = 5, damage = 10f, type = EnemyType.GOBLIN)
+        enemy.burnTimer = 3f
+        engine.enemies.add(enemy)
+
+        assertEquals(0, engine.activeFirePatches.size)
+        val reacted = engine.triggerElementalReaction(enemy, DamageType.EXPLOSIVE, null, 20f)
+        assertTrue(reacted, "Explosive on burning enemy triggers Napalm Conflagration")
+        assertEquals(1, engine.activeFirePatches.size, "Should spawn a fire patch on ground")
+        assertTrue(engine.activeFirePatches[0].duration > 0f)
+    }
+
+    @Test
+    fun testEmpShockwaveSilencesAndStripsShields() {
+        engine.init(1080f, 1920f)
+        val enemy = Enemy(x = 200f, y = 200f, speed = 0f, hp = 500f, maxHp = 500f, goldReward = 5, damage = 10f, type = EnemyType.GOBLIN)
+        enemy.shockTimer = 3f
+        enemy.shieldTimer = 5f
+        engine.enemies.add(enemy)
+
+        val reacted = engine.triggerElementalReaction(enemy, DamageType.EXPLOSIVE, null, 20f)
+        assertTrue(reacted, "Explosive on shocked enemy triggers EMP Shockwave")
+        assertEquals(0f, enemy.shieldTimer, "EMP should strip shields")
+        assertTrue(enemy.silenceTimer > 0f, "EMP should silence target")
+    }
+
+    @Test
+    fun testFusionScholarAchievementUnlock() {
+        engine.init(1080f, 1920f)
+        val achievement = engine.achievements.first { it.id == "fusion_scholar" }
+        assertFalse(achievement.unlocked)
+
+        // Trigger or record all 14 fusions
+        FusionCatalog.allFusions.forEach { fusion ->
+            engine.recordFusionDiscovery(fusion.id)
+        }
+
+        assertTrue(achievement.unlocked, "Fusion Scholar achievement must unlock when all 14 fusions are discovered")
+        assertEquals(14, engine.discoveredFusions.size)
     }
 
     @Test

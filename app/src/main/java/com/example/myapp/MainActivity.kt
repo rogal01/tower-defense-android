@@ -57,6 +57,9 @@ class MainActivity : ImmersiveActivity() {
         findViewById<View>(R.id.btn_tutorial)?.setOnClickListener {
             TutorialDialog.show(this)
         }
+        findViewById<View>(R.id.btn_codex)?.setOnClickListener {
+            FusionCodexDialog.show(this, binding.gameView.getEngine().discoveredFusions)
+        }
     }
 
     private lateinit var binding: ActivityMainBinding
