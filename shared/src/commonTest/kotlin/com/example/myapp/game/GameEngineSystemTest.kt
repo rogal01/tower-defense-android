@@ -805,5 +805,42 @@ class GameEngineSystemTest {
         val goldBeforeSell = engine.gold
         engine.sellTower(tower)
         assertEquals(goldBeforeSell, engine.gold, "Tower selling on Level 78 must yield 0 gold refund")
+
+        // 10. Test Paced Tower Unlocks (Levels 1-15)
+        assertEquals(setOf(TowerType.ARROW), CampaignData.levels[0].allowedTowers)
+        assertEquals(setOf(TowerType.ARROW, TowerType.MAGIC), CampaignData.levels[1].allowedTowers)
+        assertEquals(setOf(TowerType.ARROW, TowerType.MAGIC, TowerType.CANNON), CampaignData.levels[2].allowedTowers)
+        assertTrue(TowerType.ICE in CampaignData.levels[5].allowedTowers)
+        assertTrue(TowerType.FLAME in CampaignData.levels[6].allowedTowers)
+        assertTrue(TowerType.TESLA in CampaignData.levels[7].allowedTowers)
+        assertTrue(TowerType.POISON in CampaignData.levels[8].allowedTowers)
+        assertTrue(TowerType.BALLISTA in CampaignData.levels[10].allowedTowers)
+        assertTrue(TowerType.NECRO in CampaignData.levels[11].allowedTowers)
+        assertTrue(TowerType.VORTEX in CampaignData.levels[12].allowedTowers)
+        assertTrue(TowerType.HEALER in CampaignData.levels[13].allowedTowers)
+        assertEquals(TowerType.entries.toSet(), CampaignData.levels[14].allowedTowers)
+
+        // 11. Test Skill Tree Scaling (Tutorial Levels 1-3 zero inflation vs Late Levels 100%)
+        prefs.edit().putInt("skill_start_gold", 5).putInt("skill_base_hp", 5).apply()
+        val upgradedEngine = GameEngine(prefs = prefs, audio = SilentAudio)
+        assertTrue(upgradedEngine.skillTree.bonusStartGold() > 0)
+
+        // Level 1: pure tutorial (0% skill tree factor)
+        upgradedEngine.applyCampaign(CampaignData.levels[0])
+        upgradedEngine.init(800f, 600f)
+        assertEquals(CampaignData.levels[0].startingGold, upgradedEngine.gold)
+
+        // Level 20: veteran tier (100% skill tree factor)
+        val engineLvl20 = GameEngine(prefs = prefs, audio = SilentAudio)
+        engineLvl20.applyCampaign(CampaignData.levels[19])
+        engineLvl20.init(800f, 600f)
+        assertEquals(CampaignData.levels[19].startingGold + engineLvl20.skillTree.bonusStartGold(), engineLvl20.gold)
+
+        // 12. Test Level 25: Glass Bastion (50 max base HP)
+        val lvl25 = CampaignData.levels[24]
+        val engineLvl25 = GameEngine(prefs = prefs, audio = SilentAudio)
+        engineLvl25.applyCampaign(lvl25)
+        assertEquals(50f, engineLvl25.maxBaseHp)
+        assertEquals(50f, engineLvl25.baseHp)
     }
 }

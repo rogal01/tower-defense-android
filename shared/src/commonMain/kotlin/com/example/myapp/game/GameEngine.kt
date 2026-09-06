@@ -682,7 +682,7 @@ class GameEngine(val prefs: GamePreferences, val audio: GameAudio = SilentAudio)
         gold = level.startingGold
         mapType = level.mapType
         // Glass cannon: reduced base HP
-        if (level.id == 28) { maxBaseHp = 50f; baseHp = 50f }
+        if (level.id == 25 || level.id == 28) { maxBaseHp = 50f; baseHp = 50f }
         if (level.id == 43) { maxBaseHp = 10f; baseHp = 10f }
 
         // Level-specific weather events
@@ -726,15 +726,26 @@ class GameEngine(val prefs: GamePreferences, val audio: GameAudio = SilentAudio)
             towerMasteryKills[t] = prefs.getInt("mastery_${t.name}", 0)
         }
 
-        // Apply persistent skill tree bonuses
-        gold += skillTree.bonusStartGold()
-        maxBaseHp += skillTree.bonusBaseHp()
-        baseHp = maxBaseHp
-        player.attackDamage += skillTree.bonusPlayerDamage()
-        player.speed += skillTree.bonusPlayerSpeed()
-        player.maxHp += skillTree.bonusPlayerHp()
+        // Apply persistent skill tree bonuses (scaled with campaign progression to preserve tutorial integrity)
+        val skillTreeFactor = when {
+            campaignLevel == null -> 1f
+            campaignLevel!!.id <= 3 -> 0f    // Pure tutorial for levels 1-3
+            campaignLevel!!.id <= 6 -> 0.35f  // Gentle introduction
+            campaignLevel!!.id <= 10 -> 0.65f // Moderate scaling
+            campaignLevel!!.id <= 15 -> 0.85f // Advanced scaling
+            else -> 1f                        // Full skill tree influence
+        }
+        gold += (skillTree.bonusStartGold() * skillTreeFactor).toInt()
+        val hpBonus = skillTree.bonusBaseHp() * skillTreeFactor
+        if (campaignLevel?.id != 43 && campaignLevel?.id != 25 && campaignLevel?.id != 28) {
+            maxBaseHp += hpBonus
+            baseHp = maxBaseHp
+        }
+        player.attackDamage += skillTree.bonusPlayerDamage() * skillTreeFactor
+        player.speed += skillTree.bonusPlayerSpeed() * skillTreeFactor
+        player.maxHp += skillTree.bonusPlayerHp() * skillTreeFactor
         player.hp = player.maxHp
-        player.attackRange += skillTree.bonusAttackRange()
+        player.attackRange += skillTree.bonusAttackRange() * skillTreeFactor
 
         generatePaths(width, height)
 
