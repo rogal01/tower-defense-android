@@ -351,6 +351,7 @@ class GameEngine(val prefs: GamePreferences, val audio: GameAudio = SilentAudio)
         Achievement("merchant_trio", "Bazaar Master", "Draft 3 items from the Wandering Merchant in one run", "⚖️", false, 30),
         Achievement("booster_alchemist", "Elixir Draught", "Draft any 3-wave booster potion", "🧪", false, 15),
         Achievement("synergy_proc", "Elemental Fusion", "Trigger an Elemental Synergy in combat", "💥", false, 25),
+        Achievement("synergy_master", "Elemental Catalyst", "Trigger 25 Elemental Reactions in a single game", "🔮", false, 35),
         Achievement("pact_survivor", "Devil's Bargain", "Survive 5 waves while bound to a High-Stakes Pact", "📜", false, 30),
         Achievement("greed_curse_diamonds", "Avarice Reward", "Earn bonus diamonds through the Curse of Greed", "😈", false, 25),
         Achievement("weather_thunder", "Lightning Rod", "Clear a Thunderstorm wave without losing Base HP", "🌩️", false, 25),
@@ -379,6 +380,7 @@ class GameEngine(val prefs: GamePreferences, val audio: GameAudio = SilentAudio)
     var playerKillsThisRun: Int = 0
     var playerCritsThisRun: Int = 0
     var consecutiveFlawlessWaves: Int = 0
+    var totalElementalReactionsThisRun: Int = 0
 
     // --- Tower mastery (persistent per-type kill tracking) ---
     val towerMasteryKills = mutableMapOf<TowerType, Int>()
@@ -1290,7 +1292,8 @@ class GameEngine(val prefs: GamePreferences, val audio: GameAudio = SilentAudio)
                 for (target in targets) {
                     val shieldRed = if (target.shieldTimer > 0) 0.3f else 1f
                     val phaseRed = if (target.isPhased) 0.25f else 1f
-                    var actualPlayerDmg = player.attackDamage * shieldRed * phaseRed * glassDmgMult
+                    val superconductMult = if (target.superconductTimer > 0f) 1.25f else 1f
+                    var actualPlayerDmg = player.attackDamage * shieldRed * phaseRed * glassDmgMult * superconductMult
                     val isCrit = (Math.random() < 0.15) || (Math.random() < critChance)
                     if (isCrit) {
                         actualPlayerDmg *= critMultiplier
@@ -1336,20 +1339,8 @@ class GameEngine(val prefs: GamePreferences, val audio: GameAudio = SilentAudio)
             val iceRange = tower.range * (if (currentWaveModifier == WaveModifier.INVISIBLE) 0.7f else 1f)
             enemies.forEach { enemy ->
                 if (enemy.distanceTo(tower.x, tower.y) < iceRange) {
-                    if (hasMerchantItem(MerchantItemId.THERMAL_SHOCK) && enemy.burnTimer > 0f && enemy.iceSlowFactor > 0.95f) {
-                        enemy.burnTimer = 0f
-                        checkAchievement("synergy_proc")
-                        val shatterDmg = 140f
-                        enemy.hp -= shatterDmg
-                        enemy.hitFlash = 0.2f
-                        floatingTexts.add(FloatingText(enemy.x, enemy.y - enemy.size - 15f, "💥 SHATTER!", 0xFF00E5FF.toInt(), 1.2f, 26f))
-                        repeat(8) {
-                            val a = Math.random() * Math.PI * 2
-                            val spd = 50f + Math.random().toFloat() * 60f
-                            particles.add(Particle(enemy.x, enemy.y,
-                                (Math.cos(a) * spd).toFloat(), (Math.sin(a) * spd).toFloat(),
-                                0.5f, 0xFF00E5FF.toInt(), 4f))
-                        }
+                    if (enemy.burnTimer > 0f || enemy.shockTimer > 0f || enemy.arcaneMarkTimer > 0f) {
+                        triggerElementalReaction(enemy, DamageType.ICE, tower, 20f + tower.level * 8f)
                     }
                     val slowPower = (0.5f - tower.level * 0.03f - skillTree.iceSlowBonus()).coerceAtLeast(0.05f)
                     enemy.iceSlowFactor = enemy.iceSlowFactor.coerceAtMost(slowPower)
@@ -1377,6 +1368,21 @@ class GameEngine(val prefs: GamePreferences, val audio: GameAudio = SilentAudio)
         enemies.forEach { enemy ->
             // Skip enemies in death animation
             if (enemy.deathProcessed) return@forEach
+
+            // Decrement elemental status timers
+            if (enemy.shockTimer > 0) enemy.shockTimer -= dt
+            if (enemy.arcaneMarkTimer > 0) enemy.arcaneMarkTimer -= dt
+            if (enemy.superconductTimer > 0) enemy.superconductTimer -= dt
+            if (enemy.stunTimer > 0) {
+                enemy.stunTimer -= dt
+                if (Math.random() < 0.2) {
+                    particles.add(Particle(enemy.x, enemy.y,
+                        ((Math.random() - 0.5) * 30).toFloat(), ((Math.random() - 0.5) * 30).toFloat(),
+                        0.3f, 0xFFFFEE58.toInt(), 3f))
+                }
+                if (enemy.hitFlash > 0) enemy.hitFlash -= dt
+                return@forEach
+            }
             // Regen from wave modifier
             if (enemy.regenRate > 0 && enemy.hp < enemy.maxHp) {
                 enemy.hp = (enemy.hp + enemy.regenRate * dt).coerceAtMost(enemy.maxHp)
@@ -2212,7 +2218,8 @@ class GameEngine(val prefs: GamePreferences, val audio: GameAudio = SilentAudio)
                     val critMult = if (isCrit) critMultiplier else 1f
                     val shieldMult = if (target.shieldTimer > 0) 0.3f else 1f
                     val glassMult = if (hasMerchantItem(MerchantItemId.GLASS_CANNON)) 1.50f else 1f
-                    var dmg = tower.damage * towerDmgMult * resistMult * synergyMult * critMult * shieldMult * glassMult
+                    val superconductMult = if (target.superconductTimer > 0f) 1.25f else 1f
+                    var dmg = tower.damage * towerDmgMult * resistMult * synergyMult * critMult * shieldMult * glassMult * superconductMult
 
                     // Necro execute: massive bonus damage to low-HP enemies
                     if (tower.type == TowerType.NECRO && target.hp < target.maxHp * 0.15f) {
@@ -2293,58 +2300,32 @@ class GameEngine(val prefs: GamePreferences, val audio: GameAudio = SilentAudio)
                     tower.totalDamageDealt += dmg
                     target.lastHitTower = tower
                     if (tower.type == TowerType.FLAME) {
-                        target.burnTimer = 3f
-                        target.burnDps = tower.damage * towerDmgMult * 0.3f  // 30% of damage as DPS for 3s
-                        if (hasMerchantItem(MerchantItemId.THERMAL_SHOCK) && (target.iceSlowFactor < 0.95f || target.deepFreezeTimer > 0f)) {
-                            checkAchievement("synergy_proc")
-                            val shatterDmg = 140f
-                            val aoeRadius = 120f
-                            val aoeEnemies = enemies.filter { it.hp > 0 && it.distanceTo(target.x, target.y) <= aoeRadius }
-                            for (ae in aoeEnemies) {
-                                ae.hp -= shatterDmg
-                                ae.hitFlash = 0.2f
-                                ae.lastHitTower = tower
-                                tower.totalDamageDealt += shatterDmg
-                            }
-                            floatingTexts.add(FloatingText(target.x, target.y - target.size - 15f, "💥 SHATTER!", 0xFF00E5FF.toInt(), 1.2f, 26f))
-                            audio.play(SfxType.TOWER_UPGRADE)
-                            repeat(12) {
-                                val a = Math.random() * Math.PI * 2
-                                val spd = 60f + Math.random().toFloat() * 80f
-                                particles.add(Particle(target.x, target.y,
-                                    (Math.cos(a) * spd).toFloat(), (Math.sin(a) * spd).toFloat(),
-                                    0.5f, 0xFF81D4FA.toInt(), 5f))
-                            }
+                        val reacted = triggerElementalReaction(target, DamageType.FIRE, tower, dmg)
+                        if (!reacted) {
+                            target.burnTimer = 3f
+                            target.burnDps = tower.damage * towerDmgMult * 0.3f  // 30% of damage as DPS for 3s
                         }
                     }
 
                     if (tower.type == TowerType.POISON) {
-                        target.poisonTimer = 4f
-                        target.poisonDps = tower.damage * towerDmgMult * 0.35f
+                        val reacted = triggerElementalReaction(target, DamageType.POISON, tower, dmg)
+                        if (!reacted) {
+                            target.poisonTimer = 4f
+                            target.poisonDps = tower.damage * towerDmgMult * 0.35f
+                        }
                     }
 
                     if (tower.type == TowerType.TESLA) {
-                        if (hasMerchantItem(MerchantItemId.NEUROTOXIN_CHAIN) && target.poisonTimer > 0f) {
-                            checkAchievement("synergy_proc")
-                            val burstRadius = 140f
-                            val nearby = enemies.filter { it.hp > 0 && it != target && it.distanceTo(target.x, target.y) <= burstRadius }
-                            for (ne in nearby) {
-                                ne.poisonTimer = 4f
-                                ne.poisonDps = (ne.poisonDps).coerceAtLeast(target.poisonDps)
-                                val toxicBurstDmg = 80f
-                                ne.hp -= toxicBurstDmg
-                                ne.hitFlash = 0.2f
-                                tower.totalDamageDealt += toxicBurstDmg
-                                ne.lastHitTower = tower
-                            }
-                            floatingTexts.add(FloatingText(target.x, target.y - target.size - 15f, "⚡ TOXIN BURST!", 0xFF00E676.toInt(), 1.2f, 26f))
-                            repeat(10) {
-                                val a = Math.random() * Math.PI * 2
-                                val spd = 40f + Math.random().toFloat() * 60f
-                                particles.add(Particle(target.x, target.y,
-                                    (Math.cos(a) * spd).toFloat(), (Math.sin(a) * spd).toFloat(),
-                                    0.5f, 0xFF00E676.toInt(), 5f))
-                            }
+                        val reacted = triggerElementalReaction(target, DamageType.ELECTRIC, tower, dmg)
+                        if (!reacted) {
+                            target.shockTimer = 3.5f
+                        }
+                    }
+
+                    if (tower.type == TowerType.MAGIC || tower.type == TowerType.VORTEX) {
+                        val reacted = triggerElementalReaction(target, DamageType.MAGIC, tower, dmg)
+                        if (!reacted) {
+                            target.arcaneMarkTimer = 3.5f
                         }
                     }
 
@@ -2481,6 +2462,224 @@ class GameEngine(val prefs: GamePreferences, val audio: GameAudio = SilentAudio)
             editor.apply()
         }
     } }
+
+    fun triggerElementalReaction(
+        target: Enemy,
+        incomingElement: DamageType,
+        sourceTower: Tower? = null,
+        baseDamage: Float = 0f
+    ): Boolean {
+        if (target.isDead()) return false
+
+        // 1. Melt / Steam Burst (FIRE + ICE)
+        if ((incomingElement == DamageType.FIRE && (target.iceSlowFactor < 0.95f || target.deepFreezeTimer > 0f || freezeTimer > 0f)) ||
+            (incomingElement == DamageType.ICE && target.burnTimer > 0f)
+        ) {
+            val hasBonus = hasMerchantItem(MerchantItemId.THERMAL_SHOCK)
+            val dmgMult = if (hasBonus) 1.6f else 1.0f
+            val aoeRadius = if (hasBonus) 160f else 130f
+            val burstDmg = (120f + baseDamage * 0.75f) * dmgMult
+
+            target.burnTimer = 0f
+            target.deepFreezeTimer = 0f
+            target.iceSlowFactor = 1f
+
+            val aoeEnemies = enemies.filter { it.hp > 0 && it.distanceTo(target.x, target.y) <= aoeRadius }
+            for (ae in aoeEnemies) {
+                ae.hp -= burstDmg
+                ae.hitFlash = 0.2f
+                if (sourceTower != null) {
+                    ae.lastHitTower = sourceTower
+                    sourceTower.totalDamageDealt += burstDmg
+                }
+                if (ae != target) {
+                    ae.iceSlowFactor = ae.iceSlowFactor.coerceAtMost(0.4f)
+                }
+            }
+            val floatMsg = if (hasBonus) "💥 SHATTER STEAM!" else "💥 STEAM BURST!"
+            floatingTexts.add(FloatingText(target.x, target.y - target.size - 15f, floatMsg, 0xFF00E5FF.toInt(), 1.2f, 26f))
+            audio.play(SfxType.TOWER_UPGRADE)
+            repeat(14) {
+                val a = Math.random() * Math.PI * 2
+                val spd = 40f + Math.random().toFloat() * 70f
+                particles.add(Particle(target.x, target.y,
+                    (Math.cos(a) * spd).toFloat(), (Math.sin(a) * spd).toFloat(),
+                    0.6f, 0xFFE0F7FA.toInt(), 5f))
+            }
+            onElementalReactionTriggered()
+            return true
+        }
+
+        // 2. Volatile Detonation (FIRE + POISON)
+        if ((incomingElement == DamageType.FIRE && target.poisonTimer > 0f) ||
+            (incomingElement == DamageType.POISON && target.burnTimer > 0f)
+        ) {
+            val remainingPoison = target.poisonTimer * target.poisonDps
+            val detDmg = 110f + remainingPoison * 1.5f + baseDamage * 0.5f
+            val aoeRadius = 120f
+
+            target.poisonTimer = 0f
+            target.burnTimer = 0f
+
+            val aoeEnemies = enemies.filter { it.hp > 0 && it.distanceTo(target.x, target.y) <= aoeRadius }
+            for (ae in aoeEnemies) {
+                ae.hp -= detDmg
+                ae.hitFlash = 0.25f
+                if (sourceTower != null) {
+                    ae.lastHitTower = sourceTower
+                    sourceTower.totalDamageDealt += detDmg
+                }
+            }
+            floatingTexts.add(FloatingText(target.x, target.y - target.size - 15f, "☣️ DETONATION!", 0xFFFF7043.toInt(), 1.2f, 26f))
+            audio.play(SfxType.TOWER_UPGRADE)
+            repeat(16) {
+                val a = Math.random() * Math.PI * 2
+                val spd = 60f + Math.random().toFloat() * 80f
+                val col = if (it % 2 == 0) 0xFFFF5722.toInt() else 0xFF76FF03.toInt()
+                particles.add(Particle(target.x, target.y,
+                    (Math.cos(a) * spd).toFloat(), (Math.sin(a) * spd).toFloat(),
+                    0.6f, col, 5f))
+            }
+            onElementalReactionTriggered()
+            return true
+        }
+
+        // 3. Superconductor (ELECTRIC + ICE)
+        if ((incomingElement == DamageType.ELECTRIC && (target.iceSlowFactor < 0.95f || target.deepFreezeTimer > 0f || freezeTimer > 0f)) ||
+            (incomingElement == DamageType.ICE && target.shockTimer > 0f)
+        ) {
+            val chainDmg = 65f + baseDamage * 0.4f
+            target.shockTimer = 0f
+            target.deepFreezeTimer = 0f
+            target.iceSlowFactor = 1f
+            target.superconductTimer = 4.0f
+
+            val chainTargets = enemies.filter { it.hp > 0 && it != target && it.distanceTo(target.x, target.y) <= 150f }.take(3)
+            for (ce in chainTargets) {
+                ce.superconductTimer = 4.0f
+                ce.hp -= chainDmg
+                ce.hitFlash = 0.2f
+                if (sourceTower != null) {
+                    ce.lastHitTower = sourceTower
+                    sourceTower.totalDamageDealt += chainDmg
+                }
+                repeat(5) {
+                    particles.add(Particle(ce.x, ce.y,
+                        ((Math.random() - 0.5) * 60).toFloat(), ((Math.random() - 0.5) * 60).toFloat(),
+                        0.4f, 0xFF80D8FF.toInt(), 4f))
+                }
+            }
+            floatingTexts.add(FloatingText(target.x, target.y - target.size - 15f, "⚡ SUPERCONDUCT!", 0xFF40C4FF.toInt(), 1.2f, 26f))
+            audio.play(SfxType.TOWER_UPGRADE)
+            repeat(12) {
+                val a = Math.random() * Math.PI * 2
+                val spd = 70f + Math.random().toFloat() * 70f
+                particles.add(Particle(target.x, target.y,
+                    (Math.cos(a) * spd).toFloat(), (Math.sin(a) * spd).toFloat(),
+                    0.5f, 0xFF00E5FF.toInt(), 4f))
+            }
+            onElementalReactionTriggered()
+            return true
+        }
+
+        // 4. Corrosive Shock (ELECTRIC + POISON)
+        if ((incomingElement == DamageType.ELECTRIC && target.poisonTimer > 0f) ||
+            (incomingElement == DamageType.POISON && target.shockTimer > 0f)
+        ) {
+            val hasBonus = hasMerchantItem(MerchantItemId.NEUROTOXIN_CHAIN)
+            val dmgMult = if (hasBonus) 1.6f else 1.0f
+            val burstRadius = if (hasBonus) 180f else 140f
+            val shockDmg = (75f + baseDamage * 0.45f) * dmgMult
+
+            target.shockTimer = 0f
+            target.stunTimer = target.stunTimer.coerceAtLeast(0.6f)
+
+            val nearby = enemies.filter { it.hp > 0 && it != target && it.distanceTo(target.x, target.y) <= burstRadius }
+            for (ne in nearby) {
+                ne.poisonTimer = 4f
+                ne.poisonDps = ne.poisonDps.coerceAtLeast(target.poisonDps.coerceAtLeast(15f))
+                ne.hp -= shockDmg
+                ne.hitFlash = 0.2f
+                ne.stunTimer = ne.stunTimer.coerceAtLeast(0.4f)
+                if (sourceTower != null) {
+                    ne.lastHitTower = sourceTower
+                    sourceTower.totalDamageDealt += shockDmg
+                }
+            }
+            val floatMsg = if (hasBonus) "⚡ TOXIN BURST CORROSION!" else "🧪 CORROSIVE SHOCK!"
+            floatingTexts.add(FloatingText(target.x, target.y - target.size - 15f, floatMsg, 0xFF00E676.toInt(), 1.2f, 26f))
+            audio.play(SfxType.TOWER_UPGRADE)
+            repeat(12) {
+                val a = Math.random() * Math.PI * 2
+                val spd = 50f + Math.random().toFloat() * 60f
+                val col = if (it % 2 == 0) 0xFF00E676.toInt() else 0xFFFFEE58.toInt()
+                particles.add(Particle(target.x, target.y,
+                    (Math.cos(a) * spd).toFloat(), (Math.sin(a) * spd).toFloat(),
+                    0.5f, col, 5f))
+            }
+            onElementalReactionTriggered()
+            return true
+        }
+
+        // 5. Arcane Implosion (MAGIC/VORTEX + FIRE/ICE/ELECTRIC/POISON)
+        val targetHasOtherElement = target.burnTimer > 0f || target.iceSlowFactor < 0.95f || target.deepFreezeTimer > 0f || freezeTimer > 0f || target.shockTimer > 0f || target.poisonTimer > 0f
+        val incomingIsOtherElement = incomingElement == DamageType.FIRE || incomingElement == DamageType.ICE || incomingElement == DamageType.ELECTRIC || incomingElement == DamageType.POISON
+
+        if ((incomingElement == DamageType.MAGIC && targetHasOtherElement) ||
+            (target.arcaneMarkTimer > 0f && incomingIsOtherElement)
+        ) {
+            val implosionDmg = 110f + baseDamage * 0.5f
+            val pullRadius = 140f
+
+            target.arcaneMarkTimer = 0f
+            target.burnTimer = 0f
+            target.poisonTimer = 0f
+            target.shockTimer = 0f
+            target.deepFreezeTimer = 0f
+            target.iceSlowFactor = 1f
+
+            val nearby = enemies.filter { it.hp > 0 && it.distanceTo(target.x, target.y) <= pullRadius }
+            for (ne in nearby) {
+                ne.hp -= implosionDmg
+                ne.hitFlash = 0.25f
+                if (sourceTower != null) {
+                    ne.lastHitTower = sourceTower
+                    sourceTower.totalDamageDealt += implosionDmg
+                }
+                if (ne != target) {
+                    val dx = target.x - ne.x
+                    val dy = target.y - ne.y
+                    val d = kotlin.math.hypot(dx, dy)
+                    if (d > 10f) {
+                        val pullDist = 40f
+                        ne.x += (dx / d) * pullDist
+                        ne.y += (dy / d) * pullDist
+                    }
+                }
+            }
+            floatingTexts.add(FloatingText(target.x, target.y - target.size - 15f, "🌌 ARCANE IMPLOSION!", 0xFFBA68C8.toInt(), 1.2f, 26f))
+            audio.play(SfxType.TOWER_UPGRADE)
+            repeat(16) {
+                val a = Math.random() * Math.PI * 2
+                val spd = 60f + Math.random().toFloat() * 60f
+                particles.add(Particle(target.x, target.y,
+                    (Math.cos(a) * spd).toFloat(), (Math.sin(a) * spd).toFloat(),
+                    0.6f, 0xFFAB47BC.toInt(), 5f))
+            }
+            onElementalReactionTriggered()
+            return true
+        }
+
+        return false
+    }
+
+    private fun onElementalReactionTriggered() {
+        totalElementalReactionsThisRun++
+        checkAchievement("synergy_proc")
+        if (totalElementalReactionsThisRun >= 25) {
+            checkAchievement("synergy_master")
+        }
+    }
 
     val currentGoldMult: Float get() = goldMult
 
@@ -3384,6 +3583,11 @@ class GameEngine(val prefs: GamePreferences, val audio: GameAudio = SilentAudio)
                     val dmg = tower.damage * towerDmgMult * 0.5f * resistMult
                     target.hp -= dmg
                     target.hitFlash = 0.2f
+                    val reacted = triggerElementalReaction(target, DamageType.POISON, tower, dmg)
+                    if (!reacted) {
+                        target.poisonTimer = 4f
+                        target.poisonDps = (tower.damage * towerDmgMult * 0.35f).coerceAtLeast(target.poisonDps)
+                    }
                     repeat(3) {
                         particles.add(Particle(target.x, target.y,
                             ((Math.random() - 0.5) * 40).toFloat(), -30f,
@@ -3402,6 +3606,10 @@ class GameEngine(val prefs: GamePreferences, val audio: GameAudio = SilentAudio)
                     val dmg = tower.damage * towerDmgMult * 1.8f * resistMult
                     target.hp -= dmg
                     target.hitFlash = 0.3f
+                    val reacted = triggerElementalReaction(target, DamageType.ELECTRIC, tower, dmg)
+                    if (!reacted) {
+                        target.shockTimer = 3.5f
+                    }
                     repeat(4) { i ->
                         val t = i / 4f
                         particles.add(Particle(
@@ -3419,7 +3627,10 @@ class GameEngine(val prefs: GamePreferences, val audio: GameAudio = SilentAudio)
                 // Deep Freeze: stun all enemies in range for 3 seconds
                 val iceRange = tower.range * 1.2f
                 enemies.filter { it.distanceTo(tower.x, tower.y) < iceRange }.forEach { target ->
-                    target.deepFreezeTimer = 3f // Nearly stopped for 3 seconds
+                    val reacted = triggerElementalReaction(target, DamageType.ICE, tower, 50f)
+                    if (!reacted) {
+                        target.deepFreezeTimer = 3f // Nearly stopped for 3 seconds
+                    }
                     target.hitFlash = 0.5f
                     repeat(4) {
                         particles.add(Particle(target.x, target.y,
@@ -3433,8 +3644,11 @@ class GameEngine(val prefs: GamePreferences, val audio: GameAudio = SilentAudio)
                 // Inferno: burn all enemies in range with heavy DoT
                 val inRange = enemies.filter { it.distanceTo(tower.x, tower.y) < tower.range }
                 inRange.forEach { target ->
-                    target.burnTimer = 5f
-                    target.burnDps = tower.damage * towerDmgMult * 0.5f
+                    val reacted = triggerElementalReaction(target, DamageType.FIRE, tower, tower.damage * towerDmgMult)
+                    if (!reacted) {
+                        target.burnTimer = 5f
+                        target.burnDps = tower.damage * towerDmgMult * 0.5f
+                    }
                     target.hitFlash = 0.3f
                 }
                 repeat(30) {
@@ -3696,8 +3910,15 @@ class GameEngine(val prefs: GamePreferences, val audio: GameAudio = SilentAudio)
                 gold -= type.cost
                 enemies.forEach { enemy ->
                     val shieldMult = if (enemy.shieldTimer > 0) 0.3f else 1f
-                    enemy.hp -= 50f * shieldMult * randomizerPowerDamageMult
+                    val scMult = if (enemy.superconductTimer > 0f) 1.25f else 1f
+                    val dmg = 50f * shieldMult * randomizerPowerDamageMult * scMult
+                    enemy.hp -= dmg
                     enemy.hitFlash = 0.3f
+                    val reacted = triggerElementalReaction(enemy, DamageType.FIRE, null, dmg)
+                    if (!reacted) {
+                        enemy.burnTimer = 3f
+                        enemy.burnDps = 20f
+                    }
                 }
                 shakeTimer = 0.3f; shakeIntensity = 10f
                 repeat(30) {
@@ -3720,6 +3941,7 @@ class GameEngine(val prefs: GamePreferences, val audio: GameAudio = SilentAudio)
                 gold -= type.cost
                 freezeTimer = 4f
                 enemies.forEach { enemy ->
+                    triggerElementalReaction(enemy, DamageType.ICE, null, 30f)
                     repeat(4) {
                         particles.add(Particle(enemy.x, enemy.y,
                             ((Math.random() - 0.5) * 80).toFloat(), ((Math.random() - 0.5) * 80).toFloat(),
@@ -3753,8 +3975,14 @@ class GameEngine(val prefs: GamePreferences, val audio: GameAudio = SilentAudio)
                 var prevX = player.x; var prevY = player.y
                 targets.forEach { enemy ->
                     val shieldMult = if (enemy.shieldTimer > 0) 0.3f else 1f
-                    enemy.hp -= 80f * shieldMult * randomizerPowerDamageMult
+                    val scMult = if (enemy.superconductTimer > 0f) 1.25f else 1f
+                    val dmg = 80f * shieldMult * randomizerPowerDamageMult * scMult
+                    enemy.hp -= dmg
                     enemy.hitFlash = 0.3f
+                    val reacted = triggerElementalReaction(enemy, DamageType.ELECTRIC, null, dmg)
+                    if (!reacted) {
+                        enemy.shockTimer = 3.5f
+                    }
                     repeat(6) {
                         val t = it / 6f
                         particles.add(Particle(
@@ -4207,6 +4435,7 @@ class GameEngine(val prefs: GamePreferences, val audio: GameAudio = SilentAudio)
         playerKillsThisRun = 0
         playerCritsThisRun = 0
         consecutiveFlawlessWaves = 0
+        totalElementalReactionsThisRun = 0
         campaignStars = 0
         towersSoldThisRun = 0
         towersPlacedThisRun = 0

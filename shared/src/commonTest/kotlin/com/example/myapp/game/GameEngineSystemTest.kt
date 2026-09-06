@@ -926,4 +926,144 @@ class GameEngineSystemTest {
         assertEquals(4, engine.wave)
         assertEquals(WaveModifier.FAST, engine.currentWaveModifier, "Wave 4 should activate FAST from campaignLevel.waveModifiers")
     }
+
+    @Test
+    fun testSteamBurstReactionFireAndIce() {
+        engine.init(1080f, 1920f)
+        val enemy1 = Enemy(x = 200f, y = 200f, speed = 0f, hp = 300f, maxHp = 300f, goldReward = 5, damage = 10f, type = EnemyType.GOBLIN)
+        enemy1.iceSlowFactor = 0.5f // Chilled
+        val enemy2 = Enemy(x = 240f, y = 200f, speed = 0f, hp = 300f, maxHp = 300f, goldReward = 5, damage = 10f, type = EnemyType.GOBLIN)
+        engine.enemies.add(enemy1)
+        engine.enemies.add(enemy2)
+
+        val reacted = engine.triggerElementalReaction(enemy1, DamageType.FIRE, null, 20f)
+        assertTrue(reacted, "Fire on chilled enemy must trigger Steam Burst")
+        assertTrue(enemy1.hp < 200f, "Target should suffer steam burst damage")
+        assertTrue(enemy2.hp < 200f, "Nearby enemy within 130px should suffer steam burst AoE damage")
+        assertEquals(1f, enemy1.iceSlowFactor, "Freeze/chill should be consumed by steam burst")
+        assertEquals(0.4f, enemy2.iceSlowFactor, "Nearby enemy should be slowed by scalding steam")
+        assertEquals(1, engine.totalElementalReactionsThisRun)
+    }
+
+    @Test
+    fun testVolatileDetonationReactionFireAndPoison() {
+        engine.init(1080f, 1920f)
+        val enemy1 = Enemy(x = 300f, y = 300f, speed = 0f, hp = 400f, maxHp = 400f, goldReward = 5, damage = 10f, type = EnemyType.GOBLIN)
+        enemy1.poisonTimer = 3f
+        enemy1.poisonDps = 20f
+        val enemy2 = Enemy(x = 350f, y = 300f, speed = 0f, hp = 400f, maxHp = 400f, goldReward = 5, damage = 10f, type = EnemyType.GOBLIN)
+        engine.enemies.add(enemy1)
+        engine.enemies.add(enemy2)
+
+        val reacted = engine.triggerElementalReaction(enemy1, DamageType.FIRE, null, 25f)
+        assertTrue(reacted, "Fire on poisoned enemy must trigger Volatile Detonation")
+        assertEquals(0f, enemy1.poisonTimer, "Poison must be consumed by detonation")
+        // Detonation damage: 110 + 3*20*1.5 + 25*0.5 = 110 + 90 + 12.5 = 212.5
+        assertTrue(enemy1.hp <= 200f, "Target should take massive detonation burst")
+        assertTrue(enemy2.hp <= 200f, "Nearby enemy within 120px should take detonation AoE")
+        assertTrue(engine.floatingTexts.any { it.text.contains("DETONATION") })
+    }
+
+    @Test
+    fun testSuperconductorReactionElectricAndIce() {
+        engine.init(1080f, 1920f)
+        val enemy1 = Enemy(x = 200f, y = 200f, speed = 0f, hp = 500f, maxHp = 500f, goldReward = 5, damage = 10f, type = EnemyType.GOBLIN)
+        enemy1.iceSlowFactor = 0.5f
+        val enemy2 = Enemy(x = 260f, y = 200f, speed = 0f, hp = 500f, maxHp = 500f, goldReward = 5, damage = 10f, type = EnemyType.GOBLIN)
+        engine.enemies.add(enemy1)
+        engine.enemies.add(enemy2)
+
+        val reacted = engine.triggerElementalReaction(enemy1, DamageType.ELECTRIC, null, 30f)
+        assertTrue(reacted, "Electric on chilled enemy must trigger Superconductor")
+        assertEquals(4.0f, enemy1.superconductTimer, "Target should receive 4.0s superconduct debuff")
+        assertEquals(4.0f, enemy2.superconductTimer, "Chain lightning should apply superconduct debuff to nearby enemy")
+        assertTrue(enemy2.hp < 500f, "Nearby enemy should take chained lightning damage")
+        assertTrue(engine.floatingTexts.any { it.text.contains("SUPERCONDUCT") })
+
+        // Verify +25% damage taken while superconduct is active
+        val flameTower = Tower(x = 200f, y = 220f, level = 1, damage = 40f, range = 100f, fireRate = 10f, type = TowerType.FLAME)
+        engine.towers.add(flameTower)
+        val hpBeforeHit = enemy1.hp
+        engine.update(0.1f)
+        // With superconduct (+25%), damage should be >= 40 * 1.25 = 50
+        val damageTaken = hpBeforeHit - enemy1.hp
+        assertTrue(damageTaken >= 50f, "Superconduct should amplify incoming damage by 25% (expected >= 50, got $damageTaken)")
+    }
+
+    @Test
+    fun testCorrosiveShockReactionElectricAndPoisonAndStun() {
+        engine.init(1080f, 1920f)
+        val enemy1 = Enemy(x = 200f, y = 200f, speed = 100f, hp = 400f, maxHp = 400f, goldReward = 5, damage = 10f, type = EnemyType.GOBLIN)
+        enemy1.poisonTimer = 3f
+        enemy1.poisonDps = 20f
+        val enemy2 = Enemy(x = 250f, y = 200f, speed = 100f, hp = 400f, maxHp = 400f, goldReward = 5, damage = 10f, type = EnemyType.GOBLIN)
+        engine.enemies.add(enemy1)
+        engine.enemies.add(enemy2)
+
+        val reacted = engine.triggerElementalReaction(enemy1, DamageType.ELECTRIC, null, 20f)
+        assertTrue(reacted, "Electric on poisoned enemy must trigger Corrosive Shock")
+        assertTrue(enemy1.stunTimer >= 0.5f, "Target should be stunned (0.6s)")
+        assertTrue(enemy2.stunTimer >= 0.3f, "Nearby enemy should be micro-stunned (0.4s)")
+        assertTrue(enemy2.poisonTimer > 0f, "Poison should be spread to nearby enemy")
+        assertTrue(engine.floatingTexts.any { it.text.contains("CORROSIVE") })
+
+        // Verify stun prevents movement in update loop
+        val startX1 = enemy1.x
+        val startY1 = enemy1.y
+        engine.update(0.1f)
+        assertEquals(startX1, enemy1.x, 0.001f, "Stunned enemy 1 must not move")
+        assertEquals(startY1, enemy1.y, 0.001f, "Stunned enemy 1 must not move")
+    }
+
+    @Test
+    fun testArcaneImplosionReactionMagicAndElements() {
+        engine.init(1080f, 1920f)
+        val enemy1 = Enemy(x = 200f, y = 200f, speed = 0f, hp = 400f, maxHp = 400f, goldReward = 5, damage = 10f, type = EnemyType.GOBLIN)
+        enemy1.burnTimer = 3f
+        val enemy2 = Enemy(x = 280f, y = 200f, speed = 0f, hp = 400f, maxHp = 400f, goldReward = 5, damage = 10f, type = EnemyType.GOBLIN)
+        engine.enemies.add(enemy1)
+        engine.enemies.add(enemy2)
+
+        val reacted = engine.triggerElementalReaction(enemy1, DamageType.MAGIC, null, 20f)
+        assertTrue(reacted, "Magic on burning enemy must trigger Arcane Implosion")
+        assertTrue(enemy1.hp < 300f, "Target should suffer implosion damage")
+        assertTrue(enemy2.hp < 300f, "Nearby enemy should suffer implosion damage")
+        // Enemy 2 was at x=280, distance 80px to enemy 1 (at x=200). It should be pulled 40px towards enemy 1!
+        assertTrue(enemy2.x < 260f, "Enemy 2 should be pulled towards epicenter (was 280, now ${enemy2.x})")
+        assertTrue(engine.floatingTexts.any { it.text.contains("ARCANE IMPLOSION") })
+    }
+
+    @Test
+    fun testHeroPowersTriggerElementalReactions() {
+        engine.init(1080f, 1920f)
+        engine.gold = 500
+
+        val enemy = Enemy(x = 200f, y = 200f, speed = 0f, hp = 500f, maxHp = 500f, goldReward = 5, damage = 10f, type = EnemyType.GOBLIN)
+        enemy.iceSlowFactor = 0.5f // Chilled
+        engine.enemies.add(enemy)
+
+        // Cast Fireball power
+        val used = engine.usePower(PowerType.FIREBALL)
+        assertTrue(used, "Fireball should cast successfully")
+        assertTrue(engine.floatingTexts.any { it.text.contains("STEAM BURST") || it.text.contains("SHATTER") },
+            "Fireball on chilled enemy should trigger Steam Burst reaction")
+        assertTrue(engine.totalElementalReactionsThisRun >= 1)
+    }
+
+    @Test
+    fun testSynergyMasterAchievementUnlock() {
+        engine.init(1080f, 1920f)
+        val enemy = Enemy(x = 200f, y = 200f, speed = 0f, hp = 99999f, maxHp = 99999f, goldReward = 5, damage = 10f, type = EnemyType.GOBLIN)
+        engine.enemies.add(enemy)
+
+        assertFalse(engine.achievements.first { it.id == "synergy_master" }.unlocked)
+
+        for (i in 1..25) {
+            enemy.iceSlowFactor = 0.5f
+            engine.triggerElementalReaction(enemy, DamageType.FIRE, null, 10f)
+        }
+
+        assertEquals(25, engine.totalElementalReactionsThisRun)
+        assertTrue(engine.achievements.first { it.id == "synergy_master" }.unlocked, "Synergy Master achievement must unlock at 25 reactions")
+    }
 }

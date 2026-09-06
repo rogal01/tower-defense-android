@@ -70,6 +70,14 @@ data class Enemy(
     var poisonTimer: Float = 0f
     /** Poison DPS */
     var poisonDps: Float = 0f
+    /** Shock timer — when > 0, enemy is afflicted with electro charge */
+    var shockTimer: Float = 0f
+    /** Arcane mark timer — when > 0, enemy is marked by magic/vortex energy */
+    var arcaneMarkTimer: Float = 0f
+    /** Superconduct debuff timer — when > 0, enemy takes 25% increased damage */
+    var superconductTimer: Float = 0f
+    /** Stun timer — when > 0, enemy cannot move or attack */
+    var stunTimer: Float = 0f
     /** Tar slow timer — when > 0, enemy is slowed by tar trap */
     var tarSlowTimer: Float = 0f
     /** Last tower that hit this enemy — used for kill attribution */

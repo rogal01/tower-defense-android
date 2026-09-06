@@ -1200,10 +1200,30 @@ class GameView @JvmOverloads constructor(
                 }
             }
 
-            // Burn effect — orange tint on burning enemies
+            // Elemental status indicators (zero GC allocation, reusing paint)
             if (enemy.burnTimer > 0) {
                 paint.color = 0x44FF5722
                 canvas.drawCircle(enemy.x, enemy.y, enemy.size + 3f, paint)
+            }
+            if (enemy.poisonTimer > 0) {
+                paint.color = 0x4476FF03
+                canvas.drawCircle(enemy.x, enemy.y, enemy.size + 4f, paint)
+            }
+            if (enemy.shockTimer > 0) {
+                paint.color = 0x4429B6F6
+                canvas.drawCircle(enemy.x, enemy.y, enemy.size + 5f, paint)
+            }
+            if (enemy.superconductTimer > 0) {
+                paint.color = 0x5500E5FF
+                canvas.drawCircle(enemy.x, enemy.y, enemy.size + 6f, paint)
+            }
+            if (enemy.arcaneMarkTimer > 0) {
+                paint.color = 0x44AB47BC
+                canvas.drawCircle(enemy.x, enemy.y, enemy.size + 4f, paint)
+            }
+            if (enemy.stunTimer > 0) {
+                paint.color = 0x55FFEB3B
+                canvas.drawCircle(enemy.x, enemy.y, enemy.size + 5f, paint)
             }
 
             // HP bar — rounded with color gradient
