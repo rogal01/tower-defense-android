@@ -42,6 +42,7 @@ class GameView @JvmOverloads constructor(
     var onCampaignVictory: (() -> Unit)? = null
     var onMilestoneBuff: (() -> Unit)? = null
     var onMerchantShop: (() -> Unit)? = null
+    var onWaveStateChanged: ((inProgress: Boolean, waveTimer: Float) -> Unit)? = null
     @Volatile private var gameOverFired = false
     @Volatile private var milestoneDialogShown = false
     @Volatile private var merchantDialogShown = false
@@ -234,6 +235,7 @@ class GameView @JvmOverloads constructor(
         onCampaignVictory = null
         onMilestoneBuff = null
         onMerchantShop = null
+        onWaveStateChanged = null
     }
 
     override fun run() {
@@ -333,6 +335,8 @@ class GameView @JvmOverloads constructor(
             val isVictory: Boolean
             val isMilestonePending: Boolean
             val isMerchantPending: Boolean
+            val waveInProgressSnap: Boolean
+            val waveTimerSnap: Float
             synchronized(engine.lock) {
                 goldSnap = engine.gold
                 waveSnap = engine.wave
@@ -342,11 +346,14 @@ class GameView @JvmOverloads constructor(
                 isVictory = engine.campaignVictory
                 isMilestonePending = engine.endlessMilestonePending
                 isMerchantPending = engine.merchantShopPending
+                waveInProgressSnap = engine.waveInProgress
+                waveTimerSnap = engine.waveTimer
             }
             post {
                 onGoldChanged?.invoke(goldSnap)
                 onWaveChanged?.invoke(waveSnap)
                 onDiamondsChanged?.invoke(diamondSnap)
+                onWaveStateChanged?.invoke(waveInProgressSnap, waveTimerSnap)
                 // Haptic feedback
                 val haptic = engine.hapticPending
                 if (haptic > 0) {

@@ -109,10 +109,18 @@
             android:padding="0dp" />
 
         <Button
-            android:id="@+id/btn_speed3"
-            android:layout_width="0dp"
-            android:layout_height="0dp"
-            android:visibility="gone" />
+            android:id="@+id/btn_call_wave"
+            android:layout_width="wrap_content"
+            android:layout_height="38dp"
+            android:minWidth="56dp"
+            android:minHeight="44dp"
+            android:layout_marginStart="4dp"
+            android:text="▶▶ Rush"
+            android:textSize="12sp"
+            android:textStyle="bold"
+            android:background="@drawable/bg_btn_action"
+            android:textColor="@color/gold"
+            android:padding="0dp" />
 
         <Button
             android:id="@+id/btn_auto_wave"

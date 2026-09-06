@@ -16,9 +16,31 @@ import androidx.appcompat.app.AppCompatActivity
 import com.example.myapp.databinding.ActivityCampaignBinding
 import com.example.myapp.game.CampaignData
 import com.example.myapp.game.CampaignLevel
+import com.example.myapp.game.MissionType
 import com.example.myapp.game.SfxType
 
 class CampaignActivity : ImmersiveActivity() {
+
+    data class CampaignAct(
+        val actNumber: Int,
+        val startLevel: Int,
+        val endLevel: Int,
+        val titleEn: String,
+        val titlePl: String,
+        val emoji: String
+    ) {
+        fun title(isPl: Boolean): String = if (isPl) titlePl else titleEn
+    }
+
+    private val campaignActs = listOf(
+        CampaignAct(1, 1, 10, "Act I: The Outskirts", "Akt I: Obrzeża Królestwa", "🌲"),
+        CampaignAct(2, 11, 20, "Act II: Molten Canyons", "Akt II: Stopione Wąwozy", "🌋"),
+        CampaignAct(3, 21, 30, "Act III: Frozen Necropolis", "Akt III: Zmarznięta Nekropolia", "❄️"),
+        CampaignAct(4, 31, 40, "Act IV: Corrupted Frontier", "Akt IV: Spaczone Pogranicze", "☣️"),
+        CampaignAct(5, 41, 50, "Act V: Infernal Bastion", "Akt V: Piekielny Bastion", "🔥"),
+        CampaignAct(6, 51, 65, "Act VI: The Void Rifts", "Akt VI: Szczeliny Pustki", "🌌"),
+        CampaignAct(7, 66, 80, "Act VII: Apex Citadel", "Akt VII: Cytadela Szczytu", "👑")
+    )
 
     private lateinit var binding: ActivityCampaignBinding
 
@@ -43,12 +65,62 @@ class CampaignActivity : ImmersiveActivity() {
         container.removeAllViews()
 
         var completed = 0
+        val isPl = GameStrings.isPl
         for (level in CampaignData.levels) {
             val isCompleted = prefs.getBoolean("campaign_${level.id}", false)
             val isHeroicCompleted = prefs.getBoolean("campaign_${level.id}_heroic", false)
             if (isCompleted) completed++
             val prevCompleted = level.id == 1 || prefs.getBoolean("campaign_${level.id - 1}", false)
             val isUnlocked = prevCompleted
+
+            // Act Section Header
+            val act = campaignActs.find { it.startLevel == level.id }
+            if (act != null) {
+                val actLevels = CampaignData.levels.filter { it.id in act.startLevel..act.endLevel }
+                val actStars = actLevels.sumOf { prefs.getInt("campaign_${it.id}_stars", 0) }
+                val actMaxStars = actLevels.size * 3
+
+                val actHeader = LinearLayout(this).apply {
+                    orientation = LinearLayout.VERTICAL
+                    setPadding(dp(12), dp(16), dp(12), dp(6))
+                    layoutParams = LinearLayout.LayoutParams(
+                        LinearLayout.LayoutParams.MATCH_PARENT,
+                        LinearLayout.LayoutParams.WRAP_CONTENT
+                    ).apply {
+                        topMargin = if (act.actNumber > 1) dp(18) else dp(4)
+                        bottomMargin = dp(4)
+                    }
+                }
+
+                val headerRow = LinearLayout(this).apply {
+                    orientation = LinearLayout.HORIZONTAL
+                    gravity = Gravity.CENTER_VERTICAL
+                    layoutParams = LinearLayout.LayoutParams(
+                        LinearLayout.LayoutParams.MATCH_PARENT,
+                        LinearLayout.LayoutParams.WRAP_CONTENT
+                    )
+                }
+
+                val actTitle = TextView(this).apply {
+                    text = "${act.emoji} ${act.title(isPl)}"
+                    setTextSize(TypedValue.COMPLEX_UNIT_SP, 15f)
+                    setTextColor(Color.parseColor("#00E5FF"))
+                    setTypeface(typeface, Typeface.BOLD)
+                    layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f)
+                }
+
+                val actStarProgress = TextView(this).apply {
+                    text = "⭐ $actStars / $actMaxStars"
+                    setTextSize(TypedValue.COMPLEX_UNIT_SP, 13f)
+                    setTextColor(Color.parseColor("#FFD54F"))
+                    setTypeface(typeface, Typeface.BOLD)
+                }
+
+                headerRow.addView(actTitle)
+                headerRow.addView(actStarProgress)
+                actHeader.addView(headerRow)
+                container.addView(actHeader)
+            }
 
             val card = LinearLayout(this).apply {
                 orientation = LinearLayout.HORIZONTAL
@@ -104,6 +176,27 @@ class CampaignActivity : ImmersiveActivity() {
                 setTypeface(typeface, Typeface.BOLD)
             }
 
+            textCol.addView(title)
+
+            if (level.missionType != MissionType.STANDARD) {
+                val badge = TextView(this).apply {
+                    text = "${level.missionType.badgeEmoji} ${level.missionType.displayName(isPl).uppercase()}"
+                    setTextSize(TypedValue.COMPLEX_UNIT_SP, 10f)
+                    setTextColor(Color.parseColor(level.missionType.badgeColorHex))
+                    setTypeface(typeface, Typeface.BOLD)
+                    setPadding(dp(6), dp(2), dp(6), dp(2))
+                    background = getDrawable(R.drawable.bg_hud_chip)
+                    layoutParams = LinearLayout.LayoutParams(
+                        LinearLayout.LayoutParams.WRAP_CONTENT,
+                        LinearLayout.LayoutParams.WRAP_CONTENT
+                    ).apply {
+                        topMargin = dp(2)
+                        bottomMargin = dp(3)
+                    }
+                }
+                textCol.addView(badge)
+            }
+
             val desc = TextView(this).apply {
                 text = level.description
                 setTextSize(TypedValue.COMPLEX_UNIT_SP, 13f)
@@ -126,7 +219,6 @@ class CampaignActivity : ImmersiveActivity() {
                 gravity = Gravity.START
             }
 
-            textCol.addView(title)
             textCol.addView(desc)
             textCol.addView(meta)
 
@@ -214,13 +306,17 @@ class CampaignActivity : ImmersiveActivity() {
         }
 
         titleView.text = "${level.emoji} Mission ${level.id}: ${level.title}"
-        statusView.text = when {
+        val baseStatus = when {
             isHeroicCompleted && stars >= 3 -> "⭐⭐⭐ MASTERED • 💀 HEROIC"
             isCompleted && stars >= 3 -> "⭐⭐⭐ MASTERED"
             isCompleted && stars == 2 -> "⭐⭐ COMPLETED (2/3 Stars)"
             isCompleted -> "⭐ COMPLETED (1/3 Stars)"
-            else -> "⚔️ READY FOR DEPLOYMENT"
+            else -> if (isPl) "⚔️ GOTOWY DO WALKI" else "⚔️ READY FOR DEPLOYMENT"
         }
+        val missionPrefix = if (level.missionType != MissionType.STANDARD) {
+            "${level.missionType.badgeEmoji} ${level.missionType.displayName(isPl).uppercase()} • "
+        } else ""
+        statusView.text = "$missionPrefix$baseStatus"
         statusView.setTextColor(if (isHeroicCompleted) Color.parseColor("#FF9800") else if (isCompleted) Color.parseColor("#00E5FF") else Color.parseColor("#FFD54F"))
 
         chipMap.text = "${level.mapType.emoji} ${level.mapType.displayName}"
@@ -228,7 +324,31 @@ class CampaignActivity : ImmersiveActivity() {
         chipGold.text = "💰 ${level.startingGold}g"
         mapPreview?.setMapType(level.mapType)
 
-        descView.text = level.description
+        var fullDesc = level.description
+        when (level.missionType) {
+            MissionType.LONE_CHAMPION -> {
+                fullDesc += if (isPl) "\n\n⚠️ Zasada Czempiona: Maksymalnie 4 wieże! Czempion ma +150% obrażeń i +30% prędkości."
+                    else "\n\n⚠️ Champion Rule: Max 4 towers allowed! Hero has +150% damage and +30% speed."
+            }
+            MissionType.SUDDEN_DEATH -> {
+                fullDesc += if (isPl) "\n\n⚠️ Nagła Śmierć: Baza ma tylko 1 HP! Żaden wróg nie może przejść!"
+                    else "\n\n⚠️ Sudden Death: Base has only 1 HP! No enemy may pass!"
+            }
+            MissionType.BLITZ -> {
+                fullDesc += if (isPl) "\n\n⚡ Szybki Szturm: Błyskawiczny czas między falami, +30% tempo wrogów, +20% złota."
+                    else "\n\n⚡ Blitz Rush: Rapid wave delays, +30% enemy spawn rate, +20% gold reward."
+            }
+            MissionType.GOLD_RUSH -> {
+                fullDesc += if (isPl) "\n\n💰 Gorączka Złota: Zdobywaj 2.5x więcej złota za każdego pokonanego potwora!"
+                    else "\n\n💰 Gold Rush: Earn 2.5x gold for every defeated enemy!"
+            }
+            MissionType.BOSS_BOUNTY -> {
+                fullDesc += if (isPl) "\n\n🎯 Polowanie na Bossa: Boss pojawia się w każdej fali! Pokonaj ich wszystkich!"
+                    else "\n\n🎯 Boss Bounty: Boss arrives on every single wave! Slay them all!"
+            }
+            MissionType.STANDARD -> {}
+        }
+        descView.text = fullDesc
         if (level.hint.isNotEmpty()) {
             hintView.visibility = View.VISIBLE
             hintView.text = "💡 Tactical Intel: ${level.hint}"

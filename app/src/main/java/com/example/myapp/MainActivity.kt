@@ -176,6 +176,9 @@ class MainActivity : ImmersiveActivity() {
         gameView.onDiamondsChanged = { diamonds ->
             binding.textKills.text = S.diamondsHud(diamonds)
         }
+        gameView.onWaveStateChanged = { inProgress, waveTimer ->
+            updateCallWaveButton(inProgress, waveTimer)
+        }
         gameView.onGameOver = { score, wave ->
             binding.textGold.text = S.gameOverHud(score, wave)
             binding.textWave.text = S.gameOverWaveHud(score, wave)
@@ -417,15 +420,29 @@ class MainActivity : ImmersiveActivity() {
         }
 
         // Speed 1-tap cycle (1x -> 2x -> 3x -> 1x)
+        val savedSpeed = engine.prefs.getInt("preferred_speed", 1).coerceIn(1, 3)
+        engine.gameSpeed = savedSpeed
+        updateSpeedButtons()
+
         binding.btnSpeed.setOnClickListener {
             engine.gameSpeed = when (engine.gameSpeed) {
                 1 -> 2
                 2 -> 3
                 else -> 1
             }
+            engine.prefs.edit().putInt("preferred_speed", engine.gameSpeed).apply()
             updateSpeedButtons()
             runCatching { binding.btnSpeed.performHapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP) }
             Toast.makeText(this, S.speedToast(engine.gameSpeed), Toast.LENGTH_SHORT).show()
+        }
+
+        // Call wave early / rush
+        binding.btnCallWave.setOnClickListener {
+            val bounty = engine.callNextWaveEarly()
+            if (bounty > 0) {
+                runCatching { binding.btnCallWave.performHapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP) }
+                Toast.makeText(this, "⚡ Wave Rushed! +${bounty}g Bonus", Toast.LENGTH_SHORT).show()
+            }
         }
 
         // Pause
@@ -678,6 +695,29 @@ class MainActivity : ImmersiveActivity() {
                 binding.btnSpeed.setTextColor(Color.parseColor("#FFFFFF"))
                 binding.btnSpeed.background = getDrawable(R.drawable.bg_btn_danger)
             }
+        }
+    }
+
+    private fun updateCallWaveButton(inProgress: Boolean, waveTimer: Float) {
+        val engine = runCatching { binding.gameView.getEngine() }.getOrNull() ?: return
+        if (engine.gameOver || engine.campaignVictory) {
+            binding.btnCallWave.visibility = View.GONE
+            return
+        }
+        binding.btnCallWave.visibility = View.VISIBLE
+        if (!inProgress) {
+            val bounty = engine.getEarlyWaveBounty()
+            binding.btnCallWave.text = "▶▶ +${bounty}g"
+            binding.btnCallWave.isEnabled = true
+            binding.btnCallWave.alpha = 1.0f
+            binding.btnCallWave.setTextColor(Color.parseColor("#FFD54F"))
+            binding.btnCallWave.background = getDrawable(R.drawable.bg_btn_primary)
+        } else {
+            binding.btnCallWave.text = "▶▶ Rush"
+            binding.btnCallWave.isEnabled = false
+            binding.btnCallWave.alpha = 0.45f
+            binding.btnCallWave.setTextColor(Color.parseColor("#B0BEC5"))
+            binding.btnCallWave.background = getDrawable(R.drawable.bg_btn_action)
         }
     }
 

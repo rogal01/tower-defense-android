@@ -22,6 +22,22 @@ data class CampaignObjective(
     fun description(isPl: Boolean): String = if (isPl) descPl else descEn
 }
 
+enum class MissionType(
+    val displayNameEn: String,
+    val displayNamePl: String,
+    val badgeEmoji: String,
+    val badgeColorHex: String
+) {
+    STANDARD("Standard Defense", "Obrona Standardowa", "🛡️", "#90A4AE"),
+    BLITZ("Blitz Rush", "Szybki Szturm", "⚡", "#FFB74D"),
+    SUDDEN_DEATH("Sudden Death (1 HP)", "Nagła Śmierć (1 HP)", "💀", "#EF5350"),
+    BOSS_BOUNTY("Boss Bounty", "Polowanie na Bossa", "🎯", "#AB47BC"),
+    LONE_CHAMPION("Lone Champion", "Samotny Czempion", "⚔️", "#29B6F6"),
+    GOLD_RUSH("Gold Rush", "Gorączka Złota", "💰", "#FFD54F");
+
+    fun displayName(isPl: Boolean): String = if (isPl) displayNamePl else displayNameEn
+}
+
 data class CampaignLevel(
     val id: Int,
     val title: String,
@@ -40,6 +56,9 @@ data class CampaignLevel(
     val diamondReward: Int = 3,
     val hint: String = "",
     val mapType: MapType = MapType.CLASSIC,
+    val missionType: MissionType = MissionType.STANDARD,
+    val waveModifiers: Map<Int, WaveModifier> = emptyMap(),
+    val defaultModifier: WaveModifier = WaveModifier.NONE,
     val objective1: CampaignObjective = CampaignObjective(
         ObjectiveType.SURVIVE_WAVES,
         targetWave,
@@ -214,6 +233,7 @@ object CampaignData {
             diamondReward = 5,
             hint = "Ice towers slow whole lanes, keeping fast enemies in cannon crossfire.",
             mapType = MapType.SNOW,
+            missionType = MissionType.BLITZ,
             objective1 = CampaignObjective(ObjectiveType.SURVIVE_WAVES, 6, null, "Clear all 6 waves", "Przetrwaj wszystkie 6 fal"),
             objective2 = CampaignObjective(ObjectiveType.MIN_COMBO, 20, null, "Achieve 20x Kill Combo", "Osi\u0105gnij combo 20x"),
             objective3 = CampaignObjective(ObjectiveType.BASE_HP_ABOVE, 85, null, "Base HP \u2265 85%", "Zdrowie bazy \u2265 85%")
@@ -256,6 +276,7 @@ object CampaignData {
             diamondReward = 6,
             hint = "Tesla attacks arc between multiple nearby enemies, shredding metal armor.",
             mapType = MapType.DESERT,
+            missionType = MissionType.GOLD_RUSH,
             objective1 = CampaignObjective(ObjectiveType.SURVIVE_WAVES, 7, null, "Clear all 7 waves", "Przetrwaj wszystkie 7 fal"),
             objective2 = CampaignObjective(ObjectiveType.MIN_COMBO, 25, null, "Achieve 25x Kill Combo", "Osi\u0105gnij combo 25x"),
             objective3 = CampaignObjective(ObjectiveType.NO_TOWERS_SOLD, 0, null, "Tactical Discipline (No sales)", "Dyscyplina (Bez sprzeda\u017cy)")
@@ -298,6 +319,7 @@ object CampaignData {
             diamondReward = 8,
             hint = "Combine slow (Ice), attrition (Poison/Flame), and burst (Cannon/Tesla) to hold the line.",
             mapType = MapType.CLASSIC,
+            missionType = MissionType.BOSS_BOUNTY,
             objective1 = CampaignObjective(ObjectiveType.SURVIVE_WAVES, 8, null, "Vanquish the Ogre General", "Zg\u0142ad\u017a Genera\u0142a Ogr\u00f3w"),
             objective2 = CampaignObjective(ObjectiveType.HERO_SLAYS_BOSS, 0, null, "Hero delivers boss death strike", "Bohater dobija Bossa"),
             objective3 = CampaignObjective(ObjectiveType.PERFECT_BASE, 0, null, "Flawless Victory (0 damage)", "Bezb\u0142\u0119dne zwyci\u0119stwo (0 obra\u017ce\u0144)")
@@ -382,6 +404,7 @@ object CampaignData {
             diamondReward = 7,
             hint = "Healer towers restore base HP and mend the hero in combat when nearby.",
             mapType = MapType.ENCHANTED,
+            missionType = MissionType.LONE_CHAMPION,
             objective1 = CampaignObjective(ObjectiveType.SURVIVE_WAVES, 10, null, "Clear Wave 10", "Przetrwaj Fal\u0119 10"),
             objective2 = CampaignObjective(ObjectiveType.BASE_HP_ABOVE, 95, null, "Base HP \u2265 95%", "Zdrowie bazy \u2265 95%"),
             objective3 = CampaignObjective(ObjectiveType.NO_POWERS_USED, 0, null, "No spells used", "Bez u\u017cycia czar\u00f3w")
@@ -424,6 +447,7 @@ object CampaignData {
             diamondReward = 7,
             hint = "Build towers close to the roads and upgrade tower range to counter the night.",
             mapType = MapType.CLASSIC,
+            waveModifiers = mapOf(5 to WaveModifier.FAST, 10 to WaveModifier.SHIELDED),
             objective1 = CampaignObjective(ObjectiveType.SURVIVE_WAVES, 9, null, "Clear Wave 9", "Przetrwaj Fal\u0119 9"),
             objective2 = CampaignObjective(ObjectiveType.PERFECT_BASE, 0, null, "Flawless Night (0 damage)", "Bezb\u0142\u0119dna noc (0 obra\u017ce\u0144)"),
             objective3 = CampaignObjective(ObjectiveType.MAX_TOWERS_PLACED, 7, null, "Max 7 towers placed", "Maksymalnie 7 wie\u017c")
@@ -466,6 +490,9 @@ object CampaignData {
             diamondReward = 8,
             hint = "Place multiple Ice towers along the path to keep sprinters permanently slowed.",
             mapType = MapType.VALLEY,
+            missionType = MissionType.BLITZ,
+            defaultModifier = WaveModifier.FAST,
+            waveModifiers = mapOf(4 to WaveModifier.FAST, 8 to WaveModifier.ARMORED),
             objective1 = CampaignObjective(ObjectiveType.SURVIVE_WAVES, 10, null, "Clear Wave 10", "Przetrwaj Fal\u0119 10"),
             objective2 = CampaignObjective(ObjectiveType.MIN_COMBO, 40, null, "Achieve 40x Kill Combo", "Osi\u0105gnij combo 40x"),
             objective3 = CampaignObjective(ObjectiveType.PERFECT_BASE, 0, null, "Flawless Defense (0 damage)", "Bezb\u0142\u0119dna obrona (0 obra\u017ce\u0144)")
@@ -508,6 +535,7 @@ object CampaignData {
             diamondReward = 10,
             hint = "Boss at wave 6 and final Warlord at wave 12 \u2014 save hero abilities for phase breaks.",
             mapType = MapType.VOLCANO,
+            missionType = MissionType.BOSS_BOUNTY,
             objective1 = CampaignObjective(ObjectiveType.SURVIVE_WAVES, 12, null, "Slay the Armored Warlord", "Zg\u0142ad\u017a Opancerzonego Wodza"),
             objective2 = CampaignObjective(ObjectiveType.HERO_SLAYS_BOSS, 0, null, "Hero slays the Warlord", "Bohater zabija Wodza"),
             objective3 = CampaignObjective(ObjectiveType.BASE_HP_ABOVE, 85, null, "Base HP \u2265 85%", "Zdrowie bazy \u2265 85%")
@@ -550,6 +578,7 @@ object CampaignData {
             diamondReward = 8,
             hint = "Stack poison ticks, then let Necromancers harvest every fallen soul.",
             mapType = MapType.ENCHANTED,
+            waveModifiers = mapOf(3 to WaveModifier.REGEN, 7 to WaveModifier.ARMORED),
             objective1 = CampaignObjective(ObjectiveType.SURVIVE_WAVES, 10, null, "Clear all 10 waves", "Przetrwaj wszystkie 10 fal"),
             objective2 = CampaignObjective(ObjectiveType.FORBIDDEN_TOWER, 0, TowerType.ARROW, "No Arrow towers", "Bez wie\u017c \u0142uczniczych"),
             objective3 = CampaignObjective(ObjectiveType.BASE_HP_ABOVE, 90, null, "Base HP \u2265 90%", "Zdrowie bazy \u2265 90%")
@@ -592,6 +621,7 @@ object CampaignData {
             diamondReward = 8,
             hint = "Place 2 high-value towers and upgrade them rather than building many weak ones.",
             mapType = MapType.DESERT,
+            missionType = MissionType.GOLD_RUSH,
             objective1 = CampaignObjective(ObjectiveType.SURVIVE_WAVES, 9, null, "Survive with low gold", "Przetrwaj z ma\u0142ym z\u0142otem"),
             objective2 = CampaignObjective(ObjectiveType.NO_TOWERS_SOLD, 0, null, "Zero Tower Sales", "Bez sprzeda\u017cy wie\u017c"),
             objective3 = CampaignObjective(ObjectiveType.BASE_HP_ABOVE, 80, null, "Base HP \u2265 80%", "Zdrowie bazy \u2265 80%")
@@ -613,6 +643,7 @@ object CampaignData {
             diamondReward = 9,
             hint = "Even 2-3 leaks will destroy the base. Place slow and stun towers at choke points.",
             mapType = MapType.CLASSIC,
+            missionType = MissionType.SUDDEN_DEATH,
             objective1 = CampaignObjective(ObjectiveType.SURVIVE_WAVES, 10, null, "Clear Wave 10", "Przetrwaj Fal\u0119 10"),
             objective2 = CampaignObjective(ObjectiveType.PERFECT_BASE, 0, null, "Flawless Citadel (0 damage)", "Czysta baza (0 obra\u017ce\u0144)"),
             objective3 = CampaignObjective(ObjectiveType.NO_POWERS_USED, 0, null, "No spells used", "Bez u\u017cycia czar\u00f3w")
@@ -656,6 +687,8 @@ object CampaignData {
             diamondReward = 9,
             hint = "Cannons, Flame cones, and Teslas will rack up enormous combos against swarms.",
             mapType = MapType.CROSSROADS,
+            defaultModifier = WaveModifier.SWARM,
+            waveModifiers = mapOf(5 to WaveModifier.INVISIBLE, 10 to WaveModifier.ARMORED),
             objective1 = CampaignObjective(ObjectiveType.SURVIVE_WAVES, 11, null, "Clear Wave 11", "Przetrwaj Fal\u0119 11"),
             objective2 = CampaignObjective(ObjectiveType.MIN_COMBO, 60, null, "Achieve 60x Swarm Combo", "Osi\u0105gnij combo 60x"),
             objective3 = CampaignObjective(ObjectiveType.PERFECT_BASE, 0, null, "Flawless Defense (0 damage)", "Bezb\u0142\u0119dna obrona (0 obra\u017ce\u0144)")
@@ -698,6 +731,7 @@ object CampaignData {
             diamondReward = 10,
             hint = "Micro your hero into the vanguard; bait boss attacks away from towers.",
             mapType = MapType.ENCHANTED,
+            missionType = MissionType.LONE_CHAMPION,
             objective1 = CampaignObjective(ObjectiveType.SURVIVE_WAVES, 12, null, "Clear all 12 waves", "Przetrwaj wszystkie 12 fal"),
             objective2 = CampaignObjective(ObjectiveType.HERO_SLAYS_BOSS, 0, null, "Hero strikes down Boss", "Bohater zabija Bossa"),
             objective3 = CampaignObjective(ObjectiveType.MAX_TOWERS_PLACED, 7, null, "Max 7 towers placed", "Maksymalnie 7 wie\u017c")
@@ -719,6 +753,7 @@ object CampaignData {
             diamondReward = 12,
             hint = "The dragon casts flame sweeps at wave 10 and 15 \u2014 build deep Ballista sniper defense.",
             mapType = MapType.VOLCANO,
+            missionType = MissionType.BOSS_BOUNTY,
             objective1 = CampaignObjective(ObjectiveType.SURVIVE_WAVES, 15, null, "Slay the Ancient Dragon", "Zg\u0142ad\u017a Staro\u017cytnego Smoka"),
             objective2 = CampaignObjective(ObjectiveType.HERO_SLAYS_BOSS, 0, null, "Hero delivers death blow", "Bohater zadaje \u015bmiertelny cios"),
             objective3 = CampaignObjective(ObjectiveType.PERFECT_BASE, 0, null, "Flawless Citadel (0 damage)", "Czysta baza (0 obra\u017ce\u0144)")
@@ -782,6 +817,7 @@ object CampaignData {
             diamondReward = 11,
             hint = "Eruptions can clear enemies, but magma beasts speed up when near lava.",
             mapType = MapType.VOLCANO,
+            missionType = MissionType.GOLD_RUSH,
             objective1 = CampaignObjective(ObjectiveType.SURVIVE_WAVES, 13, null, "Clear Wave 13", "Przetrwaj Fal\u0119 13"),
             objective2 = CampaignObjective(ObjectiveType.PERFECT_BASE, 0, null, "Flawless Defense (0 damage)", "Czysta baza (0 obra\u017ce\u0144)"),
             objective3 = CampaignObjective(ObjectiveType.MIN_COMBO, 50, null, "Achieve 50x Kill Combo", "Osi\u0105gnij combo 50x")
@@ -825,6 +861,8 @@ object CampaignData {
             diamondReward = 12,
             hint = "Focus burst fire on the Broodmother while splash weapons wipe the spiderling hatchlings.",
             mapType = MapType.ENCHANTED,
+            waveModifiers = mapOf(4 to WaveModifier.SPLIT, 8 to WaveModifier.FAST),
+            missionType = MissionType.BLITZ,
             objective1 = CampaignObjective(ObjectiveType.SURVIVE_WAVES, 14, null, "Slay the Broodmother", "Zg\u0142ad\u017a Matk\u0119 Roju"),
             objective2 = CampaignObjective(ObjectiveType.MIN_COMBO, 70, null, "Achieve 70x Kill Combo", "Osi\u0105gnij combo 70x"),
             objective3 = CampaignObjective(ObjectiveType.BASE_HP_ABOVE, 85, null, "Base HP \u2265 85%", "Zdrowie bazy \u2265 85%")
@@ -867,6 +905,7 @@ object CampaignData {
             diamondReward = 12,
             hint = "Layer Ice towers with high-rate Tesla and Arrow towers to burst down sprinting shadows.",
             mapType = MapType.CLASSIC,
+            waveModifiers = mapOf(4 to WaveModifier.INVISIBLE, 8 to WaveModifier.BERSERKER),
             objective1 = CampaignObjective(ObjectiveType.SURVIVE_WAVES, 14, null, "Clear Wave 14", "Przetrwaj Fal\u0119 14"),
             objective2 = CampaignObjective(ObjectiveType.NO_TOWERS_SOLD, 0, null, "Zero Tower Sales", "Bez sprzeda\u017cy wie\u017c"),
             objective3 = CampaignObjective(ObjectiveType.BASE_HP_ABOVE, 90, null, "Base HP \u2265 90%", "Zdrowie bazy \u2265 90%")
@@ -909,6 +948,7 @@ object CampaignData {
             diamondReward = 15,
             hint = "Use Vortex and Ballista synergies to snipe high-threat void callers from afar.",
             mapType = MapType.CROSSROADS,
+            missionType = MissionType.LONE_CHAMPION,
             objective1 = CampaignObjective(ObjectiveType.SURVIVE_WAVES, 18, null, "Survive Void Incursion", "Przetrwaj Inwazj\u0119 Pustki"),
             objective2 = CampaignObjective(ObjectiveType.MIN_COMBO, 60, null, "Achieve 60x Kill Combo", "Osi\u0105gnij combo 60x"),
             objective3 = CampaignObjective(ObjectiveType.PERFECT_BASE, 0, null, "Flawless Base (0 damage)", "Czysta baza (0 obra\u017ce\u0144)")
@@ -930,6 +970,7 @@ object CampaignData {
             diamondReward = 20,
             hint = "Mastery of all 11 towers, spell timings, and hero dodging will decide this grand finale.",
             mapType = MapType.VOLCANO,
+            missionType = MissionType.BOSS_BOUNTY,
             objective1 = CampaignObjective(ObjectiveType.SURVIVE_WAVES, 20, null, "Clear all 20 waves", "Przetrwaj wszystkie 20 fal"),
             objective2 = CampaignObjective(ObjectiveType.HERO_SLAYS_BOSS, 0, null, "Hero strikes down Champion", "Bohater zabija Czempiona"),
             objective3 = CampaignObjective(ObjectiveType.PERFECT_BASE, 0, null, "Flawless Citadel (0 damage)", "Nienaruszona Cytadela (0 obra\u017ce\u0144)")
@@ -966,6 +1007,7 @@ object CampaignData {
             diamondReward = 12,
             hint = "Place rapid-firing Arrow and Ballista towers with quick target acquisition",
             mapType = MapType.DESERT,
+            missionType = MissionType.BLITZ,
             objective1 = CampaignObjective(ObjectiveType.SURVIVE_WAVES, 8, null, "Survive all 8 waves", "Przetrwaj wszystkie 8 fal"),
             objective2 = CampaignObjective(ObjectiveType.PERFECT_BASE, 0, null, "Flawless Base (0 damage)", "Czysta baza (0 obra\u017ce\u0144)"),
             objective3 = CampaignObjective(ObjectiveType.MAX_TOWERS_PLACED, 6, null, "Max 6 towers placed", "Maksymalnie 6 postawionych wie\u017c")
@@ -982,6 +1024,7 @@ object CampaignData {
             diamondReward = 14,
             hint = "High gold reserves \u2014 fortify both lanes so zero enemies pass through",
             mapType = MapType.CLASSIC,
+            missionType = MissionType.SUDDEN_DEATH,
             objective1 = CampaignObjective(ObjectiveType.SURVIVE_WAVES, 12, null, "Clear Wave 12", "Przetrwaj Fal\u0119 12"),
             objective2 = CampaignObjective(ObjectiveType.PERFECT_BASE, 0, null, "Flawless Citadel (0 damage)", "Nienaruszona Cytadela (0 obra\u017ce\u0144)"),
             objective3 = CampaignObjective(ObjectiveType.NO_POWERS_USED, 0, null, "No spells used", "Bez u\u017cycia czar\u00f3w")
@@ -1014,6 +1057,7 @@ object CampaignData {
             diamondReward = 15,
             hint = "Watch for the 1.5s boss telegraph zone to move the hero out of danger",
             mapType = MapType.VOLCANO,
+            missionType = MissionType.GOLD_RUSH,
             objective1 = CampaignObjective(ObjectiveType.SURVIVE_WAVES, 15, null, "Defeat the Demon Prince", "Pokonaj Ksi\u0119cia Demon\u00f3w"),
             objective2 = CampaignObjective(ObjectiveType.HERO_SLAYS_BOSS, 0, null, "Hero strikes down Boss", "Bohater zabija Bossa"),
             objective3 = CampaignObjective(ObjectiveType.PERFECT_BASE, 0, null, "Flawless Base (0 damage)", "Czysta baza (0 obra\u017ce\u0144)")
@@ -1061,6 +1105,7 @@ object CampaignData {
             diamondReward = 14,
             hint = "Spend your gold rapidly to upgrade towers before enemies overwhelm the perimeter",
             mapType = MapType.CROSSROADS,
+            waveModifiers = mapOf(5 to WaveModifier.BERSERKER, 10 to WaveModifier.SHIELDED),
             objective1 = CampaignObjective(ObjectiveType.SURVIVE_WAVES, 10, null, "Clear Wave 10", "Przetrwaj Fal\u0119 10"),
             objective2 = CampaignObjective(ObjectiveType.NO_POWERS_USED, 0, null, "No spells used", "Bez u\u017cycia czar\u00f3w"),
             objective3 = CampaignObjective(ObjectiveType.BASE_HP_ABOVE, 85, null, "Base HP \u2265 85%", "Zdrowie bazy \u2265 85%")
@@ -1092,6 +1137,7 @@ object CampaignData {
             diamondReward = 16,
             hint = "Beware of time stuns; keep high DPS towers spread out to avoid synchronized shutdown",
             mapType = MapType.CROSSROADS,
+            missionType = MissionType.BOSS_BOUNTY,
             objective1 = CampaignObjective(ObjectiveType.SURVIVE_WAVES, 15, null, "Vanquish the Chrono Lich", "Pokonaj Chrono Licza"),
             objective2 = CampaignObjective(ObjectiveType.HERO_SLAYS_BOSS, 0, null, "Hero strikes down Lich", "Bohater zabija Licza"),
             objective3 = CampaignObjective(ObjectiveType.BASE_HP_ABOVE, 75, null, "Base HP \u2265 75%", "Zdrowie bazy \u2265 75%")
@@ -1154,6 +1200,7 @@ object CampaignData {
             diamondReward = 14,
             hint = "No spells available \u2014 use Ballistas to pierce heavy armor and Cannons for swarms",
             mapType = MapType.CLASSIC,
+            waveModifiers = mapOf(6 to WaveModifier.INVISIBLE, 12 to WaveModifier.ARMORED),
             objective1 = CampaignObjective(ObjectiveType.SURVIVE_WAVES, 10, null, "Clear Wave 10", "Przetrwaj Fal\u0119 10"),
             objective2 = CampaignObjective(ObjectiveType.NO_TOWERS_SOLD, 0, null, "No towers sold", "Bez sprzeda\u017cy wie\u017c"),
             objective3 = CampaignObjective(ObjectiveType.PERFECT_BASE, 0, null, "Flawless Base (0 damage)", "Czysta baza (0 obra\u017ce\u0144)")
@@ -1185,6 +1232,7 @@ object CampaignData {
             diamondReward = 14,
             hint = "Freeze incoming clusters, then crush them with heavy Cannon mortar rounds",
             mapType = MapType.SNOW,
+            missionType = MissionType.BLITZ,
             objective1 = CampaignObjective(ObjectiveType.SURVIVE_WAVES, 10, null, "Clear Wave 10", "Przetrwaj Fal\u0119 10"),
             objective2 = CampaignObjective(ObjectiveType.MIN_COMBO, 45, null, "Achieve 45x Shatter Combo", "Osi\u0105gnij combo 45x"),
             objective3 = CampaignObjective(ObjectiveType.NO_POWERS_USED, 0, null, "No spells used", "Bez u\u017cycia czar\u00f3w")
@@ -1236,6 +1284,7 @@ object CampaignData {
             diamondReward = 15,
             hint = "Lay down napalm carpets and cluster bombs at the primary bottleneck",
             mapType = MapType.SNOW,
+            missionType = MissionType.GOLD_RUSH,
             objective1 = CampaignObjective(ObjectiveType.SURVIVE_WAVES, 12, null, "Survive all 12 waves", "Przetrwaj wszystkie 12 fal"),
             objective2 = CampaignObjective(ObjectiveType.MIN_COMBO, 50, null, "Achieve 50x Avalanche Combo", "Osi\u0105gnij combo 50x"),
             objective3 = CampaignObjective(ObjectiveType.NO_TOWERS_SOLD, 0, null, "No towers sold", "Bez sprzeda\u017cy wie\u017c")
@@ -1251,6 +1300,7 @@ object CampaignData {
             diamondReward = 17,
             hint = "Towers will be stunned at 25% boss HP; position Hero to absorb the seismic shock",
             mapType = MapType.SNOW,
+            missionType = MissionType.BOSS_BOUNTY,
             objective1 = CampaignObjective(ObjectiveType.SURVIVE_WAVES, 15, null, "Shatter the Frost Titan", "Zg\u0142ad\u017a Tytana Mrozu"),
             objective2 = CampaignObjective(ObjectiveType.HERO_SLAYS_BOSS, 0, null, "Hero strikes down Titan", "Bohater zabija Tytana"),
             objective3 = CampaignObjective(ObjectiveType.PERFECT_BASE, 0, null, "Flawless Base (0 damage)", "Czysta baza (0 obra\u017ce\u0144)")
@@ -1297,6 +1347,7 @@ object CampaignData {
             diamondReward = 16,
             hint = "Micro the empowered Hero to intercept leaders while Ice slows the pack",
             mapType = MapType.CROSSROADS,
+            missionType = MissionType.LONE_CHAMPION,
             objective1 = CampaignObjective(ObjectiveType.SURVIVE_WAVES, 8, null, "Survive with Hero", "Przetrwaj Bohaterem"),
             objective2 = CampaignObjective(ObjectiveType.MAX_TOWERS_PLACED, 2, null, "Max 2 towers placed", "Maksymalnie 2 wie\u017ce"),
             objective3 = CampaignObjective(ObjectiveType.PERFECT_BASE, 0, null, "Flawless Base (0 damage)", "Czysta baza (0 obra\u017ce\u0144)")
@@ -1329,6 +1380,7 @@ object CampaignData {
             diamondReward = 18,
             hint = "Save burst abilities for the phoenix's second rebirth phase",
             mapType = MapType.VALLEY,
+            missionType = MissionType.BOSS_BOUNTY,
             objective1 = CampaignObjective(ObjectiveType.SURVIVE_WAVES, 15, null, "Banish the Void Phoenix", "Wygna\u0142 Feniksa Pustki"),
             objective2 = CampaignObjective(ObjectiveType.HERO_SLAYS_BOSS, 0, null, "Hero strikes down Phoenix", "Bohater zabija Feniksa"),
             objective3 = CampaignObjective(ObjectiveType.NO_TOWERS_SOLD, 0, null, "No towers sold", "Bez sprzeda\u017cy wie\u017c")
@@ -1360,6 +1412,7 @@ object CampaignData {
             diamondReward = 17,
             hint = "Position Cannons to hit maximum intersections, and use Arrows for cleanup",
             mapType = MapType.CLASSIC,
+            missionType = MissionType.SUDDEN_DEATH,
             objective1 = CampaignObjective(ObjectiveType.SURVIVE_WAVES, 14, null, "Clear all 14 waves", "Przetrwaj wszystkie 14 fal"),
             objective2 = CampaignObjective(ObjectiveType.NO_POWERS_USED, 0, null, "No spells used", "Bez u\u017cycia czar\u00f3w"),
             objective3 = CampaignObjective(ObjectiveType.BASE_HP_ABOVE, 85, null, "Base HP \u2265 85%", "Zdrowie bazy \u2265 85%")
@@ -1390,6 +1443,7 @@ object CampaignData {
             diamondReward = 20,
             hint = "A boss appears every wave \u2014 single target burst DPS is essential",
             mapType = MapType.VOLCANO,
+            missionType = MissionType.BOSS_BOUNTY,
             objective1 = CampaignObjective(ObjectiveType.SURVIVE_WAVES, 10, null, "Survive all 10 Boss Waves", "Przetrwaj 10 Fal Boss\u00f3w"),
             objective2 = CampaignObjective(ObjectiveType.BASE_HP_ABOVE, 75, null, "Base HP \u2265 75%", "Zdrowie bazy \u2265 75%"),
             objective3 = CampaignObjective(ObjectiveType.MAX_TOWERS_PLACED, 8, null, "Max 8 towers placed", "Maksymalnie 8 wie\u017c")
@@ -1438,6 +1492,7 @@ object CampaignData {
             diamondReward = 16,
             hint = "Pair Healer towers with Necromancers to sustain freezing bone legions",
             mapType = MapType.VALLEY,
+            missionType = MissionType.BLITZ,
             objective1 = CampaignObjective(ObjectiveType.SURVIVE_WAVES, 10, null, "Clear Wave 10", "Przetrwaj Fal\u0119 10"),
             objective2 = CampaignObjective(ObjectiveType.FORBIDDEN_TOWER, 0, TowerType.ARROW, "No Arrow towers", "Bez wie\u017c \u0142uczniczych"),
             objective3 = CampaignObjective(ObjectiveType.NO_TOWERS_SOLD, 0, null, "No towers sold", "Bez sprzeda\u017cy wie\u017c")
@@ -1472,6 +1527,7 @@ object CampaignData {
             diamondReward = 16,
             hint = "Flame towers strip the ice speed boost and cause burning stalls",
             mapType = MapType.SNOW,
+            missionType = MissionType.GOLD_RUSH,
             objective1 = CampaignObjective(ObjectiveType.SURVIVE_WAVES, 9, null, "Survive all 9 waves", "Przetrwaj wszystkie 9 fal"),
             objective2 = CampaignObjective(ObjectiveType.FORBIDDEN_TOWER, 0, TowerType.ICE, "No Ice towers", "Bez wie\u017c lodu"),
             objective3 = CampaignObjective(ObjectiveType.MAX_TOWERS_PLACED, 5, null, "Max 5 towers placed", "Maksymalnie 5 wie\u017c")
@@ -1486,6 +1542,7 @@ object CampaignData {
             diamondReward = 18,
             hint = "Ballistas with Armor Piercer bypass the ghouls' hardened frost plating",
             mapType = MapType.CROSSROADS,
+            missionType = MissionType.LONE_CHAMPION,
             objective1 = CampaignObjective(ObjectiveType.SURVIVE_WAVES, 14, null, "Defeat Frost-Bane Necromancer", "Pokonaj Mro\u017anego Nekromant\u0119"),
             objective2 = CampaignObjective(ObjectiveType.NO_POWERS_USED, 0, null, "No spells used", "Bez u\u017cycia czar\u00f3w"),
             objective3 = CampaignObjective(ObjectiveType.PERFECT_BASE, 0, null, "Flawless Base (0 damage)", "Czysta baza (0 obra\u017ce\u0144)")
@@ -1518,6 +1575,7 @@ object CampaignData {
             diamondReward = 17,
             hint = "Healer Sanctuary auras reveal hidden specters so turrets can target them",
             mapType = MapType.ENCHANTED,
+            waveModifiers = mapOf(5 to WaveModifier.FAST, 10 to WaveModifier.ARMORED, 15 to WaveModifier.BERSERKER),
             objective1 = CampaignObjective(ObjectiveType.SURVIVE_WAVES, 10, null, "Clear all 10 waves", "Przetrwaj wszystkie 10 fal"),
             objective2 = CampaignObjective(ObjectiveType.MAX_TOWERS_PLACED, 4, null, "Max 4 towers placed", "Maksymalnie 4 wie\u017ce"),
             objective3 = CampaignObjective(ObjectiveType.BASE_HP_ABOVE, 90, null, "Base HP \u2265 90%", "Zdrowie bazy \u2265 90%")
@@ -1533,6 +1591,7 @@ object CampaignData {
             diamondReward = 18,
             hint = "Every hit to your base is permanent. Invest in layered control grids",
             mapType = MapType.SNOW,
+            missionType = MissionType.SUDDEN_DEATH,
             objective1 = CampaignObjective(ObjectiveType.SURVIVE_WAVES, 8, null, "Survive all 8 waves", "Przetrwaj wszystkie 8 fal"),
             objective2 = CampaignObjective(ObjectiveType.NO_TOWERS_SOLD, 0, null, "No towers sold", "Bez sprzeda\u017cy wie\u017c"),
             objective3 = CampaignObjective(ObjectiveType.PERFECT_BASE, 0, null, "Flawless Base (0 damage)", "Czysta baza (0 obra\u017ce\u0144)")
@@ -1565,6 +1624,7 @@ object CampaignData {
             diamondReward = 30,
             hint = "Burst down the final phase with everything you have before Absolute Zero detonates",
             mapType = MapType.CROSSROADS,
+            missionType = MissionType.BOSS_BOUNTY,
             objective1 = CampaignObjective(ObjectiveType.SURVIVE_WAVES, 20, null, "Vanquish the Glacial Lich-King", "Zg\u0142ad\u017a Kr\u00f3la Licz\u00f3w"),
             objective2 = CampaignObjective(ObjectiveType.HERO_SLAYS_BOSS, 0, null, "Hero strikes down Lich-King", "Bohater zabija Kr\u00f3la Licz\u00f3w"),
             objective3 = CampaignObjective(ObjectiveType.PERFECT_BASE, 0, null, "Flawless Citadel (0 damage)", "Nienaruszona Cytadela (0 obra\u017ce\u0144)")

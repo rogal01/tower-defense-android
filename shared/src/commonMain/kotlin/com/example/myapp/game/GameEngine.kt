@@ -685,6 +685,30 @@ class GameEngine(val prefs: GamePreferences, val audio: GameAudio = SilentAudio)
         if (level.id == 25 || level.id == 28) { maxBaseHp = 50f; baseHp = 50f }
         if (level.id == 43) { maxBaseHp = 10f; baseHp = 10f }
 
+        // Mission Archetypes
+        when (level.missionType) {
+            MissionType.SUDDEN_DEATH -> {
+                maxBaseHp = if (level.id == 43) 10f else if (level.id == 25 || level.id == 28) 50f else 1f
+                baseHp = maxBaseHp
+            }
+            MissionType.BLITZ -> {
+                waveDelay = 1.5f
+                spawnRateMult *= 1.30f
+                goldMult *= 1.20f
+            }
+            MissionType.BOSS_BOUNTY -> {
+                bossIntervalOverride = 1
+            }
+            MissionType.LONE_CHAMPION -> {
+                player.attackDamage *= 2.5f
+                player.speed *= 1.3f
+            }
+            MissionType.GOLD_RUSH -> {
+                goldMult *= 2.5f
+            }
+            MissionType.STANDARD -> {}
+        }
+
         // Level-specific weather events
         when (level.id) {
             53 -> currentWeather = WeatherEvent.THUNDERSTORM
@@ -910,7 +934,10 @@ class GameEngine(val prefs: GamePreferences, val audio: GameAudio = SilentAudio)
     private fun generateNextWavePreview() {
         val nextWave = wave + 1
         // Preview modifier — pre-determine so startNextWave() can reuse it
-        val previewMod = if (isDailyChallenge && dailyChallengeModifiers.isNotEmpty()) {
+        val previewMod = if (campaignLevel != null) {
+            val cl = campaignLevel!!
+            cl.waveModifiers[nextWave] ?: (if (cl.defaultModifier != WaveModifier.NONE) cl.defaultModifier else if (nextWave >= 3 && Math.random() < 0.35) WaveModifier.entries.filter { it != WaveModifier.NONE }.random() else WaveModifier.NONE)
+        } else if (isDailyChallenge && dailyChallengeModifiers.isNotEmpty()) {
             dailyChallengeModifiers[nextWave % dailyChallengeModifiers.size]
         } else if (nextWave >= 3 && !isDailyChallenge) {
             val mods = WaveModifier.entries.filter { it != WaveModifier.NONE }
@@ -1187,7 +1214,9 @@ class GameEngine(val prefs: GamePreferences, val audio: GameAudio = SilentAudio)
         }
 
         if (waveInProgress && enemiesRemaining > 0) {
-            if (enemies.size < 10 && Math.random() < dt * 2.5) {
+            val maxConcurrent = 10 + (gameSpeed - 1) * 6
+            val spawnChance = dt * (2.5f + (gameSpeed - 1) * 1.5f)
+            if (enemies.size < maxConcurrent && Math.random() < spawnChance) {
                 spawnEnemy()
                 enemiesRemaining--
             }
@@ -2453,6 +2482,28 @@ class GameEngine(val prefs: GamePreferences, val audio: GameAudio = SilentAudio)
         }
     } }
 
+    val currentGoldMult: Float get() = goldMult
+
+    fun getEarlyWaveBounty(): Int { synchronized(lock) {
+        if (gameOver || campaignVictory || waveInProgress || enemies.isNotEmpty()) return 0
+        return ((waveTimer.coerceAtLeast(1f) * 6f + wave * 2f) * goldMult).toInt().coerceAtLeast(15)
+    } }
+
+    fun callNextWaveEarly(): Int { synchronized(lock) {
+        if (gameOver || campaignVictory) return 0
+        if (!waveInProgress && enemies.isEmpty()) {
+            val bounty = getEarlyWaveBounty()
+            gold += bounty
+            totalGoldEarned += bounty
+            floatingTexts.add(FloatingText(baseX, baseY - 90f, "+${bounty}g RUSH BONUS! ⚡", 0xFFFFD700.toInt(), 1.6f, 34f))
+            audio.play(SfxType.REWARD_CHEST)
+            waveTimer = 0f
+            startNextWave()
+            return bounty
+        }
+        return 0
+    } }
+
     private fun startNextWave() {
         wave++
         waveInProgress = true
@@ -2517,8 +2568,10 @@ class GameEngine(val prefs: GamePreferences, val audio: GameAudio = SilentAudio)
 
         // Use pre-determined modifier and weather from preview (so preview matches reality)
         val preview = nextWavePreview
-        currentWaveModifier = preview?.modifier ?: WaveModifier.NONE
-        currentWeather = preview?.weather ?: WeatherEvent.CLEAR
+        currentWaveModifier = preview?.modifier ?: (campaignLevel?.waveModifiers?.get(wave) ?: campaignLevel?.defaultModifier ?: WaveModifier.NONE)
+        if (campaignLevel?.id !in setOf(53, 62, 64)) {
+            currentWeather = preview?.weather ?: WeatherEvent.CLEAR
+        }
         weatherLightningTimer = 2.5f
         if (currentWeather != WeatherEvent.CLEAR) {
             showWeatherBanner = true
@@ -3089,6 +3142,10 @@ class GameEngine(val prefs: GamePreferences, val audio: GameAudio = SilentAudio)
 
     fun placeTower(x: Float, y: Float, type: TowerType): Boolean { synchronized(lock) {
         if (!isTowerAllowed(type)) return false
+        if (campaignLevel?.missionType == MissionType.LONE_CHAMPION && towers.size >= 4) {
+            floatingTexts.add(FloatingText(x, y, "MAX 4 TOWERS!", 0xFFFF4444.toInt(), 1.2f, 24f))
+            return false
+        }
         val cost = getTowerCost(type)
         if (gold < cost) return false
         if (towers.any { it.distanceTo(x, y) < 70f }) return false

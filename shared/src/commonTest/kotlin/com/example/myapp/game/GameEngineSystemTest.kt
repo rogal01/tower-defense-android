@@ -843,4 +843,87 @@ class GameEngineSystemTest {
         assertEquals(50f, engineLvl25.maxBaseHp)
         assertEquals(50f, engineLvl25.baseHp)
     }
+
+    @Test
+    fun testCallNextWaveEarlyAwardsBountyAndStartsWave() {
+        engine.init(800f, 600f)
+        assertEquals(0, engine.wave)
+        assertFalse(engine.waveInProgress)
+        val initialGold = engine.gold
+
+        val bounty = engine.callNextWaveEarly()
+        assertTrue(bounty >= 15, "Early call bounty must be at least 15g")
+        assertEquals(initialGold + bounty, engine.gold, "Gold must increase by the awarded rush bounty")
+        assertEquals(1, engine.wave, "Wave 1 should have started immediately")
+        assertTrue(engine.waveInProgress, "Wave should now be in progress")
+
+        // Attempting to rush while wave is active must return 0
+        val midWaveBounty = engine.callNextWaveEarly()
+        assertEquals(0, midWaveBounty, "Rushing while wave is already in progress should yield 0 bounty")
+    }
+
+    @Test
+    fun testMissionTypeSuddenDeath() {
+        val lvl78 = CampaignData.levels.first { it.id == 78 }
+        assertEquals(MissionType.SUDDEN_DEATH, lvl78.missionType)
+        engine.applyCampaign(lvl78)
+        assertEquals(1f, engine.maxBaseHp, "Sudden Death base HP must be 1f")
+        assertEquals(1f, engine.baseHp)
+
+        val lvl43 = CampaignData.levels.first { it.id == 43 }
+        val engine43 = GameEngine(prefs = prefs, audio = SilentAudio)
+        engine43.applyCampaign(lvl43)
+        assertEquals(10f, engine43.maxBaseHp, "Level 43 citadel has 10f base HP")
+    }
+
+    @Test
+    fun testMissionTypeLoneChampionRestrictsTowers() {
+        val lvl14 = CampaignData.levels.first { it.id == 14 }
+        assertEquals(MissionType.LONE_CHAMPION, lvl14.missionType)
+        engine.applyCampaign(lvl14)
+        engine.init(800f, 600f)
+        engine.paths.clear()
+        engine.gold = 1000
+
+        assertTrue(engine.placeTower(100f, 100f, TowerType.ARROW))
+        assertTrue(engine.placeTower(200f, 100f, TowerType.ARROW))
+        assertTrue(engine.placeTower(300f, 100f, TowerType.ARROW))
+        assertTrue(engine.placeTower(400f, 100f, TowerType.ARROW))
+        assertEquals(4, engine.towers.size)
+
+        // 5th tower must be denied
+        val fifthPlaced = engine.placeTower(500f, 100f, TowerType.ARROW)
+        assertFalse(fifthPlaced, "Lone Champion mission archetype must restrict towers to maximum of 4")
+        assertEquals(4, engine.towers.size)
+    }
+
+    @Test
+    fun testMissionTypeBlitzAndGoldRushParameters() {
+        val lvl6 = CampaignData.levels.first { it.id == 6 }
+        assertEquals(MissionType.BLITZ, lvl6.missionType)
+        engine.applyCampaign(lvl6)
+        assertEquals(1.5f, engine.waveDelay, "Blitz mission should have 1.5s wave delay")
+
+        val lvl8 = CampaignData.levels.first { it.id == 8 }
+        assertEquals(MissionType.GOLD_RUSH, lvl8.missionType)
+        val grEngine = GameEngine(prefs = prefs, audio = SilentAudio)
+        grEngine.applyCampaign(lvl8)
+        assertEquals(lvl8.goldMult * 2.5f, grEngine.currentGoldMult, "Gold Rush mission should multiply level gold multiplier by 2.5x")
+    }
+
+    @Test
+    fun testCampaignCustomWaveModifiersApplied() {
+        val lvl18 = CampaignData.levels.first { it.id == 18 }
+        assertEquals(WaveModifier.FAST, lvl18.waveModifiers[4])
+        engine.applyCampaign(lvl18)
+        engine.init(800f, 600f)
+
+        engine.wave = 3
+        engine.waveInProgress = false
+        engine.enemies.clear()
+        engine.callNextWaveEarly()
+
+        assertEquals(4, engine.wave)
+        assertEquals(WaveModifier.FAST, engine.currentWaveModifier, "Wave 4 should activate FAST from campaignLevel.waveModifiers")
+    }
 }
