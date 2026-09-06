@@ -91,7 +91,11 @@ class MainActivity : ImmersiveActivity() {
         val campaignLevelId = intent.getIntExtra("campaign_level", -1)
         val campaignLevel = if (campaignLevelId > 0) CampaignData.levels.find { it.id == campaignLevelId } else null
         if (campaignLevel != null) {
-            engine.applyCampaign(campaignLevel)
+            val isHeroic = intent.getBooleanExtra("campaign_heroic", false)
+            engine.applyCampaign(campaignLevel, isHeroic = isHeroic)
+            if (isHeroic) {
+                Toast.makeText(this, GameStrings.heroicChallenge, Toast.LENGTH_SHORT).show()
+            }
 
             // Hide tower buttons not allowed
             binding.btnTowerArrow.visibility = if (TowerType.ARROW in campaignLevel.allowedTowers) View.VISIBLE else View.GONE
@@ -949,26 +953,31 @@ class MainActivity : ImmersiveActivity() {
         statBosses.text = "👑 $bosses Defeated"
 
         if (isVictory) {
-            textIcon.text = "🏆"
-            textTitle.text = if (cl != null) "REALM DEFENDED!" else "VICTORY!"
-            textTitle.setTextColor(resources.getColor(R.color.gold, theme))
-            textSubtitle.text = cl?.let { "${it.emoji} ${it.title}" } ?: "Wave $wave Cleared"
+            textIcon.text = if (engine.isHeroicMode) "💀" else "🏆"
+            textTitle.text = if (engine.isHeroicMode) GameStrings.heroicVictoryTitle else if (cl != null) "REALM DEFENDED!" else "VICTORY!"
+            textTitle.setTextColor(if (engine.isHeroicMode) Color.parseColor("#FF9800") else resources.getColor(R.color.gold, theme))
+            textSubtitle.text = cl?.let { "${it.emoji} ${it.title}${if (engine.isHeroicMode) " [HEROIC]" else ""}" } ?: "Wave $wave Cleared"
 
             if (cl != null) {
                 layoutStars.visibility = View.VISIBLE
                 val stars = engine.campaignStars.coerceIn(1, 3)
                 textStars.text = "⭐".repeat(stars) + "☆".repeat(3 - stars)
                 layoutObjectives.visibility = View.VISIBLE
-                textObj1.text = "✓ Clear Wave ${cl.targetWave}"
-                textObj1.setTextColor(Color.WHITE)
 
-                val star2Met = score >= cl.star2Score
-                textObj2.text = if (star2Met) "✓ Score ≥ ${cl.star2Score}" else "✗ Score ≥ ${cl.star2Score} ($score)"
-                textObj2.setTextColor(if (star2Met) Color.WHITE else Color.parseColor("#EF5350"))
+                val isPl = GameStrings.isPl
+                val o1Met = engine.campaignObjective1Met
+                val o2Met = engine.campaignObjective2Met
+                val o3Met = engine.campaignObjective3Met
 
-                val star3Met = score >= cl.star3Score
-                textObj3.text = if (star3Met) "✓ Score ≥ ${cl.star3Score}" else "✗ Score ≥ ${cl.star3Score} ($score)"
-                textObj3.setTextColor(if (star3Met) Color.WHITE else Color.parseColor("#EF5350"))
+                textObj1.text = (if (o1Met) "✓ " else "✗ ") + cl.objective1.description(isPl)
+                textObj1.setTextColor(if (o1Met) Color.WHITE else Color.parseColor("#EF5350"))
+
+                textObj2.text = (if (o2Met) "✓ " else "✗ ") + cl.objective2.description(isPl)
+                textObj2.setTextColor(if (o2Met) Color.WHITE else Color.parseColor("#EF5350"))
+
+                textObj3.visibility = View.VISIBLE
+                textObj3.text = (if (o3Met) "✓ " else "✗ ") + cl.objective3.description(isPl)
+                textObj3.setTextColor(if (o3Met) Color.WHITE else Color.parseColor("#EF5350"))
             } else {
                 layoutStars.visibility = View.GONE
                 layoutObjectives.visibility = View.GONE
@@ -1008,11 +1017,20 @@ class MainActivity : ImmersiveActivity() {
 
             if (cl != null) {
                 layoutObjectives.visibility = View.VISIBLE
-                textObj1.text = "✗ Survived ${wave}/${cl.targetWave} Waves"
-                textObj1.setTextColor(Color.parseColor("#EF5350"))
-                textObj2.text = "Hint: " + cl.hint.ifBlank { "Upgrade towers or adjust positioning." }
-                textObj2.setTextColor(Color.parseColor("#B0BEC5"))
-                textObj3.visibility = View.GONE
+                val isPl = GameStrings.isPl
+                val o1Met = engine.campaignObjective1Met
+                val o2Met = engine.campaignObjective2Met
+                val o3Met = engine.campaignObjective3Met
+
+                textObj1.text = (if (o1Met) "✓ " else "✗ ") + cl.objective1.description(isPl)
+                textObj1.setTextColor(if (o1Met) Color.WHITE else Color.parseColor("#EF5350"))
+
+                textObj2.text = (if (o2Met) "✓ " else "✗ ") + cl.objective2.description(isPl)
+                textObj2.setTextColor(if (o2Met) Color.WHITE else Color.parseColor("#EF5350"))
+
+                textObj3.visibility = View.VISIBLE
+                textObj3.text = (if (o3Met) "✓ " else "✗ ") + cl.objective3.description(isPl)
+                textObj3.setTextColor(if (o3Met) Color.WHITE else Color.parseColor("#EF5350"))
             } else {
                 layoutObjectives.visibility = View.GONE
             }

@@ -306,6 +306,56 @@
                 android:textAllCaps="false" />
         </LinearLayout>
 
+        <!-- Heroic Challenge Mode Container -->
+        <LinearLayout
+            android:id="@+id/heroic_mode_container"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:background="@drawable/bg_card_glass"
+            android:padding="12dp"
+            android:layout_marginTop="14dp">
+
+            <RelativeLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content">
+
+                <LinearLayout
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical"
+                    android:layout_alignParentStart="true"
+                    android:layout_toStartOf="@+id/switch_heroic"
+                    android:layout_marginEnd="8dp">
+
+                    <TextView
+                        android:id="@+id/heroic_title"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="💀 HEROIC CHALLENGE"
+                        android:textColor="#FF9800"
+                        android:textSize="14sp"
+                        android:textStyle="bold" />
+
+                    <TextView
+                        android:id="@+id/heroic_desc"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="+35% HP, +20% Spd, Boss Rapid Telegraph\nBounty: +5 💎 Diamonds &amp; 💀 Badge"
+                        android:textColor="#FFCC80"
+                        android:textSize="11sp"
+                        android:layout_marginTop="2dp" />
+                </LinearLayout>
+
+                <com.google.android.material.switchmaterial.SwitchMaterial
+                    android:id="@+id/switch_heroic"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_alignParentEnd="true"
+                    android:layout_centerVertical="true" />
+            </RelativeLayout>
+        </LinearLayout>
+
         <!-- Action Buttons -->
         <LinearLayout
             android:layout_width="match_parent"

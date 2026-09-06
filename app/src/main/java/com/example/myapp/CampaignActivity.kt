@@ -45,6 +45,7 @@ class CampaignActivity : ImmersiveActivity() {
         var completed = 0
         for (level in CampaignData.levels) {
             val isCompleted = prefs.getBoolean("campaign_${level.id}", false)
+            val isHeroicCompleted = prefs.getBoolean("campaign_${level.id}_heroic", false)
             if (isCompleted) completed++
             val prevCompleted = level.id == 1 || prefs.getBoolean("campaign_${level.id - 1}", false)
             val isUnlocked = prevCompleted
@@ -89,10 +90,12 @@ class CampaignActivity : ImmersiveActivity() {
             }
 
             val title = TextView(this).apply {
-                text = "${level.id}. ${level.title}"
+                val heroicBadge = if (isHeroicCompleted) " 💀" else ""
+                text = "${level.id}. ${level.title}$heroicBadge"
                 setTextSize(TypedValue.COMPLEX_UNIT_SP, 18f)
                 setTextColor(
                     when {
+                        isHeroicCompleted -> Color.parseColor("#FF9800")
                         isCompleted -> Color.parseColor("#FFD700")
                         isUnlocked -> Color.WHITE
                         else -> Color.parseColor("#666666")
@@ -114,7 +117,10 @@ class CampaignActivity : ImmersiveActivity() {
                     val s = prefs.getInt("campaign_${level.id}_stars", 0)
                     "  |  💎 ${level.diamondReward + (s - 1).coerceAtLeast(0) * 2}"
                 } else "  |  💎 ${level.diamondReward}-${level.diamondReward + 4}"
-                text = "${GameStrings.campaignSurvive(level.targetWave)}  |  $mapInfo  |  $towerList$starInfo\n⭐⭐ ${level.star2Score}  ⭐⭐⭐ ${level.star3Score}"
+                val heroicStatus = if (isHeroicCompleted) "  |  💀 HEROIC ✓" else ""
+                val obj2Text = level.objective2.description(GameStrings.isPl)
+                val obj3Text = level.objective3.description(GameStrings.isPl)
+                text = "${GameStrings.campaignSurvive(level.targetWave)}  |  $mapInfo  |  $towerList$starInfo$heroicStatus\n⭐⭐ $obj2Text  •  ⭐⭐⭐ $obj3Text"
                 setTextSize(TypedValue.COMPLEX_UNIT_SP, 12f)
                 setTextColor(Color.parseColor("#888888"))
                 gravity = Gravity.START
@@ -127,13 +133,14 @@ class CampaignActivity : ImmersiveActivity() {
             val status = TextView(this).apply {
                 val stars = prefs.getInt("campaign_${level.id}_stars", 0)
                 text = when {
+                    isHeroicCompleted && stars >= 3 -> "⭐⭐⭐\n💀"
                     isCompleted && stars >= 3 -> "⭐⭐⭐"
                     isCompleted && stars >= 2 -> "⭐⭐"
                     isCompleted -> "⭐"
                     isUnlocked -> "▶"
                     else -> ""
                 }
-                setTextSize(TypedValue.COMPLEX_UNIT_SP, if (stars >= 2) 18f else 24f)
+                setTextSize(TypedValue.COMPLEX_UNIT_SP, if (stars >= 2) 16f else 22f)
                 gravity = Gravity.CENTER
             }
 
@@ -145,7 +152,9 @@ class CampaignActivity : ImmersiveActivity() {
 
         val totalStars = CampaignData.levels.sumOf { prefs.getInt("campaign_${it.id}_stars", 0) }
         val maxStars = CampaignData.levels.size * 3
-        binding.textProgress.text = GameStrings.campaignProgress(completed, CampaignData.levels.size, totalStars, maxStars)
+        val heroicCount = CampaignData.levels.count { prefs.getBoolean("campaign_${it.id}_heroic", false) }
+        val heroicInfo = if (heroicCount > 0) " • " + GameStrings.heroicProgressFmt(heroicCount, CampaignData.levels.size) else ""
+        binding.textProgress.text = "${GameStrings.campaignProgress(completed, CampaignData.levels.size, totalStars, maxStars)}$heroicInfo"
     }
 
     private fun showLevelBriefingDialog(level: CampaignLevel, isCompleted: Boolean) {
@@ -179,15 +188,40 @@ class CampaignActivity : ImmersiveActivity() {
 
         val prefs = getSharedPreferences("tower_defense_prefs", Context.MODE_PRIVATE)
         val stars = prefs.getInt("campaign_${level.id}_stars", 0)
+        val isHeroicCompleted = prefs.getBoolean("campaign_${level.id}_heroic", false)
+        val isPl = GameStrings.isPl
+
+        val switchHeroic = dialogView.findViewById<com.google.android.material.switchmaterial.SwitchMaterial>(R.id.switch_heroic)
+        val heroicTitle = dialogView.findViewById<TextView>(R.id.heroic_title)
+        val heroicDesc = dialogView.findViewById<TextView>(R.id.heroic_desc)
+
+        if (heroicTitle != null && switchHeroic != null && heroicDesc != null) {
+            heroicTitle.text = if (isHeroicCompleted) "💀 " + (if (isPl) "WYZWANIE HEROICZNE (UKOŃCZONE ✓)" else "HEROIC CHALLENGE (CLEARED ✓)") else GameStrings.heroicChallenge
+            heroicTitle.setTextColor(if (isHeroicCompleted) Color.parseColor("#FFD700") else Color.parseColor("#FF9800"))
+
+            if (isCompleted) {
+                switchHeroic.isEnabled = true
+                switchHeroic.isChecked = false
+                heroicDesc.text = GameStrings.heroicModeDesc
+                switchHeroic.setOnCheckedChangeListener { _, _ ->
+                    SoundManager.play(SfxType.UI_CLICK)
+                }
+            } else {
+                switchHeroic.isEnabled = false
+                switchHeroic.isChecked = false
+                heroicDesc.text = if (isPl) "🔒 Ukończ tę misję, aby odblokować Wyzwanie Heroiczne!" else "🔒 Complete this mission to unlock Heroic Challenge!"
+            }
+        }
 
         titleView.text = "${level.emoji} Mission ${level.id}: ${level.title}"
         statusView.text = when {
+            isHeroicCompleted && stars >= 3 -> "⭐⭐⭐ MASTERED • 💀 HEROIC"
             isCompleted && stars >= 3 -> "⭐⭐⭐ MASTERED"
             isCompleted && stars == 2 -> "⭐⭐ COMPLETED (2/3 Stars)"
             isCompleted -> "⭐ COMPLETED (1/3 Stars)"
             else -> "⚔️ READY FOR DEPLOYMENT"
         }
-        statusView.setTextColor(if (isCompleted) Color.parseColor("#00E5FF") else Color.parseColor("#FFD54F"))
+        statusView.setTextColor(if (isHeroicCompleted) Color.parseColor("#FF9800") else if (isCompleted) Color.parseColor("#00E5FF") else Color.parseColor("#FFD54F"))
 
         chipMap.text = "${level.mapType.emoji} ${level.mapType.displayName}"
         chipWaves.text = "⚔️ ${level.targetWave} Waves"
@@ -213,9 +247,12 @@ class CampaignActivity : ImmersiveActivity() {
         val upgradeText = if (level.upgradesEnabled) "⬆ Upgrades Enabled" else "🔒 Upgrades Disabled"
         powersView.text = "$powerText  •  $upgradeText"
 
-        star1View.text = "⭐ 1 Star: Clear Wave ${level.targetWave}"
-        star2View.text = "⭐⭐ 2 Stars: Achieve Score ≥ ${level.star2Score}"
-        star3View.text = "⭐⭐⭐ 3 Stars: Achieve Score ≥ ${level.star3Score}"
+        star1View.text = "⭐ " + level.objective1.description(isPl)
+        star2View.text = "⭐⭐ " + level.objective2.description(isPl)
+        star3View.text = "⭐⭐⭐ " + level.objective3.description(isPl)
+        if (stars >= 1) star1View.setTextColor(Color.parseColor("#FFD700"))
+        if (stars >= 2) star2View.setTextColor(Color.parseColor("#FFD700"))
+        if (stars >= 3) star3View.setTextColor(Color.parseColor("#FFD700"))
 
         val earnedText = if (isCompleted) "Claimed (Re-run for highscore)" else "💎 ${level.diamondReward}-${level.diamondReward + 4} Diamonds"
         rewardView.text = earnedText
@@ -258,6 +295,7 @@ class CampaignActivity : ImmersiveActivity() {
             val intent = Intent(this@CampaignActivity, MainActivity::class.java).apply {
                 putExtra("difficulty", selectedDifficulty)
                 putExtra("campaign_level", level.id)
+                putExtra("campaign_heroic", switchHeroic?.isChecked == true)
             }
             startActivity(intent)
         }

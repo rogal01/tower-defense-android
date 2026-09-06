@@ -1,5 +1,27 @@
 package com.example.myapp.game
 
+enum class ObjectiveType {
+    SURVIVE_WAVES,
+    PERFECT_BASE,        // 0 base damage taken
+    BASE_HP_ABOVE,       // Base HP >= targetValue% (e.g. 80)
+    NO_TOWERS_SOLD,      // No towers sold
+    MAX_TOWERS_PLACED,   // Total towers placed <= targetValue
+    FORBIDDEN_TOWER,     // Never placed forbiddenTower
+    NO_POWERS_USED,      // powersUsed == 0
+    MIN_COMBO,           // bestCombo >= targetValue
+    HERO_SLAYS_BOSS      // Hero delivered fatal damage to a boss
+}
+
+data class CampaignObjective(
+    val type: ObjectiveType,
+    val targetValue: Int = 0,
+    val forbiddenTower: TowerType? = null,
+    val descEn: String,
+    val descPl: String
+) {
+    fun description(isPl: Boolean): String = if (isPl) descPl else descEn
+}
+
 data class CampaignLevel(
     val id: Int,
     val title: String,
@@ -17,7 +39,28 @@ data class CampaignLevel(
     val spawnRateMult: Float = 1f,
     val diamondReward: Int = 3,
     val hint: String = "",
-    val mapType: MapType = MapType.CLASSIC
+    val mapType: MapType = MapType.CLASSIC,
+    val objective1: CampaignObjective = CampaignObjective(
+        ObjectiveType.SURVIVE_WAVES,
+        targetWave,
+        null,
+        "Clear all $targetWave waves",
+        "Przetrwaj wszystkie $targetWave fale"
+    ),
+    val objective2: CampaignObjective = CampaignObjective(
+        ObjectiveType.PERFECT_BASE,
+        0,
+        null,
+        "Flawless Citadel (0 Base Damage)",
+        "Nienaruszona Cytadela (0 obrażeń bazy)"
+    ),
+    val objective3: CampaignObjective = CampaignObjective(
+        ObjectiveType.NO_TOWERS_SOLD,
+        0,
+        null,
+        "Tactical Discipline (No towers sold)",
+        "Dyscyplina Taktyczna (Bez sprzedaży wież)"
+    )
 ) {
     /** Estimate the base score (gold from kills without combos) for this level. */
     private fun estimatedBaseScore(): Int {

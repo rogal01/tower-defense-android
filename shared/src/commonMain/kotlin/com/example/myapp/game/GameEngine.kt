@@ -362,7 +362,9 @@ class GameEngine(val prefs: GamePreferences, val audio: GameAudio = SilentAudio)
         Achievement("combo_75", "Combo Overlord", "Reach a 75x kill combo", "🔥", false, 40),
         Achievement("combo_100", "Transcendent Combo", "Reach a 100x kill combo", "⚡", false, 60),
         Achievement("wave_75", "Abyssal Conqueror", "Reach wave 75 in any mode", "🔱", false, 50),
-        Achievement("kills_2500", "Harbinger of Ruin", "Eliminate 2500 enemies in a single run", "💀", false, 50)
+        Achievement("kills_2500", "Harbinger of Ruin", "Eliminate 2500 enemies in a single run", "💀", false, 50),
+        Achievement("campaign_heroic_first", "Heroic Champion", "Clear a campaign mission on Heroic difficulty", "💀", false, 35),
+        Achievement("boss_slayer_hero", "Regicide", "Land the final blow on a Boss with the Hero", "⚔️", false, 25)
     )
     // Track which powers were used this run for achievement
     val powersUsedThisRun = mutableSetOf<PowerType>()
@@ -451,6 +453,36 @@ class GameEngine(val prefs: GamePreferences, val audio: GameAudio = SilentAudio)
     var campaignLevel: CampaignLevel? = null
     var campaignVictory: Boolean = false
     var campaignStars: Int = 0
+    var isHeroicMode: Boolean = false
+    var towersSoldThisRun: Int = 0
+    var towersPlacedThisRun: Int = 0
+    val towersPlacedTypes = mutableSetOf<TowerType>()
+    var baseDamageTakenThisRun: Float = 0f
+    var heroKilledBoss: Boolean = false
+    var campaignObjective1Met: Boolean = false
+    var campaignObjective2Met: Boolean = false
+    var campaignObjective3Met: Boolean = false
+
+    fun evaluateCampaignObjective(obj: CampaignObjective): Boolean = when (obj.type) {
+        ObjectiveType.SURVIVE_WAVES -> {
+            val cl = campaignLevel
+            cl != null && wave >= cl.targetWave
+        }
+        ObjectiveType.PERFECT_BASE -> baseDamageTakenThisRun <= 0f && baseHp >= maxBaseHp
+        ObjectiveType.BASE_HP_ABOVE -> {
+            val pct = (baseHp / maxBaseHp) * 100f
+            pct >= obj.targetValue
+        }
+        ObjectiveType.NO_TOWERS_SOLD -> towersSoldThisRun == 0
+        ObjectiveType.MAX_TOWERS_PLACED -> towersPlacedThisRun <= obj.targetValue
+        ObjectiveType.FORBIDDEN_TOWER -> {
+            val forbidden = obj.forbiddenTower
+            forbidden == null || forbidden !in towersPlacedTypes
+        }
+        ObjectiveType.NO_POWERS_USED -> powersUsedThisRun.isEmpty()
+        ObjectiveType.MIN_COMBO -> bestCombo >= obj.targetValue
+        ObjectiveType.HERO_SLAYS_BOSS -> heroKilledBoss
+    }
 
     val totalCampaignLevels: Int get() = CampaignData.levels.size
     val totalCampaignStars: Int get() = CampaignData.levels.sumOf { prefs.getInt("campaign_${it.id}_stars", 0) }
@@ -630,12 +662,21 @@ class GameEngine(val prefs: GamePreferences, val audio: GameAudio = SilentAudio)
         }
     }
 
-    fun applyCampaign(level: CampaignLevel) {
+    fun applyCampaign(level: CampaignLevel, isHeroic: Boolean = false) {
         campaignLevel = level
         campaignVictory = false
-        enemyHpMult = level.enemyHpMult
-        enemyDmgMult = level.enemyDmgMult
-        enemySpeedMult = level.enemySpeedMult
+        isHeroicMode = isHeroic
+        var hpM = level.enemyHpMult
+        var dmgM = level.enemyDmgMult
+        var spdM = level.enemySpeedMult
+        if (isHeroic) {
+            hpM *= 1.35f
+            dmgM *= 1.25f
+            spdM *= 1.20f
+        }
+        enemyHpMult = hpM
+        enemyDmgMult = dmgM
+        enemySpeedMult = spdM
         goldMult = level.goldMult
         spawnRateMult = level.spawnRateMult
         gold = level.startingGold
@@ -709,6 +750,7 @@ class GameEngine(val prefs: GamePreferences, val audio: GameAudio = SilentAudio)
 
     /** Deals damage to the player base, absorbing through baseShield first */
     fun damageBase(rawDamage: Float) {
+        baseDamageTakenThisRun += rawDamage
         val aegisMult = if (hasMerchantItem(MerchantItemId.FORTRESS_AEGIS)) 0.80f else 1f
         var remainingDmg = rawDamage * aegisMult
         if (baseShield > 0f) {
@@ -1065,13 +1107,18 @@ class GameEngine(val prefs: GamePreferences, val audio: GameAudio = SilentAudio)
                 val editor = prefs.edit()
                 editor.putBoolean("campaign_${cl.id}", true)
 
-                // Star rating: 1⭐ = beat, 2⭐ = good score, 3⭐ = high score
-                val stars = when {
-                    score >= cl.star3Score -> 3
-                    score >= cl.star2Score -> 2
-                    else -> 1
-                }
+                // Dynamic tactical 3-star objectives
+                campaignObjective1Met = evaluateCampaignObjective(cl.objective1)
+                campaignObjective2Met = evaluateCampaignObjective(cl.objective2)
+                campaignObjective3Met = evaluateCampaignObjective(cl.objective3)
+
+                var stars = 0
+                if (campaignObjective1Met) stars++
+                if (campaignObjective2Met) stars++
+                if (campaignObjective3Met) stars++
+                if (stars < 1) stars = 1
                 campaignStars = stars
+
                 val prevStars = prefs.getInt("campaign_${cl.id}_stars", 0)
                 if (stars > prevStars) {
                     editor.putInt("campaign_${cl.id}_stars", stars)
@@ -1079,7 +1126,17 @@ class GameEngine(val prefs: GamePreferences, val audio: GameAudio = SilentAudio)
 
                 // Diamond reward: base + bonus per star
                 val starBonus = (stars - 1) * 2  // 0, 2, or 4 bonus diamonds
-                val totalDiamonds = cl.diamondReward + starBonus
+                var totalDiamonds = cl.diamondReward + starBonus
+
+                if (isHeroicMode) {
+                    val heroicKey = "campaign_${cl.id}_heroic"
+                    val alreadyHeroic = prefs.getBoolean(heroicKey, false)
+                    editor.putBoolean(heroicKey, true)
+                    val heroicBounty = if (!alreadyHeroic) 5 else 2
+                    totalDiamonds += heroicBounty
+                    checkAchievement("campaign_heroic_first")
+                }
+
                 skillTree.addDiamonds(totalDiamonds)
                 diamondsEarnedThisRun += totalDiamonds
 
@@ -1088,16 +1145,15 @@ class GameEngine(val prefs: GamePreferences, val audio: GameAudio = SilentAudio)
                 if (completed >= 5) checkAchievement("campaign_5")
                 if (completed >= 10) checkAchievement("campaign_10")
                 if (completed >= CampaignData.levels.size) checkAchievement("campaign_all")
-                if (baseHp >= maxBaseHp) {
+                if (baseDamageTakenThisRun <= 0f && baseHp >= maxBaseHp) {
                     checkAchievement("campaign_no_damage")
                     editor.putBoolean("campaign_${cl.id}_fullhp", true)
                 }
-                if (score >= cl.star3Score) {
-                    val threeStarLevels = CampaignData.levels.count {
-                        prefs.getInt("campaign_${it.id}_stars", 0) >= 3
-                    } + if (stars >= 3 && prevStars < 3) 1 else 0
-                    if (threeStarLevels >= 5) checkAchievement("campaign_3star")
-                }
+                val threeStarLevels = CampaignData.levels.count {
+                    prefs.getInt("campaign_${it.id}_stars", 0) >= 3
+                } + if (stars >= 3 && prevStars < 3) 1 else 0
+                if (threeStarLevels >= 5) checkAchievement("campaign_3star")
+                if (threeStarLevels >= 10) checkAchievement("campaign_3star_10")
                 editor.apply()
             } else {
                 generateNextWavePreview()
@@ -1195,6 +1251,10 @@ class GameEngine(val prefs: GamePreferences, val audio: GameAudio = SilentAudio)
                     target.hp -= actualPlayerDmg
                     if (prevHp > 0 && target.hp <= 0) {
                         playerKillsThisRun++
+                        if (target.isBoss) {
+                            heroKilledBoss = true
+                            checkAchievement("boss_slayer_hero")
+                        }
                         if (playerKillsThisRun >= 50) checkAchievement("hero_slayer_50")
                     }
                     target.hitFlash = 0.15f
@@ -1488,23 +1548,60 @@ class GameEngine(val prefs: GamePreferences, val audio: GameAudio = SilentAudio)
             }
         }
 
-        // Boss special abilities
-        val bossAbilityEnemies = mutableListOf<Enemy>()
+        // Boss special abilities with telegraphs & health-phase transitions
+        val bossAbilityEnemies = mutableListOf<Pair<Enemy, BossAbility>>()
         enemies.forEach { enemy ->
             if (enemy.type == EnemyType.BOSS && enemy.bossType != null && !enemy.isDead()) {
-                enemy.bossAbilityTimer -= dt
-                if (enemy.isCharging) {
-                    enemy.chargeTimer -= dt
-                    if (enemy.chargeTimer <= 0f) enemy.isCharging = false
-                }
-                if (enemy.bossAbilityTimer <= 0f) {
-                    enemy.bossAbilityTimer = enemy.bossAbilityCooldown
-                    bossAbilityEnemies.add(enemy)
+                val bt = enemy.bossType!!
+                // 1. Tick telegraph if currently charging
+                if (enemy.isTelegraphing) {
+                    enemy.telegraphTimer -= dt
+                    if (enemy.telegraphTimer <= 0f) {
+                        enemy.isTelegraphing = false
+                        val ability = enemy.pendingAbility ?: bt.ability
+                        bossAbilityEnemies.add(enemy to ability)
+                    }
+                } else {
+                    // 2. Health-based Phase Transitions (75%, 50%, 25%)
+                    val hpRatio = enemy.hp / enemy.maxHp
+                    if (!enemy.phase75Triggered && hpRatio <= 0.75f) {
+                        enemy.phase75Triggered = true
+                        enemy.currentPhase = 2
+                        audio.play(SfxType.BOSS_SHIELD)
+                        shakeTimer = 0.3f; shakeIntensity = 8f
+                        floatingTexts.add(FloatingText(enemy.x, enemy.y - enemy.size - 15f, "🛡️ PHASE 2: BARRIER!", 0xFF00E5FF.toInt(), 1.5f, 26f))
+                        startBossTelegraph(enemy, BossAbility.SHIELD)
+                    } else if (!enemy.phase50Triggered && hpRatio <= 0.50f) {
+                        enemy.phase50Triggered = true
+                        enemy.currentPhase = 3
+                        audio.play(SfxType.BOSS_ROAR)
+                        shakeTimer = 0.35f; shakeIntensity = 10f
+                        floatingTexts.add(FloatingText(enemy.x, enemy.y - enemy.size - 15f, "👾 PHASE 3: SWARM!", 0xFFFF9800.toInt(), 1.5f, 26f))
+                        startBossTelegraph(enemy, BossAbility.SUMMON)
+                    } else if (!enemy.phase25Triggered && hpRatio <= 0.25f) {
+                        enemy.phase25Triggered = true
+                        enemy.currentPhase = 4
+                        audio.play(SfxType.BOSS_AOE)
+                        shakeTimer = 0.45f; shakeIntensity = 14f
+                        floatingTexts.add(FloatingText(enemy.x, enemy.y - enemy.size - 15f, "💥 FINAL PHASE: TITAN STOMP!", 0xFFFF1744.toInt(), 1.8f, 28f))
+                        startBossTelegraph(enemy, BossAbility.TITAN_STOMP)
+                    } else {
+                        // 3. Periodic Ability with Telegraph
+                        enemy.bossAbilityTimer -= dt
+                        if (enemy.isCharging) {
+                            enemy.chargeTimer -= dt
+                            if (enemy.chargeTimer <= 0f) enemy.isCharging = false
+                        }
+                        if (enemy.bossAbilityTimer <= 0f) {
+                            enemy.bossAbilityTimer = enemy.bossAbilityCooldown
+                            startBossTelegraph(enemy, bt.ability)
+                        }
+                    }
                 }
             }
         }
-        for (boss in bossAbilityEnemies) {
-            executeBossAbility(boss, dt)
+        for ((boss, ability) in bossAbilityEnemies) {
+            executeBossAbility(boss, dt, ability)
         }
 
         val deadEnemies = enemies.filter { it.isDead() && !it.deathProcessed }
@@ -2609,9 +2706,25 @@ class GameEngine(val prefs: GamePreferences, val audio: GameAudio = SilentAudio)
         }
     }
 
-    private fun executeBossAbility(boss: Enemy, dt: Float) {
+    fun startBossTelegraph(boss: Enemy, ability: BossAbility) {
+        val duration = if (isHeroicMode) 1.2f else 1.5f
+        boss.isTelegraphing = true
+        boss.telegraphTimer = duration
+        boss.telegraphDuration = duration
+        boss.pendingAbility = ability
+        boss.telegraphRadius = when (ability) {
+            BossAbility.TITAN_STOMP, BossAbility.QUAKE, BossAbility.AOE_DAMAGE -> 220f
+            BossAbility.SPORE_CLOUD -> 240f
+            BossAbility.EMP_BLAST -> 200f
+            else -> 180f
+        }
+        audio.play(SfxType.BOSS_CHARGE)
+        floatingTexts.add(FloatingText(boss.x, boss.y - boss.size - 12f, "⚠️ CHARGING!", 0xFFFFD700.toInt(), 1.0f, 22f))
+    }
+
+    fun executeBossAbility(boss: Enemy, dt: Float, ability: BossAbility = boss.pendingAbility ?: boss.bossType?.ability ?: BossAbility.AOE_DAMAGE) {
         val bt = boss.bossType ?: return
-        when (bt.ability) {
+        when (ability) {
             BossAbility.CHARGE -> {
                 boss.isCharging = true
                 boss.chargeTimer = 2f
@@ -2746,8 +2859,11 @@ class GameEngine(val prefs: GamePreferences, val audio: GameAudio = SilentAudio)
             }
             BossAbility.QUAKE -> {
                 shakeTimer = 1f; shakeIntensity = 20f
-                // Slow all towers
-                towers.forEach { it.fireTimer += 1.5f }
+                // Stun and slow all towers
+                towers.forEach {
+                    it.stunTimer = (it.stunTimer + 1.5f).coerceAtLeast(1.5f)
+                    it.fireTimer += 1.5f
+                }
                 floatingTexts.add(FloatingText(boss.x, boss.y - boss.size, "\uD83C\uDF0B QUAKE!", bt.color, 1.5f, 32f))
                 audio.play(SfxType.BOSS_QUAKE)
                 repeat(20) {
@@ -2871,6 +2987,34 @@ class GameEngine(val prefs: GamePreferences, val audio: GameAudio = SilentAudio)
                         0.6f, 0xFFFF9100.toInt(), 6f))
                 }
             }
+            BossAbility.TITAN_STOMP -> {
+                val stompRange = 220f
+                towers.filter { it.distanceTo(boss.x, boss.y) <= stompRange }.forEach { tower ->
+                    tower.stunTimer = 3.0f
+                    floatingTexts.add(FloatingText(tower.x, tower.y - 25f, "💫 STUNNED!", 0xFFFFD700.toInt(), 1.2f, 22f))
+                }
+                if (player.distanceTo(boss.x, boss.y) <= stompRange) {
+                    player.hp = (player.hp - 20f).coerceAtLeast(0f)
+                    floatingTexts.add(FloatingText(player.x, player.y - 30f, "-20 STOMP", 0xFFF44336.toInt(), 1.2f, 26f))
+                }
+                val dbx = baseX - boss.x; val dby = baseY - boss.y
+                if (dbx * dbx + dby * dby <= stompRange * stompRange) {
+                    damageBase(20f)
+                }
+                floatingTexts.add(FloatingText(boss.x, boss.y - boss.size, "💥 TITAN STOMP!", 0xFFFF1744.toInt(), 1.5f, 32f))
+                audio.play(SfxType.BOSS_AOE)
+                shakeTimer = 0.5f; shakeIntensity = 16f
+                repeat(25) {
+                    val angle = Math.random() * Math.PI * 2
+                    val dist = Math.random() * stompRange
+                    particles.add(Particle(
+                        boss.x + (Math.cos(angle) * dist).toFloat(),
+                        boss.y + (Math.sin(angle) * dist).toFloat(),
+                        (Math.cos(angle) * 120).toFloat(), (Math.sin(angle) * 120).toFloat(),
+                        0.6f, 0xFFFF5722.toInt(), 6f
+                    ))
+                }
+            }
         }
     }
 
@@ -2942,6 +3086,8 @@ class GameEngine(val prefs: GamePreferences, val audio: GameAudio = SilentAudio)
         }
 
         gold -= cost
+        towersPlacedThisRun++
+        towersPlacedTypes.add(type)
         val masteryBonus = 1f + masteryDamageBonus(type)
         towers.add(Tower(x, y, type = type, damage = type.baseDamage * masteryBonus, range = type.baseRange * endlessBuffTowerRange, fireRate = type.baseFireRate))
         audio.play(SfxType.TOWER_PLACE)
@@ -3065,6 +3211,7 @@ class GameEngine(val prefs: GamePreferences, val audio: GameAudio = SilentAudio)
     fun sellTower(tower: Tower): Boolean { synchronized(lock) {
         val refund = (tower.sellValue() * (1f + skillTree.sellValueBonus())).toInt()
         towers.remove(tower)
+        towersSoldThisRun++
         gold += refund
         audio.play(SfxType.TOWER_SELL)
         floatingTexts.add(FloatingText(tower.x, tower.y, "+${refund}g", 0xFFFFD700.toInt(), 1f, 26f))
@@ -3755,6 +3902,11 @@ class GameEngine(val prefs: GamePreferences, val audio: GameAudio = SilentAudio)
         ed.putInt("save_playerKills", playerKillsThisRun)
         ed.putInt("save_playerCrits", playerCritsThisRun)
         ed.putInt("save_consecutiveFlawless", consecutiveFlawlessWaves)
+        ed.putBoolean("save_isHeroicMode", isHeroicMode)
+        ed.putInt("save_towersSold", towersSoldThisRun)
+        ed.putInt("save_towersPlaced", towersPlacedThisRun)
+        ed.putFloat("save_baseDamageTaken", baseDamageTakenThisRun)
+        ed.putBoolean("save_heroKilledBoss", heroKilledBoss)
 
         ed.putBoolean("has_save", true)
         ed.apply()
@@ -3831,6 +3983,11 @@ class GameEngine(val prefs: GamePreferences, val audio: GameAudio = SilentAudio)
         playerKillsThisRun = prefs.getInt("save_playerKills", 0)
         playerCritsThisRun = prefs.getInt("save_playerCrits", 0)
         consecutiveFlawlessWaves = prefs.getInt("save_consecutiveFlawless", 0)
+        isHeroicMode = prefs.getBoolean("save_isHeroicMode", false)
+        towersSoldThisRun = prefs.getInt("save_towersSold", 0)
+        towersPlacedThisRun = prefs.getInt("save_towersPlaced", 0)
+        baseDamageTakenThisRun = prefs.getFloat("save_baseDamageTaken", 0f)
+        heroKilledBoss = prefs.getBoolean("save_heroKilledBoss", false)
 
         // Restore endless buffs
         endlessBuffs.clear()
@@ -3967,6 +4124,15 @@ class GameEngine(val prefs: GamePreferences, val audio: GameAudio = SilentAudio)
         playerCritsThisRun = 0
         consecutiveFlawlessWaves = 0
         campaignStars = 0
+        towersSoldThisRun = 0
+        towersPlacedThisRun = 0
+        towersPlacedTypes.clear()
+        powersUsedThisRun.clear()
+        baseDamageTakenThisRun = 0f
+        heroKilledBoss = false
+        campaignObjective1Met = false
+        campaignObjective2Met = false
+        campaignObjective3Met = false
         applyDifficulty(difficulty)
         wave = 0
         if (!isIronmanMode) { baseHp = 100f; maxBaseHp = 100f }

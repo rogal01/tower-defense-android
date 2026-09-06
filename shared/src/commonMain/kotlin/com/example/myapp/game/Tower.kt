@@ -75,6 +75,8 @@ data class Tower(
     var abilityTimer: Float = 0f,
     /** Thorns jam: when > 0 the tower's effective fire rate is halved. */
     var thornJamTimer: Float = 0f,
+    /** Stun timer: when > 0 the tower is stunned by boss stomps and cannot fire. */
+    var stunTimer: Float = 0f,
     /** Recoil animation timer — set briefly on every shot for a satisfying kick. */
     var recoilTimer: Float = 0f,
     // --- Stats tracking (shown on the end-of-run summary screen) ---
@@ -83,14 +85,15 @@ data class Tower(
 ) {
     /** Advance all per-tower timers by [dt] seconds. Called once per game tick. */
     fun update(dt: Float) {
-        if (fireTimer > 0) fireTimer -= dt
-        if (abilityTimer > 0) abilityTimer -= dt
-        if (thornJamTimer > 0) thornJamTimer -= dt
-        if (recoilTimer > 0) recoilTimer -= dt
+        if (fireTimer > 0) fireTimer = (fireTimer - dt).coerceAtLeast(0f)
+        if (abilityTimer > 0) abilityTimer = (abilityTimer - dt).coerceAtLeast(0f)
+        if (thornJamTimer > 0) thornJamTimer = (thornJamTimer - dt).coerceAtLeast(0f)
+        if (stunTimer > 0) stunTimer = (stunTimer - dt).coerceAtLeast(0f)
+        if (recoilTimer > 0) recoilTimer = (recoilTimer - dt).coerceAtLeast(0f)
     }
 
-    /** Returns true when the tower is off cooldown AND not currently jammed by thorns. */
-    fun canFire(): Boolean = fireTimer <= 0f && thornJamTimer <= 0f
+    /** Returns true when the tower is off cooldown AND not currently jammed by thorns AND not stunned. */
+    fun canFire(): Boolean = fireTimer <= 0f && thornJamTimer <= 0f && stunTimer <= 0f
 
     /** Resets the fire cooldown and triggers the recoil animation. */
     fun fire() {

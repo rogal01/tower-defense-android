@@ -182,10 +182,120 @@ class EnemySystemTest {
         assertEquals(0f, tower1.fireTimer)
         assertEquals(0f, tower2.fireTimer)
 
-        // Trigger ability via engine update
+        // Trigger ability via engine update: first step triggers telegraph, subsequent steps finish charging
         engine.update(0.05f)
+        assertTrue(leviathan.isTelegraphing, "Leviathan should telegraph EMP blast")
+        engine.update(1.6f)
 
-        assertTrue(tower1.fireTimer >= 2.5f, "EMP blast must jam tower 1")
-        assertTrue(tower2.fireTimer >= 2.5f, "EMP blast must jam tower 2")
+        assertTrue(tower1.fireTimer >= 2.0f, "EMP blast must jam tower 1")
+        assertTrue(tower2.fireTimer >= 2.0f, "EMP blast must jam tower 2")
+    }
+
+    @Test
+    fun testBossTelegraphChargingAndExecution() {
+        val engine = GameEngine(prefs = FakeGamePreferences(), audio = SilentAudio)
+        val boss = Enemy(
+            x = 200f, y = 200f, speed = 20f,
+            hp = 500f, maxHp = 500f, goldReward = 100, damage = 30f,
+            type = EnemyType.BOSS, bossType = BossType.FROST_TITAN,
+            bossAbilityTimer = 0.05f
+        )
+        engine.enemies.add(boss)
+
+        assertFalse(boss.isTelegraphing)
+        engine.startBossTelegraph(boss, BossAbility.TITAN_STOMP)
+        assertTrue(boss.isTelegraphing)
+        assertEquals(BossAbility.TITAN_STOMP, boss.pendingAbility)
+        assertEquals(1.5f, boss.telegraphDuration)
+        assertEquals(1.5f, boss.telegraphTimer)
+
+        // Advance time by 0.5s: still charging
+        engine.update(0.5f)
+        assertTrue(boss.isTelegraphing)
+        assertTrue(boss.telegraphTimer < 1.5f && boss.telegraphTimer > 0f)
+
+        // Advance remaining time: telegraph finishes and ability executes
+        engine.update(1.1f)
+        assertFalse(boss.isTelegraphing)
+    }
+
+    @Test
+    fun testBossHealthPhaseTriggers() {
+        val engine = GameEngine(prefs = FakeGamePreferences(), audio = SilentAudio)
+        val boss = Enemy(
+            x = 200f, y = 200f, speed = 20f,
+            hp = 1000f, maxHp = 1000f, goldReward = 100, damage = 30f,
+            type = EnemyType.BOSS, bossType = BossType.FROST_TITAN,
+            bossAbilityTimer = 999f
+        )
+        engine.enemies.add(boss)
+
+        assertEquals(1, boss.currentPhase)
+        assertFalse(boss.phase75Triggered)
+
+        // Drop below 75% HP
+        boss.hp = 740f
+        engine.update(0.05f)
+        assertTrue(boss.phase75Triggered, "75% HP phase should trigger")
+        assertEquals(2, boss.currentPhase)
+        assertTrue(boss.isTelegraphing)
+        assertEquals(BossAbility.SHIELD, boss.pendingAbility)
+
+        // Clear telegraph
+        boss.isTelegraphing = false
+
+        // Drop below 50% HP
+        boss.hp = 490f
+        engine.update(0.05f)
+        assertTrue(boss.phase50Triggered, "50% HP phase should trigger")
+        assertEquals(3, boss.currentPhase)
+        assertTrue(boss.isTelegraphing)
+        assertEquals(BossAbility.SUMMON, boss.pendingAbility)
+
+        // Clear telegraph
+        boss.isTelegraphing = false
+
+        // Drop below 25% HP
+        boss.hp = 240f
+        engine.update(0.05f)
+        assertTrue(boss.phase25Triggered, "25% HP phase should trigger")
+        assertEquals(4, boss.currentPhase)
+        assertTrue(boss.isTelegraphing)
+        assertEquals(BossAbility.TITAN_STOMP, boss.pendingAbility)
+    }
+
+    @Test
+    fun testTitanStompStunsNearbyTowers() {
+        val engine = GameEngine(prefs = FakeGamePreferences(), audio = SilentAudio)
+        val nearTower = Tower(x = 220f, y = 200f, level = 1, type = TowerType.ARROW)
+        val farTower = Tower(x = 600f, y = 600f, level = 1, type = TowerType.ARROW)
+        engine.towers.add(nearTower)
+        engine.towers.add(farTower)
+
+        val titan = Enemy(
+            x = 200f, y = 200f, speed = 20f,
+            hp = 1000f, maxHp = 1000f, goldReward = 100, damage = 30f,
+            type = EnemyType.BOSS, bossType = BossType.FROST_TITAN
+        )
+        engine.enemies.add(titan)
+
+        assertEquals(0f, nearTower.stunTimer)
+        assertTrue(nearTower.canFire())
+
+        engine.executeBossAbility(titan, 0.05f, BossAbility.TITAN_STOMP)
+
+        assertEquals(3.0f, nearTower.stunTimer)
+        assertFalse(nearTower.canFire(), "Stunned tower cannot fire")
+        assertEquals(0f, farTower.stunTimer, "Far tower should not be stunned")
+        assertTrue(farTower.canFire())
+
+        // Update tower to tick down stunTimer
+        nearTower.update(1.0f)
+        assertEquals(2.0f, nearTower.stunTimer)
+        assertFalse(nearTower.canFire())
+
+        nearTower.update(2.5f)
+        assertEquals(0f, nearTower.stunTimer)
+        assertTrue(nearTower.canFire(), "Tower can fire once stun wears off")
     }
 }

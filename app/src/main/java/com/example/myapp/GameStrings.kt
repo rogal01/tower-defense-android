@@ -455,7 +455,9 @@ Każda wieża zadaje określony typ obrażeń. Wrogowie mają odporności i sła
             AchDef("combo_75", "Combo Overlord", "Reach a 75x kill combo", "🔥", 40),
             AchDef("combo_100", "Transcendent Combo", "Reach a 100x kill combo", "⚡", 60),
             AchDef("wave_75", "Abyssal Conqueror", "Reach wave 75 in any mode", "🔱", 50),
-            AchDef("kills_2500", "Harbinger of Ruin", "Eliminate 2500 enemies in a single run", "💀", 50)
+            AchDef("kills_2500", "Harbinger of Ruin", "Eliminate 2500 enemies in a single run", "💀", 50),
+            AchDef("campaign_heroic_first", "Heroic Champion", "Clear a campaign mission on Heroic difficulty", "💀", 35),
+            AchDef("boss_slayer_hero", "Regicide", "Land the final blow on a Boss with the Hero", "⚔️", 25)
         )
         return listOf(
             AchDef("first_kill", "Pierwsze trafienie", "Zabij pierwszego wroga", "🗡️", 5),
@@ -543,7 +545,9 @@ Każda wieża zadaje określony typ obrażeń. Wrogowie mają odporności i sła
             AchDef("combo_75", "Władca kombosów", "Osiągnij combo 75x", "🔥", 40),
             AchDef("combo_100", "Transcendencja", "Osiągnij mityczne combo 100x", "⚡", 60),
             AchDef("wave_75", "Zdobywca otchłani", "Dotrzyj do fali 75 w dowolnym trybie", "🔱", 50),
-            AchDef("kills_2500", "Zwiastun zguby", "Wyeliminuj 2500 wrogów w jednym podejściu", "💀", 50)
+            AchDef("kills_2500", "Zwiastun zguby", "Wyeliminuj 2500 wrogów w jednym podejściu", "💀", 50),
+            AchDef("campaign_heroic_first", "Heroiczny czempion", "Ukończ misję kampanii na poziomie Heroicznym", "💀", 35),
+            AchDef("boss_slayer_hero", "Królobójca", "Zadaj ostateczny cios bossowi swoim bohaterem", "⚔️", 25)
         )
     }
 
@@ -818,4 +822,15 @@ Użyj 2× i 3× by przyspieszyć. Dotknij Pauza, by wstrzymać.
             if (isPl) "☀️ ZAĆMIENIE SŁOŃCA! Magiczne odnowienie -35% i zwinność Bohatera +30%!"
             else "☀️ SOLAR ECLIPSE ASCENDS! Spell Cooldowns -35% & Hero Swiftness +30%!"
     }
+
+    // ─── Boss Telegraphs & Heroic Campaign ───
+    val heroicChallenge get() = if (isPl) "💀 WYZWANIE HEROICZNE" else "💀 HEROIC CHALLENGE"
+    val heroicModeDesc get() = if (isPl) "Wrogowie +35% HP, +20% Szybkości • Szybsze telegrafy bossa • Premia +5 💎" else "Enemies +35% HP, +20% Speed • Faster Boss Telegraphs • +5 💎 Bounty"
+    val heroicVictoryTitle get() = if (isPl) "💀 HEROICZNE ZWYCIĘSTWO!" else "💀 HEROIC VICTORY!"
+    val heroicProgressFmt: (Int, Int) -> String = { cleared, total ->
+        if (isPl) "💀 Heroic: $cleared/$total ukończone" else "💀 Heroic: $cleared/$total Cleared"
+    }
+    fun bossChargingFmt(ability: String, seconds: Float) =
+        if (isPl) "⚠️ ŁADOWANIE: $ability (${String.format("%.1f", seconds)}s)"
+        else "⚠️ CHARGING: $ability (${String.format("%.1f", seconds)}s)"
 }

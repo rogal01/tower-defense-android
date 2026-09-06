@@ -660,4 +660,81 @@ class GameEngineSystemTest {
         assertEquals(75, engine.wave)
         assertTrue(prefs.getBoolean("ach_wave_75", false), "Reaching wave 75 should unlock wave_75")
     }
+
+    @Test
+    fun testCampaignObjectivesEvaluation() {
+        val prefs = FakeGamePreferences()
+        val engine = GameEngine(prefs = prefs, audio = SilentAudio)
+
+        // PERFECT_BASE: baseDamageTakenThisRun == 0
+        engine.baseDamageTakenThisRun = 0f
+        assertTrue(engine.evaluateCampaignObjective(CampaignObjective(ObjectiveType.PERFECT_BASE, descEn = "", descPl = "")))
+        engine.baseDamageTakenThisRun = 10f
+        assertFalse(engine.evaluateCampaignObjective(CampaignObjective(ObjectiveType.PERFECT_BASE, descEn = "", descPl = "")))
+
+        // NO_TOWERS_SOLD
+        engine.towersSoldThisRun = 0
+        assertTrue(engine.evaluateCampaignObjective(CampaignObjective(ObjectiveType.NO_TOWERS_SOLD, descEn = "", descPl = "")))
+        engine.towersSoldThisRun = 1
+        assertFalse(engine.evaluateCampaignObjective(CampaignObjective(ObjectiveType.NO_TOWERS_SOLD, descEn = "", descPl = "")))
+
+        // MAX_TOWERS_PLACED
+        engine.towersPlacedThisRun = 4
+        assertTrue(engine.evaluateCampaignObjective(CampaignObjective(ObjectiveType.MAX_TOWERS_PLACED, targetValue = 4, descEn = "", descPl = "")))
+        engine.towersPlacedThisRun = 5
+        assertFalse(engine.evaluateCampaignObjective(CampaignObjective(ObjectiveType.MAX_TOWERS_PLACED, targetValue = 4, descEn = "", descPl = "")))
+
+        // FORBIDDEN_TOWER
+        engine.towersPlacedTypes.clear()
+        engine.towersPlacedTypes.add(TowerType.ARROW)
+        assertTrue(engine.evaluateCampaignObjective(CampaignObjective(ObjectiveType.FORBIDDEN_TOWER, forbiddenTower = TowerType.TESLA, descEn = "", descPl = "")))
+        engine.towersPlacedTypes.add(TowerType.TESLA)
+        assertFalse(engine.evaluateCampaignObjective(CampaignObjective(ObjectiveType.FORBIDDEN_TOWER, forbiddenTower = TowerType.TESLA, descEn = "", descPl = "")))
+
+        // HERO_SLAYS_BOSS
+        engine.heroKilledBoss = false
+        assertFalse(engine.evaluateCampaignObjective(CampaignObjective(ObjectiveType.HERO_SLAYS_BOSS, descEn = "", descPl = "")))
+        engine.heroKilledBoss = true
+        assertTrue(engine.evaluateCampaignObjective(CampaignObjective(ObjectiveType.HERO_SLAYS_BOSS, descEn = "", descPl = "")))
+    }
+
+    @Test
+    fun testHeroicCampaignDifficultyAndReward() {
+        val prefs = FakeGamePreferences()
+        val engine = GameEngine(prefs = prefs, audio = SilentAudio)
+        val level = CampaignData.levels[0]
+
+        // Normal mode
+        engine.applyCampaign(level, isHeroic = false)
+        assertFalse(engine.isHeroicMode)
+
+        // Heroic mode
+        engine.applyCampaign(level, isHeroic = true)
+        assertTrue(engine.isHeroicMode)
+
+        // Check boss telegraph duration in heroic mode
+        val boss = Enemy(
+            x = 100f, y = 100f, speed = 20f, hp = 500f, maxHp = 500f,
+            goldReward = 50, damage = 20f, type = EnemyType.BOSS, bossType = BossType.FROST_TITAN
+        )
+        engine.startBossTelegraph(boss, BossAbility.TITAN_STOMP)
+        assertEquals(1.2f, boss.telegraphDuration, "Heroic telegraph duration should be 1.2s instead of 1.5s")
+
+        // Trigger campaign victory on heroic
+        engine.wave = level.targetWave
+        engine.baseDamageTakenThisRun = 0f
+        engine.baseHpBeforeWave = engine.baseHp
+        engine.waveInProgress = true
+        engine.enemies.clear()
+        engine.enemiesRemaining = 0
+        val initialDiamonds = prefs.getInt("diamonds", 0)
+
+        engine.update(0.1f)
+
+        assertTrue(prefs.getBoolean("campaign_${level.id}_heroic", false), "Heroic clear flag should be set")
+        assertTrue(prefs.getBoolean("ach_campaign_heroic_first", false), "Heroic first achievement should be unlocked")
+        val earnedDiamonds = prefs.getInt("diamonds", 0) - initialDiamonds
+        // level.diamondReward + 4 (for 3 stars) + 5 (heroic bounty)
+        assertEquals(level.diamondReward + 4 + 5, earnedDiamonds)
+    }
 }

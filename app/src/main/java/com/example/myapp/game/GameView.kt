@@ -1055,6 +1055,22 @@ class GameView @JvmOverloads constructor(
                 paint.color = 0x44FF5252
                 canvas.drawCircle(tower.x, tower.y, tower.size + 6f, paint)
             }
+            // Tower stun effect — dizzy orbiting stars
+            if (tower.stunTimer > 0f) {
+                val stunAngle = (System.currentTimeMillis() * 0.006) % (Math.PI * 2)
+                val starDist = tower.size * 0.65f
+                paint.color = 0xFFFFD700.toInt()
+                paint.style = Paint.Style.FILL
+                for (i in 0 until 3) {
+                    val a = stunAngle + i * (Math.PI * 2.0 / 3.0)
+                    val sx = tower.x + (Math.cos(a) * starDist).toFloat()
+                    val sy = tower.y - tower.size * 0.7f + (Math.sin(a) * (starDist * 0.4f)).toFloat()
+                    canvas.drawCircle(sx, sy, 3.5f, paint)
+                }
+                lvlPaint.textSize = 10f
+                lvlPaint.color = 0xFFFFD54F.toInt()
+                canvas.drawText("💫 STUNNED", tower.x, tower.y - tower.size - 4f, lvlPaint)
+            }
             // Ice tower aura ring
             if (tower.type == TowerType.ICE) {
                 paint.color = 0x2281D4FA
@@ -1113,6 +1129,30 @@ class GameView @JvmOverloads constructor(
             }
             // Skip drawing if fully faded
             if (deathAlpha <= 0) continue
+
+            // Boss Attack Telegraph Danger Zone (drawn underneath boss)
+            if (enemy.isTelegraphing) {
+                val radius = enemy.telegraphRadius
+                val progress = (1f - (enemy.telegraphTimer / enemy.telegraphDuration).coerceIn(0f, 1f))
+                val pulse = ((Math.sin(System.currentTimeMillis() * 0.012) + 1.0) / 2.0).toFloat()
+
+                // Hazard zone translucent fill
+                paint.color = 0x22FF1744.toInt()
+                paint.style = Paint.Style.FILL
+                canvas.drawCircle(enemy.x, enemy.y, radius, paint)
+
+                // Charging radial sweep / inner expanding circle
+                paint.color = 0x33FF5252.toInt()
+                canvas.drawCircle(enemy.x, enemy.y, radius * progress, paint)
+
+                // Danger ring border with pulse
+                paint.color = 0xFFFF1744.toInt()
+                paint.style = Paint.Style.STROKE
+                paint.strokeWidth = 2.5f + pulse * 2f
+                canvas.drawCircle(enemy.x, enemy.y, radius, paint)
+                paint.style = Paint.Style.FILL
+            }
+
             canvas.save()
             canvas.scale(depthScale * deathScale, depthScale * deathScale, enemy.x, enemy.y)
             if (deathAlpha < 255) {
@@ -1186,7 +1226,7 @@ class GameView @JvmOverloads constructor(
                 val bossBarY = 105f
                 // Background panel
                 paint.color = 0xCC1B2838.toInt()
-                canvas.drawRoundRect(bossBarX - 8f, bossBarY - 30f, bossBarX + bossBarW + 8f, bossBarY + bossBarH + 12f, 10f, 10f, paint)
+                canvas.drawRoundRect(bossBarX - 8f, bossBarY - 30f, bossBarX + bossBarW + 8f, bossBarY + bossBarH + 22f, 10f, 10f, paint)
                 // Bar background
                 canvas.drawRoundRect(bossBarX, bossBarY, bossBarX + bossBarW, bossBarY + bossBarH, 4f, 4f, hpBarBgPaint)
                 // Bar fill
@@ -1199,6 +1239,17 @@ class GameView @JvmOverloads constructor(
                 paint.strokeWidth = 2f
                 canvas.drawRoundRect(bossBarX, bossBarY, bossBarX + bossBarW, bossBarY + bossBarH, 4f, 4f, paint)
                 paint.style = Paint.Style.FILL
+
+                // Phase divider notches (25%, 50%, 75%)
+                paint.color = 0x88FFFFFF.toInt()
+                paint.strokeWidth = 2f
+                val notch25 = bossBarX + bossBarW * 0.25f
+                val notch50 = bossBarX + bossBarW * 0.50f
+                val notch75 = bossBarX + bossBarW * 0.75f
+                canvas.drawLine(notch25, bossBarY, notch25, bossBarY + bossBarH, paint)
+                canvas.drawLine(notch50, bossBarY, notch50, bossBarY + bossBarH, paint)
+                canvas.drawLine(notch75, bossBarY, notch75, bossBarY + bossBarH, paint)
+
                 // Boss name
                 val bossName = enemy.bossType?.let { "${it.emoji} ${it.displayName}" } ?: "\u2620\uFE0F BOSS"
                 bossNamePaint.textSize = 22f; bossNamePaint.color = Color.WHITE
@@ -1207,11 +1258,29 @@ class GameView @JvmOverloads constructor(
                 val hpText = "${enemy.hp.toInt()} / ${enemy.maxHp.toInt()}"
                 bossNamePaint.textSize = 13f; bossNamePaint.color = Color.WHITE
                 canvas.drawText(hpText, width / 2f, bossBarY + bossBarH - 3f, bossNamePaint)
-                // Ability indicator
-                val abilityLabel = enemy.bossType?.ability?.name?.replace('_', ' ') ?: ""
-                if (abilityLabel.isNotEmpty()) {
-                    bossNamePaint.textSize = 12f; bossNamePaint.color = 0xFFBDBDBD.toInt()
-                    canvas.drawText("\u26A0\uFE0F $abilityLabel", width / 2f, bossBarY + bossBarH + 10f, bossNamePaint)
+
+                // Ability / Telegraph indicator
+                if (enemy.isTelegraphing) {
+                    val pulse = ((Math.sin(System.currentTimeMillis() * 0.015) + 1.0) / 2.0).toFloat()
+                    val chargeAlpha = (180 + (pulse * 75)).toInt()
+                    val chargeRatio = (1f - (enemy.telegraphTimer / enemy.telegraphDuration).coerceIn(0f, 1f))
+                    // Telegraph charge progress line
+                    paint.color = 0xFFFF1744.toInt()
+                    paint.alpha = chargeAlpha
+                    canvas.drawRoundRect(bossBarX, bossBarY + bossBarH + 2f, bossBarX + bossBarW * chargeRatio, bossBarY + bossBarH + 6f, 2f, 2f, paint)
+                    paint.alpha = 255
+
+                    val abName = enemy.pendingAbility?.name?.replace('_', ' ') ?: "SPECIAL"
+                    bossNamePaint.textSize = 12f
+                    bossNamePaint.color = 0xFFFF5252.toInt()
+                    canvas.drawText(GameStrings.bossChargingFmt(abName, enemy.telegraphTimer), width / 2f, bossBarY + bossBarH + 18f, bossNamePaint)
+                } else {
+                    val abilityLabel = enemy.bossType?.ability?.name?.replace('_', ' ') ?: ""
+                    if (abilityLabel.isNotEmpty()) {
+                        val phaseLabel = "Phase ${enemy.currentPhase}/4"
+                        bossNamePaint.textSize = 12f; bossNamePaint.color = 0xFFBDBDBD.toInt()
+                        canvas.drawText("$phaseLabel  •  \u26A0\uFE0F $abilityLabel", width / 2f, bossBarY + bossBarH + 15f, bossNamePaint)
+                    }
                 }
             }
         }

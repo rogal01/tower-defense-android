@@ -21,7 +21,17 @@ data class Enemy(
     var hasSplit: Boolean = false,
     var hasReborn: Boolean = false,
     var roarSpeedBoost: Float = 1f,
-    var roarBoostTimer: Float = 0f
+    var roarBoostTimer: Float = 0f,
+    // --- Boss Telegraph & Phase Mechanics ---
+    var isTelegraphing: Boolean = false,
+    var telegraphTimer: Float = 0f,
+    var telegraphDuration: Float = 1.5f,
+    var pendingAbility: BossAbility? = null,
+    var telegraphRadius: Float = 220f,
+    var phase75Triggered: Boolean = false,
+    var phase50Triggered: Boolean = false,
+    var phase25Triggered: Boolean = false,
+    var currentPhase: Int = 1
 ) {
     fun distanceTo(tx: Float, ty: Float): Float {
         val dx = x - tx
@@ -280,7 +290,8 @@ enum class BossAbility {
     REBIRTH,      // Reincarnates once in a fiery supernova
     SPORE_CLOUD,  // Choking pollen cloud impairs tower range and poisons Hero
     TIME_WARP,    // Reverses enemy waypoints and restores HP
-    BARRAGE       // Launches missile salvos at defenses and player hero
+    BARRAGE,      // Launches missile salvos at defenses and player hero
+    TITAN_STOMP   // Stuns nearby towers in radius for 3s + shockwave damage
 }
 
 /** 15 unique bosses — each with themed minion type, stats, and special ability */
