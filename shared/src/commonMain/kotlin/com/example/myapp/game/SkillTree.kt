@@ -130,7 +130,7 @@ class SkillTree(private val prefs: GamePreferences) {
 
     // ---- Gameplay effects (queried by GameEngine) ----
 
-    fun bonusStartGold(): Int       = getLevel("start_gold") * 15
+    fun bonusStartGold(): Int       = getLevel("start_gold") * 15 + if (isRelicUnlocked(RelicId.MIDAS_CRUCIBLE)) 100 else 0
     fun bonusBaseHp(): Float        = getLevel("base_hp") * 20f
     fun bonusPlayerDamage(): Float  = getLevel("player_damage") * 3f
     fun bonusPlayerSpeed(): Float   = getLevel("player_speed") * 20f
@@ -149,4 +149,23 @@ class SkillTree(private val prefs: GamePreferences) {
 
     /** Prestige gives a permanent multiplier to all damage */
     fun prestigeDamageMultiplier(): Float = 1f + prestigeLevel * 0.05f
+
+    // ---- Relic Vault ----
+
+    fun isRelicUnlocked(relic: RelicId): Boolean = prefs.getBoolean(relic.prefKey, false)
+
+    fun canUnlockRelic(relic: RelicId): Boolean = !isRelicUnlocked(relic) && diamonds >= relic.diamondCost
+
+    fun unlockRelic(relic: RelicId): Boolean {
+        if (!canUnlockRelic(relic)) return false
+        diamonds -= relic.diamondCost
+        val ed = prefs.edit().putBoolean(relic.prefKey, true).putInt("diamonds", diamonds)
+        val count = RelicId.entries.count { it == relic || isRelicUnlocked(it) }
+        if (count >= 1) ed.putBoolean("ach_relic_first", true)
+        if (count >= 3) ed.putBoolean("ach_relic_3", true)
+        ed.apply()
+        return true
+    }
+
+    fun unlockedRelicsCount(): Int = RelicId.entries.count { isRelicUnlocked(it) }
 }

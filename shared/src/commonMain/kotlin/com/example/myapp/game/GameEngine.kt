@@ -1,5 +1,8 @@
 package com.example.myapp.game
 
+import kotlin.math.min
+import kotlin.math.max
+
 // Floating text for damage numbers, gold, combos
 data class FloatingText(
     var x: Float, var y: Float,
@@ -34,14 +37,16 @@ enum class PowerType(val emoji: String, val displayName: String, val cost: Int, 
 // Achievement
 data class Achievement(
     val id: String, val title: String, val description: String,
-    val emoji: String, var unlocked: Boolean = false
+    val emoji: String, var unlocked: Boolean = false,
+    val diamondReward: Int = 10
 )
 
 data class WavePreview(
     val isBoss: Boolean,
     val enemies: Map<EnemyType, Int>,
     val bossType: BossType? = null,
-    val modifier: WaveModifier = WaveModifier.NONE
+    val modifier: WaveModifier = WaveModifier.NONE,
+    val weather: WeatherEvent = WeatherEvent.CLEAR
 )
 
 /** Wave modifiers that apply random effects to a wave */
@@ -220,6 +225,14 @@ class GameEngine(val prefs: GamePreferences, val audio: GameAudio = SilentAudio)
     // Wave modifier
     var currentWaveModifier: WaveModifier = WaveModifier.NONE
 
+    // Dynamic Weather Event
+    var currentWeather: WeatherEvent = WeatherEvent.CLEAR
+    var weatherBannerTimer: Float = 0f
+    var showWeatherBanner: Boolean = false
+    var weatherLightningTimer: Float = 0f
+    var lightningFlashTimer: Float = 0f
+    var lastLightningTarget: GamePoint? = null
+
     // Map type
     var mapType: MapType = MapType.CLASSIC
 
@@ -258,64 +271,80 @@ class GameEngine(val prefs: GamePreferences, val audio: GameAudio = SilentAudio)
     var highScoreNormal: Int = 0
     var highScoreHard: Int = 0
 
-    // Achievements
+    // Achievements with Diamond Bounties
     val achievements = mutableListOf(
-        Achievement("first_kill", "First Blood", "Kill your first enemy", "\uD83D\uDDE1\uFE0F"),
-        Achievement("wave_5", "Survivor", "Reach wave 5", "\uD83D\uDEE1\uFE0F"),
-        Achievement("wave_10", "Veteran", "Reach wave 10", "\u2694\uFE0F"),
-        Achievement("wave_20", "Legend", "Reach wave 20", "\uD83D\uDC51"),
-        Achievement("wave_30", "Immortal", "Reach wave 30", "\uD83C\uDFC6"),
-        Achievement("wave_50", "Mythic", "Reach wave 50", "\uD83C\uDF1F"),
-        Achievement("kills_50", "Slayer", "Kill 50 enemies", "\uD83D\uDC80"),
-        Achievement("kills_200", "Destroyer", "Kill 200 enemies", "\uD83D\uDD25"),
-        Achievement("kills_500", "Annihilator", "Kill 500 enemies", "\uD83D\uDCA5"),
-        Achievement("combo_10", "Combo King", "Get a 10x combo", "\uD83D\uDD17"),
-        Achievement("combo_20", "Combo God", "Get a 20x combo", "\u26D3\uFE0F"),
-        Achievement("boss_kill", "Boss Slayer", "Kill your first boss", "\u2620\uFE0F"),
-        Achievement("5_bosses", "Boss Hunter", "Kill 5 bosses in one run", "\uD83D\uDC09"),
-        Achievement("5_towers", "Architect", "Place 5 towers", "\uD83C\uDFD7\uFE0F"),
-        Achievement("10_towers", "Fortress", "Place 10 towers", "\uD83C\uDFF0"),
-        Achievement("all_tower_types", "Arsenal", "Place all tower types", "\uD83C\uDFAF"),
-        Achievement("use_power", "Sorcerer", "Use a power for the first time", "\u2728"),
-        Achievement("max_tower", "Master Builder", "Upgrade a tower to level 5", "\u2B06\uFE0F"),
-        Achievement("rich", "Rich", "Have 500 gold at once", "\uD83D\uDCB0"),
-        Achievement("rich_1000", "Millionaire", "Have 1000 gold at once", "\uD83E\uDD11"),
-        Achievement("score_1000", "Score Chaser", "Reach 1000 score", "\uD83D\uDCCA"),
-        Achievement("diamond_10", "Diamond Hoarder", "Earn 10 diamonds in a run", "\uD83D\uDC8E"),
-        Achievement("repaired_3", "Mechanic", "Repair the base 3 times in a run", "\uD83D\uDD27"),
-        Achievement("upgrade_all", "Well Rounded", "Buy all 4 player upgrades", "\uD83C\uDF96\uFE0F"),
-        Achievement("endless_10", "Endurance", "Reach wave 10 in endless mode", "\u267E\uFE0F"),
-        Achievement("kills_1000", "Genocide", "Kill 1000 enemies in one run", "\uD83D\uDC7B"),
-        Achievement("wave_100", "Centurion", "Reach wave 100", "\u2694\uFE0F"),
-        Achievement("no_damage", "Untouchable", "Complete a wave without base taking damage", "\uD83D\uDEE1\uFE0F"),
-        Achievement("speed_demon", "Speed Demon", "Beat wave 10 on 3x speed", "\uD83D\uDCA8"),
-        Achievement("10_bosses", "Boss Legend", "Kill 10 bosses in one run", "\uD83D\uDC32"),
-        Achievement("diamond_50", "Diamond Mine", "Earn 50 diamonds in one run", "\uD83D\uDC8E"),
-        Achievement("gold_hoarder", "Gold Hoarder", "Have 2000 gold at once", "\uD83C\uDFE6"),
-        Achievement("all_powers", "Elementalist", "Use all 4 powers in one run", "\uD83C\uDF0A"),
-        Achievement("survivor_1hp", "Last Stand", "Win a wave with base at 1 HP", "\u2764\uFE0F"),
-        Achievement("campaign_5", "Campaigner", "Complete 5 campaign levels", "\uD83D\uDDFA\uFE0F"),
-        Achievement("campaign_10", "Strategist", "Complete 10 campaign levels", "\uD83C\uDFC5"),
-        Achievement("campaign_all", "Conqueror", "Complete all campaign levels", "\uD83D\uDC51"),
-        Achievement("campaign_no_damage", "Flawless", "Beat a campaign level without base damage", "\uD83D\uDEE1\uFE0F"),
-        Achievement("campaign_3star", "Perfectionist", "Get 3 stars on 5 campaign levels", "\u2B50"),
-        // --- New feature achievements ---
-        Achievement("trap_first", "Trapper", "Place your first trap", "\uD83E\uDEE4"),
-        Achievement("trap_10", "Minefield", "Place 10 traps in one run", "\uD83D\uDCA3"),
-        Achievement("mine_triple", "Triple Threat", "Kill 3 enemies with one mine", "\uD83D\uDCA5"),
-        Achievement("bounty_first", "Bounty Hunter", "Complete your first bounty", "\uD83C\uDFAF"),
-        Achievement("bounty_all", "Bounty King", "Complete all 3 bounties in one run", "\uD83D\uDC51"),
-        Achievement("volcano_win", "Volcanic Victory", "Reach wave 15 on Volcano map", "\uD83C\uDF0B"),
-        Achievement("combo_30", "Unstoppable", "Get a 30x combo", "\uD83D\uDD25"),
-        Achievement("combo_50", "Godlike", "Get a 50x combo", "\u26A1"),
-        Achievement("streak_no_tower", "Lone Wolf", "Reach wave 5 with no towers placed", "\uD83D\uDC3A"),
-        Achievement("all_maps", "Cartographer", "Play on all 8 maps", "\uD83C\uDF0D"),
-        Achievement("boss_rush_5", "Gauntlet", "Defeat 5 bosses in Boss Rush", "\uD83D\uDDE1\uFE0F"),
-        Achievement("randomizer_win", "Chaos Master", "Reach wave 15 in Randomizer", "\uD83C\uDFB2"),
-        Achievement("ability_all", "Tactician", "Use abilities on 5 tower types in one run", "\u2728"),
-        Achievement("prestige_first", "Reborn", "Prestige for the first time", "\uD83D\uDC51"),
-        Achievement("score_5000", "High Roller", "Reach 5000 score", "\uD83C\uDFC5"),
-        Achievement("score_10000", "Legendary Score", "Reach 10000 score", "\uD83E\uDD47")
+        Achievement("first_kill", "First Blood", "Kill your first enemy", "\uD83D\uDDE1\uFE0F", false, 5),
+        Achievement("wave_5", "Survivor", "Reach wave 5", "\uD83D\uDEE1\uFE0F", false, 10),
+        Achievement("wave_10", "Veteran", "Reach wave 10", "\u2694\uFE0F", false, 15),
+        Achievement("wave_20", "Legend", "Reach wave 20", "\uD83D\uDC51", false, 25),
+        Achievement("wave_30", "Immortal", "Reach wave 30", "\uD83C\uDFC6", false, 35),
+        Achievement("wave_50", "Mythic", "Reach wave 50", "\uD83C\uDF1F", false, 50),
+        Achievement("kills_50", "Slayer", "Kill 50 enemies", "\uD83D\uDC80", false, 10),
+        Achievement("kills_200", "Destroyer", "Kill 200 enemies", "\uD83D\uDD25", false, 20),
+        Achievement("kills_500", "Annihilator", "Kill 500 enemies", "\uD83D\uDCA5", false, 30),
+        Achievement("combo_10", "Combo King", "Get a 10x combo", "\uD83D\uDD17", false, 10),
+        Achievement("combo_20", "Combo God", "Get a 20x combo", "\u26D3\uFE0F", false, 20),
+        Achievement("boss_kill", "Boss Slayer", "Kill your first boss", "\u2620\uFE0F", false, 15),
+        Achievement("5_bosses", "Boss Hunter", "Kill 5 bosses in one run", "\uD83D\uDC09", false, 30),
+        Achievement("5_towers", "Architect", "Place 5 towers", "\uD83C\uDFD7\uFE0F", false, 10),
+        Achievement("10_towers", "Fortress", "Place 10 towers", "\uD83C\uDFF0", false, 20),
+        Achievement("all_tower_types", "Arsenal", "Place all tower types", "\uD83C\uDFAF", false, 25),
+        Achievement("use_power", "Sorcerer", "Use a power for the first time", "\u2728", false, 5),
+        Achievement("max_tower", "Master Builder", "Upgrade a tower to level 5", "\u2B06\uFE0F", false, 15),
+        Achievement("rich", "Rich", "Have 500 gold at once", "\uD83D\uDCB0", false, 15),
+        Achievement("rich_1000", "Millionaire", "Have 1000 gold at once", "\uD83E\uDD11", false, 25),
+        Achievement("score_1000", "Score Chaser", "Reach 1000 score", "\uD83D\uDCCA", false, 15),
+        Achievement("diamond_10", "Diamond Hoarder", "Earn 10 diamonds in a run", "\uD83D\uDC8E", false, 20),
+        Achievement("repaired_3", "Mechanic", "Repair the base 3 times in a run", "\uD83D\uDD27", false, 10),
+        Achievement("upgrade_all", "Well Rounded", "Buy all 4 player upgrades", "\uD83C\uDF96\uFE0F", false, 20),
+        Achievement("endless_10", "Endurance", "Reach wave 10 in endless mode", "\u267E\uFE0F", false, 15),
+        Achievement("kills_1000", "Genocide", "Kill 1000 enemies in one run", "\uD83D\uDC7B", false, 40),
+        Achievement("wave_100", "Centurion", "Reach wave 100", "\u2694\uFE0F", false, 100),
+        Achievement("no_damage", "Untouchable", "Complete a wave without base taking damage", "\uD83D\uDEE1\uFE0F", false, 20),
+        Achievement("speed_demon", "Speed Demon", "Beat wave 10 on 3x speed", "\uD83D\uDCA8", false, 25),
+        Achievement("10_bosses", "Boss Legend", "Kill 10 bosses in one run", "\uD83D\uDC32", false, 50),
+        Achievement("diamond_50", "Diamond Mine", "Earn 50 diamonds in one run", "\uD83D\uDC8E", false, 40),
+        Achievement("gold_hoarder", "Gold Hoarder", "Have 2000 gold at once", "\uD83C\uDFE6", false, 35),
+        Achievement("all_powers", "Elementalist", "Use all 4 powers in one run", "\uD83C\uDF0A", false, 20),
+        Achievement("survivor_1hp", "Last Stand", "Win a wave with base at 1 HP", "\u2764\uFE0F", false, 35),
+        Achievement("campaign_5", "Campaigner", "Complete 5 campaign levels", "\uD83D\uDDFA\uFE0F", false, 25),
+        Achievement("campaign_10", "Strategist", "Complete 10 campaign levels", "\uD83C\uDFC5", false, 35),
+        Achievement("campaign_all", "Conqueror", "Complete all campaign levels", "\uD83D\uDC51", false, 75),
+        Achievement("campaign_no_damage", "Flawless", "Beat a campaign level without base damage", "\uD83D\uDEE1\uFE0F", false, 25),
+        Achievement("campaign_3star", "Perfectionist", "Get 3 stars on 5 campaign levels", "\u2B50", false, 30),
+        Achievement("trap_first", "Trapper", "Place your first trap", "\uD83E\uDEE4", false, 10),
+        Achievement("trap_10", "Minefield", "Place 10 traps in one run", "\uD83D\uDCA3", false, 20),
+        Achievement("mine_triple", "Triple Threat", "Kill 3 enemies with one mine", "\uD83D\uDCA5", false, 25),
+        Achievement("bounty_first", "Bounty Hunter", "Complete your first bounty", "\uD83C\uDFAF", false, 15),
+        Achievement("bounty_all", "Bounty King", "Complete all 3 bounties in one run", "\uD83D\uDC51", false, 30),
+        Achievement("volcano_win", "Volcanic Victory", "Reach wave 15 on Volcano map", "\uD83C\uDF0B", false, 25),
+        Achievement("combo_30", "Unstoppable", "Get a 30x combo", "\uD83D\uDD25", false, 30),
+        Achievement("combo_50", "Godlike", "Get a 50x combo", "\u26A1", false, 50),
+        Achievement("streak_no_tower", "Lone Wolf", "Reach wave 5 with no towers placed", "\uD83D\uDC3A", false, 35),
+        Achievement("all_maps", "Cartographer", "Play on all 8 maps", "\uD83C\uDF0D", false, 30),
+        Achievement("boss_rush_5", "Gauntlet", "Defeat 5 bosses in Boss Rush", "\uD83D\uDDE1\uFE0F", false, 30),
+        Achievement("randomizer_win", "Chaos Master", "Reach wave 15 in Randomizer", "\uD83C\uDFB2", false, 30),
+        Achievement("ability_all", "Tactician", "Use abilities on 5 tower types in one run", "\u2728", false, 25),
+        Achievement("prestige_first", "Reborn", "Prestige for the first time", "\uD83D\uDC51", false, 50),
+        Achievement("score_5000", "High Roller", "Reach 5000 score", "\uD83C\uDFC5", false, 30),
+        Achievement("score_10000", "Legendary Score", "Reach 10000 score", "\uD83E\uDD47", false, 60),
+
+        // --- 15 New Strategic & Boss Achievements ---
+        Achievement("boss_leviathan", "Storm Tamer", "Defeat the Storm Leviathan", "⚡", false, 25),
+        Achievement("boss_phoenix", "Phoenix Reborn", "Defeat the Void Phoenix in both forms", "🪶", false, 25),
+        Achievement("boss_spore", "Mycology Expert", "Defeat the Spore Overlord", "🍄", false, 25),
+        Achievement("boss_chrono", "Time Warden", "Defeat the Chrono Lich", "⏳", false, 25),
+        Achievement("boss_dreadnought", "Siege Breaker", "Destroy the Iron Dreadnought", "🤖", false, 25),
+        Achievement("spec_first", "Master Artisan", "Specialize your first Level 5 tower", "⚡", false, 15),
+        Achievement("spec_trio", "Grand Architect", "Specialize 3 towers in a single run", "🏛️", false, 30),
+        Achievement("milestone_first", "Destiny's Boon", "Select your first Endless Milestone Buff", "🌟", false, 15),
+        Achievement("milestone_trio", "Ascended Champion", "Pick 3 Milestone Buffs in one run", "✨", false, 30),
+        Achievement("relic_first", "Ancient Reliquary", "Unlock your first Legendary Relic", "🏺", false, 20),
+        Achievement("relic_3", "Treasury of Ancients", "Unlock 3 Legendary Relics", "👑", false, 50),
+        Achievement("campaign_3star_10", "Grand Strategist", "Earn 3 stars on 10 campaign levels", "⭐", false, 50),
+        Achievement("endless_25", "Abyssal Challenger", "Reach wave 25 in Endless mode", "🌊", false, 30),
+        Achievement("endless_50", "Titan of the Endless", "Reach wave 50 in Endless mode", "🔥", false, 60),
+        Achievement("boss_rush_10", "Colosseum God", "Defeat 10 bosses in Boss Rush", "⚔️", false, 50)
     )
     // Track which powers were used this run for achievement
     val powersUsedThisRun = mutableSetOf<PowerType>()
@@ -352,14 +381,10 @@ class GameEngine(val prefs: GamePreferences, val audio: GameAudio = SilentAudio)
     var weatherType: Int = 0  // 0=clear, 1=rain, 2=snow
     var weatherIntensity: Float = 0f  // 0..1
 
-    // --- Player dash ---
-    var dashCooldown: Float = 0f
-    val dashCooldownMax: Float = 8f
-    val dashDamage: Float get() = player.attackDamage * 2.5f
-    val dashRange: Float = 200f
-    var isDashing: Boolean = false
-    var dashTrailX: Float = 0f
-    var dashTrailY: Float = 0f
+    // --- Relic systems ---
+    val isZephyrUnlocked: Boolean get() = skillTree.isRelicUnlocked(RelicId.ZEPHYR_GREAVES)
+    var baseShield: Float = 0f
+    var aegisHealTimer: Float = 0f
 
     // --- Gold interest ---
     var interestRate: Float = 0.05f  // 5% between waves
@@ -448,6 +473,54 @@ class GameEngine(val prefs: GamePreferences, val audio: GameAudio = SilentAudio)
     var endlessBuffCritChance: Float = 0f
     /** Tower range multiplier from buffs */
     var endlessBuffTowerRange: Float = 1f
+
+    // --- Wandering Merchant System ---
+    val activePermanentMerchantItems = mutableSetOf<MerchantItemId>()
+    val activeTemporaryMerchantItems = mutableMapOf<MerchantItemId, Int>()
+    var merchantShopChoices: List<MerchantCard> = emptyList()
+    var merchantShopPending: Boolean = false
+    var greedCurseKillCount: Int = 0
+
+    fun hasMerchantItem(id: MerchantItemId): Boolean {
+        return activePermanentMerchantItems.contains(id) || (activeTemporaryMerchantItems[id] ?: 0) > 0
+    }
+
+    fun draftMerchantCard(card: MerchantCard): Boolean {
+        if (gold < card.cost) return false
+        gold -= card.cost
+
+        when (card.tier) {
+            MerchantTier.PERMANENT_SYNERGY -> {
+                activePermanentMerchantItems.add(card.id)
+            }
+            MerchantTier.HIGH_STAKES_PACT -> {
+                activePermanentMerchantItems.add(card.id)
+                if (card.id == MerchantItemId.GLASS_CANNON) {
+                    maxBaseHp = (maxBaseHp * 0.75f).coerceAtLeast(20f)
+                    baseHp = baseHp.coerceAtMost(maxBaseHp)
+                } else if (card.id == MerchantItemId.BLOOD_OFFERING) {
+                    baseHp = (baseHp - 25f).coerceAtLeast(1f)
+                    gold += 180
+                    totalGoldEarned += 180
+                }
+            }
+            MerchantTier.TEMPORARY_BOOSTER -> {
+                activeTemporaryMerchantItems[card.id] = card.durationWaves
+                if (card.id == MerchantItemId.FORTRESS_AEGIS) {
+                    baseHp = (baseHp + 40f).coerceAtMost(maxBaseHp)
+                }
+            }
+        }
+        audio.play(SfxType.REWARD_CHEST)
+        merchantShopPending = false
+        isPaused = false
+        return true
+    }
+
+    fun skipMerchantShop() {
+        merchantShopPending = false
+        isPaused = false
+    }
 
     fun applyDifficulty(level: Int) {
         difficulty = level
@@ -598,8 +671,39 @@ class GameEngine(val prefs: GamePreferences, val audio: GameAudio = SilentAudio)
         achievements.forEach { a ->
             a.unlocked = prefs.getBoolean("ach_${a.id}", false)
         }
+
+        if (skillTree.isRelicUnlocked(RelicId.AEGIS_OF_DAWN)) {
+            baseShield = 100f
+        }
         
         generateNextWavePreview()
+    }
+
+    /** Deals damage to the player base, absorbing through baseShield first */
+    fun damageBase(rawDamage: Float) {
+        val aegisMult = if (hasMerchantItem(MerchantItemId.FORTRESS_AEGIS)) 0.80f else 1f
+        var remainingDmg = rawDamage * aegisMult
+        if (baseShield > 0f) {
+            if (baseShield >= remainingDmg) {
+                baseShield -= remainingDmg
+                remainingDmg = 0f
+                floatingTexts.add(FloatingText(baseX, baseY - 40f, "\uD83D\uDEE1\uFE0F SHIELD ABSORB!", 0xFF00E5FF.toInt(), 1f, 22f))
+            } else {
+                remainingDmg -= baseShield
+                baseShield = 0f
+                floatingTexts.add(FloatingText(baseX, baseY - 40f, "\uD83D\uDEE1\uFE0F SHIELD BROKEN!", 0xFFFF5722.toInt(), 1f, 22f))
+            }
+        }
+        if (remainingDmg > 0f) {
+            baseHp = (baseHp - remainingDmg).coerceAtLeast(0f)
+        }
+    }
+
+    /** Called when a tower reaches level 5 and selects a specialization */
+    fun onTowerSpecialized(tower: Tower) {
+        checkAchievement("spec_first")
+        val specCount = towers.count { it.specialization != TowerSpecialization.NONE }
+        if (specCount >= 3) checkAchievement("spec_trio")
     }
 
     /** Build paths based on the selected map type — randomized each run */
@@ -610,16 +714,14 @@ class GameEngine(val prefs: GamePreferences, val audio: GameAudio = SilentAudio)
         val by = baseY
         val rng = java.util.Random()
 
-        when (mapType) {
-            MapType.CLASSIC -> generateRandomizedClassicPaths(w, h, bx, by, rng)
-            MapType.VALLEY -> generateRandomizedValleyPaths(w, h, bx, by, rng)
-            MapType.CROSSROADS -> generateRandomizedCrossroadsPaths(w, h, bx, by, rng)
-            MapType.DESERT -> generateRandomizedDesertPaths(w, h, bx, by, rng)
-            MapType.SNOW -> generateRandomizedSnowPaths(w, h, bx, by, rng)
-            MapType.LAVA -> generateRandomizedLavaPaths(w, h, bx, by, rng)
-            MapType.ENCHANTED -> generateRandomizedEnchantedPaths(w, h, bx, by, rng)
-            MapType.VOLCANO -> generateRandomizedVolcanoPaths(w, h, bx, by, rng)
+        if (mapType == MapType.VOLCANO) {
+            val vc = MapPathGenerator.getVolcanoCenter(w, h)
+            volcanoCenterX = vc.first
+            volcanoCenterY = vc.second
         }
+
+        val generated = MapPathGenerator.generate(mapType, w, h, bx, by, rng)
+        paths.addAll(generated)
 
         paths.forEach { path ->
             val sp = path.spawnPoint
@@ -627,258 +729,11 @@ class GameEngine(val prefs: GamePreferences, val audio: GameAudio = SilentAudio)
         }
     }
 
-    /** Check if a point is on/near the river — river removed, always returns false */
-    fun isPointOnRiver(x: Float, y: Float): Boolean = false
+    var riverChecker: ((Float, Float) -> Boolean)? = null
 
-    /** Helper: jitter a base value by +/- range */
-    private fun jitter(rng: java.util.Random, base: Float, range: Float): Float =
-        base + (rng.nextFloat() * 2f - 1f) * range
+    /** Check if a point is on/near water hazards — by default false unless configured */
+    fun isPointOnRiver(x: Float, y: Float): Boolean = riverChecker?.invoke(x, y) ?: false
 
-    private fun generateRandomizedClassicPaths(w: Float, h: Float, bx: Float, by: Float, rng: java.util.Random) {
-        val j = 0.04f // jitter factor relative to screen
-        // Left path
-        paths.add(GamePath(listOf(
-            GamePoint(jitter(rng, w * 0.08f, w * j), -40f),
-            GamePoint(jitter(rng, w * 0.15f, w * j), jitter(rng, h * 0.10f, h * j)),
-            GamePoint(jitter(rng, w * 0.28f, w * j), jitter(rng, h * 0.24f, h * j)),
-            GamePoint(jitter(rng, w * 0.10f, w * j), jitter(rng, h * 0.40f, h * j)),
-            GamePoint(jitter(rng, w * 0.26f, w * j), jitter(rng, h * 0.56f, h * j)),
-            GamePoint(jitter(rng, w * 0.16f, w * j), jitter(rng, h * 0.70f, h * j)),
-            GamePoint(jitter(rng, w * 0.36f, w * j), jitter(rng, h * 0.80f, h * j)),
-            GamePoint(bx, by)
-        )))
-        // Center path
-        paths.add(GamePath(listOf(
-            GamePoint(jitter(rng, w * 0.50f, w * j), -40f),
-            GamePoint(jitter(rng, w * 0.46f, w * j), jitter(rng, h * 0.09f, h * j)),
-            GamePoint(jitter(rng, w * 0.58f, w * j), jitter(rng, h * 0.24f, h * j)),
-            GamePoint(jitter(rng, w * 0.40f, w * j), jitter(rng, h * 0.40f, h * j)),
-            GamePoint(jitter(rng, w * 0.56f, w * j), jitter(rng, h * 0.56f, h * j)),
-            GamePoint(jitter(rng, w * 0.44f, w * j), jitter(rng, h * 0.70f, h * j)),
-            GamePoint(bx, by)
-        )))
-        // Right path
-        paths.add(GamePath(listOf(
-            GamePoint(jitter(rng, w * 0.92f, w * j), -40f),
-            GamePoint(jitter(rng, w * 0.85f, w * j), jitter(rng, h * 0.10f, h * j)),
-            GamePoint(jitter(rng, w * 0.72f, w * j), jitter(rng, h * 0.24f, h * j)),
-            GamePoint(jitter(rng, w * 0.90f, w * j), jitter(rng, h * 0.40f, h * j)),
-            GamePoint(jitter(rng, w * 0.74f, w * j), jitter(rng, h * 0.56f, h * j)),
-            GamePoint(jitter(rng, w * 0.84f, w * j), jitter(rng, h * 0.70f, h * j)),
-            GamePoint(jitter(rng, w * 0.64f, w * j), jitter(rng, h * 0.80f, h * j)),
-            GamePoint(bx, by)
-        )))
-    }
-
-    private fun generateRandomizedValleyPaths(w: Float, h: Float, bx: Float, by: Float, rng: java.util.Random) {
-        val j = 0.05f
-        paths.add(GamePath(listOf(
-            GamePoint(jitter(rng, w * 0.50f, w * j), -40f),
-            GamePoint(jitter(rng, w * 0.20f, w * j), jitter(rng, h * 0.08f, h * j)),
-            GamePoint(jitter(rng, w * 0.80f, w * j), jitter(rng, h * 0.20f, h * j)),
-            GamePoint(jitter(rng, w * 0.15f, w * j), jitter(rng, h * 0.34f, h * j)),
-            GamePoint(jitter(rng, w * 0.85f, w * j), jitter(rng, h * 0.48f, h * j)),
-            GamePoint(jitter(rng, w * 0.20f, w * j), jitter(rng, h * 0.62f, h * j)),
-            GamePoint(jitter(rng, w * 0.75f, w * j), jitter(rng, h * 0.74f, h * j)),
-            GamePoint(bx, by)
-        )))
-        paths.add(GamePath(listOf(
-            GamePoint(jitter(rng, w * 0.35f, w * j), -40f),
-            GamePoint(jitter(rng, w * 0.70f, w * j), jitter(rng, h * 0.12f, h * j)),
-            GamePoint(jitter(rng, w * 0.25f, w * j), jitter(rng, h * 0.28f, h * j)),
-            GamePoint(jitter(rng, w * 0.75f, w * j), jitter(rng, h * 0.42f, h * j)),
-            GamePoint(jitter(rng, w * 0.30f, w * j), jitter(rng, h * 0.56f, h * j)),
-            GamePoint(jitter(rng, w * 0.65f, w * j), jitter(rng, h * 0.70f, h * j)),
-            GamePoint(bx, by)
-        )))
-    }
-
-    private fun generateRandomizedCrossroadsPaths(w: Float, h: Float, bx: Float, by: Float, rng: java.util.Random) {
-        val j = 0.03f
-        val cx = jitter(rng, w * 0.5f, w * 0.04f)
-        val cy = jitter(rng, h * 0.45f, h * 0.03f)
-        paths.add(GamePath(listOf(
-            GamePoint(jitter(rng, w * 0.50f, w * j), -40f),
-            GamePoint(jitter(rng, w * 0.45f, w * j), jitter(rng, h * 0.10f, h * j)),
-            GamePoint(cx, cy),
-            GamePoint(jitter(rng, w * 0.55f, w * j), jitter(rng, h * 0.65f, h * j)),
-            GamePoint(bx, by)
-        )))
-        paths.add(GamePath(listOf(
-            GamePoint(-40f, jitter(rng, h * 0.40f, h * j)),
-            GamePoint(jitter(rng, w * 0.12f, w * j), jitter(rng, h * 0.38f, h * j)),
-            GamePoint(cx, cy),
-            GamePoint(jitter(rng, w * 0.45f, w * j), jitter(rng, h * 0.65f, h * j)),
-            GamePoint(bx, by)
-        )))
-        paths.add(GamePath(listOf(
-            GamePoint(w + 40f, jitter(rng, h * 0.40f, h * j)),
-            GamePoint(jitter(rng, w * 0.88f, w * j), jitter(rng, h * 0.42f, h * j)),
-            GamePoint(cx, cy),
-            GamePoint(jitter(rng, w * 0.55f, w * j), jitter(rng, h * 0.65f, h * j)),
-            GamePoint(bx, by)
-        )))
-        paths.add(GamePath(listOf(
-            GamePoint(jitter(rng, w * 0.90f, w * j), -40f),
-            GamePoint(jitter(rng, w * 0.75f, w * j), jitter(rng, h * 0.15f, h * j)),
-            GamePoint(cx, cy),
-            GamePoint(jitter(rng, w * 0.50f, w * j), jitter(rng, h * 0.68f, h * j)),
-            GamePoint(bx, by)
-        )))
-    }
-
-    private fun generateRandomizedDesertPaths(w: Float, h: Float, bx: Float, by: Float, rng: java.util.Random) {
-        val j = 0.04f
-        // Two wide sweeping paths (desert canyon feel)
-        paths.add(GamePath(listOf(
-            GamePoint(jitter(rng, w * 0.20f, w * j), -40f),
-            GamePoint(jitter(rng, w * 0.30f, w * j), jitter(rng, h * 0.12f, h * j)),
-            GamePoint(jitter(rng, w * 0.70f, w * j), jitter(rng, h * 0.25f, h * j)),
-            GamePoint(jitter(rng, w * 0.20f, w * j), jitter(rng, h * 0.42f, h * j)),
-            GamePoint(jitter(rng, w * 0.65f, w * j), jitter(rng, h * 0.58f, h * j)),
-            GamePoint(jitter(rng, w * 0.35f, w * j), jitter(rng, h * 0.72f, h * j)),
-            GamePoint(bx, by)
-        )))
-        paths.add(GamePath(listOf(
-            GamePoint(jitter(rng, w * 0.80f, w * j), -40f),
-            GamePoint(jitter(rng, w * 0.70f, w * j), jitter(rng, h * 0.10f, h * j)),
-            GamePoint(jitter(rng, w * 0.30f, w * j), jitter(rng, h * 0.28f, h * j)),
-            GamePoint(jitter(rng, w * 0.80f, w * j), jitter(rng, h * 0.45f, h * j)),
-            GamePoint(jitter(rng, w * 0.40f, w * j), jitter(rng, h * 0.62f, h * j)),
-            GamePoint(jitter(rng, w * 0.60f, w * j), jitter(rng, h * 0.75f, h * j)),
-            GamePoint(bx, by)
-        )))
-    }
-
-    private fun generateRandomizedSnowPaths(w: Float, h: Float, bx: Float, by: Float, rng: java.util.Random) {
-        val j = 0.035f
-        // Three narrow winding paths (icy mountain passes)
-        paths.add(GamePath(listOf(
-            GamePoint(jitter(rng, w * 0.15f, w * j), -40f),
-            GamePoint(jitter(rng, w * 0.10f, w * j), jitter(rng, h * 0.12f, h * j)),
-            GamePoint(jitter(rng, w * 0.25f, w * j), jitter(rng, h * 0.30f, h * j)),
-            GamePoint(jitter(rng, w * 0.15f, w * j), jitter(rng, h * 0.48f, h * j)),
-            GamePoint(jitter(rng, w * 0.30f, w * j), jitter(rng, h * 0.66f, h * j)),
-            GamePoint(jitter(rng, w * 0.40f, w * j), jitter(rng, h * 0.78f, h * j)),
-            GamePoint(bx, by)
-        )))
-        paths.add(GamePath(listOf(
-            GamePoint(jitter(rng, w * 0.50f, w * j), -40f),
-            GamePoint(jitter(rng, w * 0.55f, w * j), jitter(rng, h * 0.10f, h * j)),
-            GamePoint(jitter(rng, w * 0.45f, w * j), jitter(rng, h * 0.28f, h * j)),
-            GamePoint(jitter(rng, w * 0.55f, w * j), jitter(rng, h * 0.46f, h * j)),
-            GamePoint(jitter(rng, w * 0.50f, w * j), jitter(rng, h * 0.64f, h * j)),
-            GamePoint(bx, by)
-        )))
-        paths.add(GamePath(listOf(
-            GamePoint(jitter(rng, w * 0.85f, w * j), -40f),
-            GamePoint(jitter(rng, w * 0.90f, w * j), jitter(rng, h * 0.14f, h * j)),
-            GamePoint(jitter(rng, w * 0.75f, w * j), jitter(rng, h * 0.32f, h * j)),
-            GamePoint(jitter(rng, w * 0.85f, w * j), jitter(rng, h * 0.50f, h * j)),
-            GamePoint(jitter(rng, w * 0.70f, w * j), jitter(rng, h * 0.68f, h * j)),
-            GamePoint(jitter(rng, w * 0.60f, w * j), jitter(rng, h * 0.80f, h * j)),
-            GamePoint(bx, by)
-        )))
-    }
-
-    private fun generateRandomizedLavaPaths(w: Float, h: Float, bx: Float, by: Float, rng: java.util.Random) {
-        val j = 0.04f
-        // Two dangerous paths winding through lava fields
-        paths.add(GamePath(listOf(
-            GamePoint(jitter(rng, w * 0.10f, w * j), -40f),
-            GamePoint(jitter(rng, w * 0.20f, w * j), jitter(rng, h * 0.08f, h * j)),
-            GamePoint(jitter(rng, w * 0.50f, w * j), jitter(rng, h * 0.18f, h * j)),
-            GamePoint(jitter(rng, w * 0.80f, w * j), jitter(rng, h * 0.30f, h * j)),
-            GamePoint(jitter(rng, w * 0.50f, w * j), jitter(rng, h * 0.44f, h * j)),
-            GamePoint(jitter(rng, w * 0.20f, w * j), jitter(rng, h * 0.58f, h * j)),
-            GamePoint(jitter(rng, w * 0.50f, w * j), jitter(rng, h * 0.70f, h * j)),
-            GamePoint(bx, by)
-        )))
-        paths.add(GamePath(listOf(
-            GamePoint(jitter(rng, w * 0.90f, w * j), -40f),
-            GamePoint(jitter(rng, w * 0.80f, w * j), jitter(rng, h * 0.10f, h * j)),
-            GamePoint(jitter(rng, w * 0.50f, w * j), jitter(rng, h * 0.22f, h * j)),
-            GamePoint(jitter(rng, w * 0.30f, w * j), jitter(rng, h * 0.36f, h * j)),
-            GamePoint(jitter(rng, w * 0.70f, w * j), jitter(rng, h * 0.50f, h * j)),
-            GamePoint(jitter(rng, w * 0.40f, w * j), jitter(rng, h * 0.64f, h * j)),
-            GamePoint(jitter(rng, w * 0.60f, w * j), jitter(rng, h * 0.78f, h * j)),
-            GamePoint(bx, by)
-        )))
-        // Third narrow central path
-        paths.add(GamePath(listOf(
-            GamePoint(jitter(rng, w * 0.50f, w * j), -40f),
-            GamePoint(jitter(rng, w * 0.45f, w * j), jitter(rng, h * 0.14f, h * j)),
-            GamePoint(jitter(rng, w * 0.55f, w * j), jitter(rng, h * 0.34f, h * j)),
-            GamePoint(jitter(rng, w * 0.45f, w * j), jitter(rng, h * 0.54f, h * j)),
-            GamePoint(jitter(rng, w * 0.55f, w * j), jitter(rng, h * 0.72f, h * j)),
-            GamePoint(bx, by)
-        )))
-    }
-
-    private fun generateRandomizedEnchantedPaths(w: Float, h: Float, bx: Float, by: Float, rng: java.util.Random) {
-        val j = 0.045f
-        // Four spiraling fairy paths converging on base
-        paths.add(GamePath(listOf(
-            GamePoint(jitter(rng, w * 0.05f, w * j), jitter(rng, h * 0.05f, h * j)),
-            GamePoint(jitter(rng, w * 0.30f, w * j), jitter(rng, h * 0.15f, h * j)),
-            GamePoint(jitter(rng, w * 0.15f, w * j), jitter(rng, h * 0.35f, h * j)),
-            GamePoint(jitter(rng, w * 0.35f, w * j), jitter(rng, h * 0.50f, h * j)),
-            GamePoint(jitter(rng, w * 0.20f, w * j), jitter(rng, h * 0.68f, h * j)),
-            GamePoint(jitter(rng, w * 0.40f, w * j), jitter(rng, h * 0.78f, h * j)),
-            GamePoint(bx, by)
-        )))
-        paths.add(GamePath(listOf(
-            GamePoint(jitter(rng, w * 0.95f, w * j), jitter(rng, h * 0.05f, h * j)),
-            GamePoint(jitter(rng, w * 0.70f, w * j), jitter(rng, h * 0.15f, h * j)),
-            GamePoint(jitter(rng, w * 0.85f, w * j), jitter(rng, h * 0.35f, h * j)),
-            GamePoint(jitter(rng, w * 0.65f, w * j), jitter(rng, h * 0.50f, h * j)),
-            GamePoint(jitter(rng, w * 0.80f, w * j), jitter(rng, h * 0.68f, h * j)),
-            GamePoint(jitter(rng, w * 0.60f, w * j), jitter(rng, h * 0.78f, h * j)),
-            GamePoint(bx, by)
-        )))
-        paths.add(GamePath(listOf(
-            GamePoint(jitter(rng, w * 0.50f, w * j), -40f),
-            GamePoint(jitter(rng, w * 0.40f, w * j), jitter(rng, h * 0.10f, h * j)),
-            GamePoint(jitter(rng, w * 0.60f, w * j), jitter(rng, h * 0.25f, h * j)),
-            GamePoint(jitter(rng, w * 0.45f, w * j), jitter(rng, h * 0.42f, h * j)),
-            GamePoint(jitter(rng, w * 0.55f, w * j), jitter(rng, h * 0.60f, h * j)),
-            GamePoint(jitter(rng, w * 0.50f, w * j), jitter(rng, h * 0.76f, h * j)),
-            GamePoint(bx, by)
-        )))
-    }
-
-    private fun generateRandomizedVolcanoPaths(w: Float, h: Float, bx: Float, by: Float, rng: java.util.Random) {
-        val j = 0.04f
-        volcanoCenterX = w * 0.50f
-        volcanoCenterY = h * 0.40f
-        // Three paths that curve around a central volcano
-        paths.add(GamePath(listOf(
-            GamePoint(jitter(rng, w * 0.10f, w * j), -40f),
-            GamePoint(jitter(rng, w * 0.15f, w * j), jitter(rng, h * 0.12f, h * j)),
-            GamePoint(jitter(rng, w * 0.20f, w * j), jitter(rng, h * 0.30f, h * j)),
-            GamePoint(jitter(rng, w * 0.15f, w * j), jitter(rng, h * 0.50f, h * j)),
-            GamePoint(jitter(rng, w * 0.25f, w * j), jitter(rng, h * 0.65f, h * j)),
-            GamePoint(jitter(rng, w * 0.35f, w * j), jitter(rng, h * 0.78f, h * j)),
-            GamePoint(bx, by)
-        )))
-        paths.add(GamePath(listOf(
-            GamePoint(jitter(rng, w * 0.90f, w * j), -40f),
-            GamePoint(jitter(rng, w * 0.85f, w * j), jitter(rng, h * 0.12f, h * j)),
-            GamePoint(jitter(rng, w * 0.80f, w * j), jitter(rng, h * 0.30f, h * j)),
-            GamePoint(jitter(rng, w * 0.85f, w * j), jitter(rng, h * 0.50f, h * j)),
-            GamePoint(jitter(rng, w * 0.75f, w * j), jitter(rng, h * 0.65f, h * j)),
-            GamePoint(jitter(rng, w * 0.65f, w * j), jitter(rng, h * 0.78f, h * j)),
-            GamePoint(bx, by)
-        )))
-        paths.add(GamePath(listOf(
-            GamePoint(jitter(rng, w * 0.50f, w * j), -40f),
-            GamePoint(jitter(rng, w * 0.50f, w * j), jitter(rng, h * 0.10f, h * j)),
-            GamePoint(jitter(rng, w * 0.35f, w * j), jitter(rng, h * 0.22f, h * j)),
-            GamePoint(jitter(rng, w * 0.65f, w * j), jitter(rng, h * 0.55f, h * j)),
-            GamePoint(jitter(rng, w * 0.50f, w * j), jitter(rng, h * 0.70f, h * j)),
-            GamePoint(bx, by)
-        )))
-    }
 
     fun setupDailyChallenge() {
         isDailyChallenge = true
@@ -966,11 +821,21 @@ class GameEngine(val prefs: GamePreferences, val audio: GameAudio = SilentAudio)
             if (Math.random() < 0.4) mods.random() else WaveModifier.NONE
         } else WaveModifier.NONE
 
+        val previewWeather = if (nextWave >= 4 && !isDailyChallenge) {
+            when {
+                nextWave % 6 == 0 -> WeatherEvent.BLOOD_MOON
+                nextWave % 4 == 0 -> WeatherEvent.THUNDERSTORM
+                nextWave % 5 == 0 -> WeatherEvent.SOLAR_ECLIPSE
+                Math.random() < 0.25 -> listOf(WeatherEvent.BLOOD_MOON, WeatherEvent.THUNDERSTORM, WeatherEvent.SOLAR_ECLIPSE).random()
+                else -> WeatherEvent.CLEAR
+            }
+        } else WeatherEvent.CLEAR
+
         if (nextWave % bossInterval == 0) {
             // Refill pool the same way startNextWave() would, so preview matches actual
             if (bossPool.isEmpty()) bossPool.addAll(BossType.entries.shuffled())
             val type = bossPool.first()
-            nextWavePreview = WavePreview(true, emptyMap(), type, previewMod)
+            nextWavePreview = WavePreview(true, emptyMap(), type, previewMod, previewWeather)
         } else {
             val enemyCounts = mutableMapOf<EnemyType, Int>()
             var count = ((3 + nextWave * 2) * spawnRateMult).toInt().coerceAtMost(100)
@@ -978,13 +843,18 @@ class GameEngine(val prefs: GamePreferences, val audio: GameAudio = SilentAudio)
             repeat(count) {
                 val type = when {
                     nextWave >= 18 && Math.random() < 0.06 -> EnemyType.SHAPESHIFTER
+                    nextWave >= 16 && Math.random() < 0.07 -> EnemyType.TREANT
                     nextWave >= 15 && Math.random() < 0.07 -> EnemyType.COMMANDER
+                    nextWave >= 13 && Math.random() < 0.08 -> EnemyType.NECROMANCER
                     nextWave >= 12 && Math.random() < 0.08 -> EnemyType.BERSERKER
                     nextWave >= 10 && Math.random() < 0.08 -> EnemyType.WISP
                     nextWave >= 9 && Math.random() < 0.08 -> EnemyType.SHADOW
                     nextWave >= 8 && Math.random() < 0.12 -> EnemyType.ARMORED_GOLEM
+                    nextWave >= 7 && Math.random() < 0.12 -> EnemyType.MAGMA_CRAB
                     nextWave >= 7 && Math.random() < 0.15 -> EnemyType.DRAGON
+                    nextWave >= 6 && Math.random() < 0.14 -> EnemyType.HARPY
                     nextWave >= 5 && Math.random() < 0.18 -> EnemyType.DEMON
+                    nextWave >= 4 && Math.random() < 0.14 -> EnemyType.GHOST
                     nextWave >= 4 && Math.random() < 0.18 -> EnemyType.FAST_SKELETON
                     nextWave >= 3 && Math.random() < 0.25 -> EnemyType.ORC
                     nextWave >= 2 && Math.random() < 0.35 -> EnemyType.SKELETON
@@ -995,7 +865,7 @@ class GameEngine(val prefs: GamePreferences, val audio: GameAudio = SilentAudio)
                 }
                 enemyCounts[type] = (enemyCounts[type] ?: 0) + 1
             }
-            nextWavePreview = WavePreview(false, enemyCounts, modifier = previewMod)
+            nextWavePreview = WavePreview(false, enemyCounts, modifier = previewMod, weather = previewWeather)
         }
     }
 
@@ -1016,6 +886,52 @@ class GameEngine(val prefs: GamePreferences, val audio: GameAudio = SilentAudio)
         if (achievementBannerTimer > 0) {
             achievementBannerTimer -= dt
             if (achievementBannerTimer <= 0f) newAchievement = null
+        }
+
+        if (showWeatherBanner) {
+            weatherBannerTimer -= dt
+            if (weatherBannerTimer <= 0f) showWeatherBanner = false
+        }
+        if (lightningFlashTimer > 0f) {
+            lightningFlashTimer -= dt
+            if (lightningFlashTimer <= 0f) {
+                lightningFlashTimer = 0f
+                lastLightningTarget = null
+            }
+        }
+
+        // Heavenly lightning during Thunderstorm weather
+        if (currentWeather.hasHeavenlyLightning && waveInProgress && enemies.isNotEmpty()) {
+            weatherLightningTimer -= dt
+            if (weatherLightningTimer <= 0f) {
+                weatherLightningTimer = 3.0f + (Math.random() * 1.5).toFloat()
+                val target = enemies.filter { !it.isDead() && !it.deathProcessed }.randomOrNull()
+                if (target != null) {
+                    val dmg = 140f + wave * 30f
+                    lastLightningTarget = GamePoint(target.x, target.y)
+                    lightningFlashTimer = 0.22f
+                    shakeTimer = 0.25f
+                    shakeIntensity = 7f
+                    hapticPending = 1
+                    audio.play(SfxType.WEATHER_THUNDER)
+
+                    val splashRadius = 130f
+                    enemies.forEach { e ->
+                        if (!e.isDead() && !e.deathProcessed) {
+                            val dx = e.x - target.x
+                            val dy = e.y - target.y
+                            val dist = Math.sqrt((dx * dx + dy * dy).toDouble()).toFloat()
+                            if (dist <= splashRadius) {
+                                val falloff = 1f - (dist / splashRadius) * 0.35f
+                                e.hp -= dmg * falloff
+                                e.hitFlash = 0.2f
+                                e.deepFreezeTimer = 1.0f
+                            }
+                        }
+                    }
+                    floatingTexts.add(FloatingText(target.x, target.y - 20f, "⚡ LIGHTNING!", 0xFFFFD700.toInt(), 1.2f, 30f))
+                }
+            }
         }
 
         // Supply drops — spawn periodically during waves
@@ -1059,10 +975,19 @@ class GameEngine(val prefs: GamePreferences, val audio: GameAudio = SilentAudio)
                 floatingTexts.add(FloatingText(baseX + 60f, baseY - 100f, "+${interest}g interest!", 0xFF81C784.toInt(), 1.5f, 26f))
             }
 
-            val bonus = ((wave * 5 + skillTree.bonusWaveGold()) * goldMult * endlessBuffGold).toInt()
+            val midasBonusMult = if (hasMerchantItem(MerchantItemId.MIDAS_TONIC)) 1.40f else 1f
+            val bonus = ((wave * 5 + skillTree.bonusWaveGold()) * goldMult * endlessBuffGold * midasBonusMult).toInt()
             gold += bonus
             totalGoldEarned += bonus
             floatingTexts.add(FloatingText(baseX, baseY - 80f, "+${bonus}g wave bonus!", 0xFFFFD700.toInt(), 1.5f, 32f))
+
+            if (currentWeather.bonusDiamondsOnClear > 0) {
+                val bonusDia = currentWeather.bonusDiamondsOnClear
+                val currentDiamonds = prefs.getInt("diamonds", 0) + bonusDia
+                prefs.edit().putInt("diamonds", currentDiamonds).apply()
+                diamondsEarnedThisRun += bonusDia
+                floatingTexts.add(FloatingText(baseX - 40f, baseY - 120f, "+$bonusDia 💎 Blood Moon Bounty!", 0xFF00E5FF.toInt(), 2.0f, 32f))
+            }
 
             // Endless milestone buff trigger every 25 waves
             if (isEndlessMode && wave > 0 && wave % 25 == 0) {
@@ -1070,7 +995,15 @@ class GameEngine(val prefs: GamePreferences, val audio: GameAudio = SilentAudio)
                 available.shuffle()
                 endlessMilestoneChoices = available.take(3)
                 endlessMilestonePending = true
+                audio.play(SfxType.REWARD_CHEST)
                 // Pause the game until player picks
+                isPaused = true
+            }
+
+            // Wandering Merchant arrival every 3 waves
+            if (wave > 0 && wave % 3 == 0 && !campaignVictory && !gameOver) {
+                merchantShopChoices = MerchantCatalog.generateShop(wave, activePermanentMerchantItems)
+                merchantShopPending = true
                 isPaused = true
             }
 
@@ -1078,6 +1011,7 @@ class GameEngine(val prefs: GamePreferences, val audio: GameAudio = SilentAudio)
             val cl = campaignLevel
             if (cl != null && wave >= cl.targetWave) {
                 campaignVictory = true
+                clearSave()
                 saveRunHistory("Won")
                 audio.play(SfxType.VICTORY)
                 val editor = prefs.edit()
@@ -1129,9 +1063,11 @@ class GameEngine(val prefs: GamePreferences, val audio: GameAudio = SilentAudio)
             }
         }
 
+        val weatherCdr = if (currentWeather == WeatherEvent.SOLAR_ECLIPSE) 1.40f else 1f
+        val cdrRate = (if (skillTree.isRelicUnlocked(RelicId.CHRONO_HOURGLASS)) 1.35f else 1f) * weatherCdr
         PowerType.entries.forEach { p ->
             val cd = powerCooldowns.getOrDefault(p, 0f)
-            if (cd > 0) powerCooldowns[p] = cd - dt
+            if (cd > 0) powerCooldowns[p] = (cd - dt * cdrRate).coerceAtLeast(0f)
         }
         if (freezeTimer > 0) freezeTimer -= dt
 
@@ -1161,27 +1097,63 @@ class GameEngine(val prefs: GamePreferences, val audio: GameAudio = SilentAudio)
         if (healPulseStacks > 0 && baseHp < maxBaseHp && baseHp > 0) {
             baseHp = (baseHp + 2f * healPulseStacks * dt).coerceAtMost(maxBaseHp)
         }
-        if (dashCooldown > 0) dashCooldown -= dt
-        if (isDashing) isDashing = false
-
-        if (player.hp > 0 && player.canAttack()) {
-            val effectivePlayerRange = player.attackRange * (if (currentWaveModifier == WaveModifier.INVISIBLE) 0.7f else 1f)
-            val nearest = enemies.filter { it.hp > 0 }.minByOrNull { it.distanceTo(player.x, player.y) }
-            if (nearest != null && nearest.distanceTo(player.x, player.y) < effectivePlayerRange) {
-                val shieldRed = if (nearest.shieldTimer > 0) 0.3f else 1f
-                val actualPlayerDmg = player.attackDamage * shieldRed
-                nearest.hp -= actualPlayerDmg
-                nearest.hitFlash = 0.15f
-                player.attack()
-                audio.play(SfxType.PLAYER_ATTACK)
-                projectiles.add(Projectile(player.x, player.y, nearest.x, nearest.y,
-                    damage = 0f, color = 0xFF42A5F5.toInt()))
-                floatingTexts.add(FloatingText(nearest.x, nearest.y - nearest.size,
-                    "-${actualPlayerDmg.toInt()}", 0xFF42A5F5.toInt(), 0.8f, 22f))
+        // Relic: Aegis of Dawn (heals base 3 HP every 5 seconds)
+        if (skillTree.isRelicUnlocked(RelicId.AEGIS_OF_DAWN) && baseHp < maxBaseHp && baseHp > 0) {
+            aegisHealTimer += dt
+            if (aegisHealTimer >= 5f) {
+                aegisHealTimer = 0f
+                baseHp = (baseHp + 3f).coerceAtMost(maxBaseHp)
+                floatingTexts.add(FloatingText(baseX, baseY - 30f, "\uD83D\uDEE1\uFE0F +3 HP", 0xFF69F0AE.toInt(), 1.0f, 20f))
             }
         }
 
-        val speedMult = if (freezeTimer > 0) 0.2f else 1f
+        // Passive movement speed scaling (e.g. Zephyr Greaves, Alchemist's Elixir)
+        val elixirHeroSpeed = if (hasMerchantItem(MerchantItemId.ALCHEMIST_ELIXIR)) 1.20f else 1f
+        player.speedMultiplier = (if (isZephyrUnlocked) 1.35f else 1f) * elixirHeroSpeed
+
+        if (player.hp > 0 && player.canAttack()) {
+            val effectivePlayerRange = player.attackRange * (if (currentWaveModifier == WaveModifier.INVISIBLE) 0.7f else 1f)
+            val hasQuiver = skillTree.isRelicUnlocked(RelicId.ARTEMIS_QUIVER)
+            val hasChrono = skillTree.isRelicUnlocked(RelicId.CHRONO_HOURGLASS)
+            val inRangeEnemies = enemies.filter { it.hp > 0 && it.distanceTo(player.x, player.y) < effectivePlayerRange }
+            val targets = if (hasQuiver) {
+                inRangeEnemies.sortedBy { it.distanceTo(player.x, player.y) }.take(3)
+            } else {
+                val nearest = inRangeEnemies.minByOrNull { it.distanceTo(player.x, player.y) }
+                if (nearest != null) listOf(nearest) else emptyList()
+            }
+
+            if (targets.isNotEmpty()) {
+                val heroCdMult = if (currentWeather.heroAttackSpeedMultiplier > 1f) (1f / currentWeather.heroAttackSpeedMultiplier) else 1f
+                player.attack(heroCdMult)
+                audio.play(SfxType.PLAYER_ATTACK)
+                val glassDmgMult = if (hasMerchantItem(MerchantItemId.GLASS_CANNON)) 1.50f else 1f
+                for (target in targets) {
+                    val shieldRed = if (target.shieldTimer > 0) 0.3f else 1f
+                    val phaseRed = if (target.isPhased) 0.25f else 1f
+                    var actualPlayerDmg = player.attackDamage * shieldRed * phaseRed * glassDmgMult
+                    val isCrit = (Math.random() < 0.15) || (Math.random() < critChance)
+                    if (isCrit) {
+                        actualPlayerDmg *= critMultiplier
+                        audio.play(SfxType.HERO_SPECIAL)
+                        if (hasChrono) {
+                            freezeTimer = 2.0f
+                            floatingTexts.add(FloatingText(target.x, target.y - target.size - 20f, "⏳ CHRONO FREEZE!", 0xFF00E5FF.toInt(), 1f, 22f))
+                        }
+                    }
+                    target.hp -= actualPlayerDmg
+                    target.hitFlash = 0.15f
+                    projectiles.add(Projectile(player.x, player.y, target.x, target.y,
+                        damage = 0f, color = if (isCrit) 0xFFFFD700.toInt() else 0xFF42A5F5.toInt()))
+                    val textDmg = if (isCrit) "CRIT! -${actualPlayerDmg.toInt()}" else if (target.isPhased) "-${actualPlayerDmg.toInt()} (Phased)" else "-${actualPlayerDmg.toInt()}"
+                    floatingTexts.add(FloatingText(target.x, target.y - target.size,
+                        textDmg, if (isCrit) 0xFFFFD700.toInt() else 0xFF42A5F5.toInt(), 0.8f, if (isCrit) 26f else 22f))
+                }
+            }
+        }
+
+        val greedCurseSpeedMult = if (hasMerchantItem(MerchantItemId.GREED_CURSE)) 1.20f else 1f
+        val speedMult = (if (freezeTimer > 0) 0.2f else 1f) * currentWeather.enemySpeedMultiplier * greedCurseSpeedMult
         // Reset ice slow on all enemies each frame, then reapply from ice towers / tar
         enemies.forEach {
             if (it.deepFreezeTimer > 0) { it.deepFreezeTimer -= dt; it.iceSlowFactor = 0.05f }
@@ -1194,9 +1166,41 @@ class GameEngine(val prefs: GamePreferences, val audio: GameAudio = SilentAudio)
             val iceRange = tower.range * (if (currentWaveModifier == WaveModifier.INVISIBLE) 0.7f else 1f)
             enemies.forEach { enemy ->
                 if (enemy.distanceTo(tower.x, tower.y) < iceRange) {
+                    if (hasMerchantItem(MerchantItemId.THERMAL_SHOCK) && enemy.burnTimer > 0f && enemy.iceSlowFactor > 0.95f) {
+                        enemy.burnTimer = 0f
+                        val shatterDmg = 140f
+                        enemy.hp -= shatterDmg
+                        enemy.hitFlash = 0.2f
+                        floatingTexts.add(FloatingText(enemy.x, enemy.y - enemy.size - 15f, "💥 SHATTER!", 0xFF00E5FF.toInt(), 1.2f, 26f))
+                        repeat(8) {
+                            val a = Math.random() * Math.PI * 2
+                            val spd = 50f + Math.random().toFloat() * 60f
+                            particles.add(Particle(enemy.x, enemy.y,
+                                (Math.cos(a) * spd).toFloat(), (Math.sin(a) * spd).toFloat(),
+                                0.5f, 0xFF00E5FF.toInt(), 4f))
+                        }
+                    }
                     val slowPower = (0.5f - tower.level * 0.03f - skillTree.iceSlowBonus()).coerceAtLeast(0.05f)
                     enemy.iceSlowFactor = enemy.iceSlowFactor.coerceAtMost(slowPower)
                 }
+            }
+        }
+        // Zephyr Greaves Gale Aura: 25% slow to enemies within 180px of player
+        if (isZephyrUnlocked && player.hp > 0) {
+            val auraRadius = 180f
+            enemies.forEach { enemy ->
+                if (enemy.hp > 0 && enemy.distanceTo(player.x, player.y) <= auraRadius) {
+                    enemy.iceSlowFactor = enemy.iceSlowFactor.coerceAtMost(0.75f)
+                }
+            }
+            if (player.moveMagnitude > 0.05f && Math.random() < 0.15) {
+                particles.add(Particle(
+                    player.x + (Math.random().toFloat() - 0.5f) * 30f,
+                    player.y + (Math.random().toFloat() - 0.5f) * 30f,
+                    (Math.random().toFloat() - 0.5f) * 20f,
+                    (Math.random().toFloat() - 0.5f) * 20f,
+                    0.4f, 0x88A7F3D0.toInt(), 4f
+                ))
             }
         }
         enemies.forEach { enemy ->
@@ -1206,16 +1210,31 @@ class GameEngine(val prefs: GamePreferences, val audio: GameAudio = SilentAudio)
             if (enemy.regenRate > 0 && enemy.hp < enemy.maxHp) {
                 enemy.hp = (enemy.hp + enemy.regenRate * dt).coerceAtMost(enemy.maxHp)
             }
-            // Burn DoT from Flame tower
+            // Burn DoT from Flame tower (Treant suffers 2x burn DPS)
             if (enemy.burnTimer > 0 && !enemy.isDead()) {
                 enemy.burnTimer -= dt
-                enemy.hp -= enemy.burnDps * dt
+                val burnMult = if (enemy.type == EnemyType.TREANT) 2.0f else 1.0f
+                enemy.hp -= enemy.burnDps * burnMult * dt
                 // Fire particles while burning
                 if (Math.random() < 0.3) {
                     particles.add(Particle(enemy.x + (Math.random().toFloat() - 0.5f) * enemy.size,
                         enemy.y + (Math.random().toFloat() - 0.5f) * enemy.size,
                         (Math.random().toFloat() - 0.5f) * 30f, -40f - Math.random().toFloat() * 30f,
                         0.4f, 0xFFFF5722.toInt(), 3f))
+                }
+            }
+            // Poison DoT
+            if (enemy.poisonTimer > 0 && !enemy.isDead()) {
+                enemy.poisonTimer -= dt
+                val poisonMult = if (enemy.type == EnemyType.MAGMA_CRAB || enemy.type == EnemyType.TREANT) 0.5f else 1.0f
+                enemy.hp -= enemy.poisonDps * poisonMult * dt
+                if (Math.random() < 0.25) {
+                    particles.add(Particle(
+                        enemy.x + (Math.random().toFloat() - 0.5f) * enemy.size,
+                        enemy.y + (Math.random().toFloat() - 0.5f) * enemy.size,
+                        (Math.random().toFloat() - 0.5f) * 20f, -20f - Math.random().toFloat() * 20f,
+                        0.4f, 0xFF00E676.toInt(), 3f
+                    ))
                 }
             }
             // Elite ability effects
@@ -1271,6 +1290,87 @@ class GameEngine(val prefs: GamePreferences, val audio: GameAudio = SilentAudio)
                     particles.add(Particle(enemy.x, enemy.y, 0f, -20f, 0.5f, 0xFF7C4DFF.toInt(), 6f))
                 }
             }
+            // Necromancer: chants and reanimates skeleton minions every 7s
+            if (enemy.type == EnemyType.NECROMANCER && !enemy.isDead()) {
+                enemy.abilityCooldownTimer -= dt
+                if (enemy.abilityCooldownTimer <= 0f) {
+                    enemy.abilityCooldownTimer = 7f
+                    val waveScale = 1f + (wave - 1) * 0.15f
+                    val mHp = (20f + wave * 2f) * waveScale * enemyHpMult
+                    repeat(2) {
+                        enemies.add(Enemy(
+                            x = enemy.x + ((Math.random() - 0.5) * 40).toFloat(),
+                            y = enemy.y + ((Math.random() - 0.5) * 40).toFloat(),
+                            speed = 90f * enemySpeedMult,
+                            hp = mHp, maxHp = mHp,
+                            goldReward = (1 + wave / 5).coerceAtLeast(1),
+                            damage = 6f * waveScale,
+                            type = EnemyType.MINI_SKELETON,
+                            size = 20f,
+                            pathIndex = enemy.pathIndex,
+                            waypointIndex = enemy.waypointIndex
+                        ))
+                    }
+                    totalEnemiesThisWave += 2
+                    floatingTexts.add(FloatingText(enemy.x, enemy.y - enemy.size, "💀 ARISE!", 0xFFBA68C8.toInt(), 1f, 22f))
+                    repeat(8) {
+                        val angle = Math.random() * Math.PI * 2
+                        particles.add(Particle(enemy.x, enemy.y,
+                            (Math.cos(angle) * 60).toFloat(), (Math.sin(angle) * 60).toFloat(),
+                            0.5f, 0xFF7B1FA2.toInt(), 5f))
+                    }
+                }
+            }
+            // Ghost: periodically enters ethereal phase (intangible, leaves wisps)
+            if (enemy.type == EnemyType.GHOST && !enemy.isDead()) {
+                enemy.phaseTimer -= dt
+                if (enemy.phaseTimer <= 0f) {
+                    enemy.isPhased = !enemy.isPhased
+                    enemy.phaseTimer = if (enemy.isPhased) 2.2f else 3.5f
+                    if (enemy.isPhased) {
+                        floatingTexts.add(FloatingText(enemy.x, enemy.y - enemy.size, "👻 ETHEREAL!", 0xFF80DEEA.toInt(), 0.8f, 18f))
+                    }
+                }
+                if (enemy.isPhased && Math.random() < 0.25) {
+                    particles.add(Particle(enemy.x, enemy.y,
+                        ((Math.random() - 0.5) * 20).toFloat(), -(Math.random() * 30 + 10).toFloat(),
+                        0.4f, 0xFF80DEEA.toInt(), 4f))
+                }
+            }
+            // Harpy: high-pitch screech disrupting nearby tower attack speeds every 6s
+            if (enemy.type == EnemyType.HARPY && !enemy.isDead()) {
+                enemy.abilityCooldownTimer -= dt
+                if (enemy.abilityCooldownTimer <= 0f) {
+                    enemy.abilityCooldownTimer = 6f
+                    floatingTexts.add(FloatingText(enemy.x, enemy.y - enemy.size, "🦅 SCREECH!", 0xFFB39DDB.toInt(), 0.9f, 20f))
+                    towers.filter { it.distanceTo(enemy.x, enemy.y) < 180f }.forEach { t ->
+                        t.fireTimer = (t.fireTimer + 0.8f).coerceAtMost(2.0f)
+                    }
+                    repeat(6) {
+                        val angle = Math.random() * Math.PI * 2
+                        particles.add(Particle(enemy.x, enemy.y,
+                            (Math.cos(angle) * 80).toFloat(), (Math.sin(angle) * 80).toFloat(),
+                            0.4f, 0xFFD1C4E9.toInt(), 4f))
+                    }
+                }
+            }
+            // Treant: passive wood bark regeneration (8 HP/s), suppressed while burning
+            if (enemy.type == EnemyType.TREANT && !enemy.isDead()) {
+                if (enemy.burnTimer <= 0f && enemy.hp < enemy.maxHp) {
+                    enemy.hp = (enemy.hp + 8f * dt).coerceAtMost(enemy.maxHp)
+                    if (Math.random() < 0.1) {
+                        particles.add(Particle(enemy.x, enemy.y, 0f, -15f, 0.4f, 0xFF81C784.toInt(), 4f))
+                    }
+                }
+            }
+            // Magma Crab: emits scorch embers
+            if (enemy.type == EnemyType.MAGMA_CRAB && !enemy.isDead()) {
+                if (Math.random() < 0.15) {
+                    particles.add(Particle(enemy.x, enemy.y,
+                        ((Math.random() - 0.5) * 20).toFloat(), ((Math.random() - 0.5) * 20).toFloat(),
+                        0.4f, 0xFFFF5722.toInt(), 4f))
+                }
+            }
             val chargeBoost = if (enemy.isCharging) 3f else 1f
             val roarBoost = enemy.roarSpeedBoost
             val iceSlow = enemy.iceSlowFactor
@@ -1324,7 +1424,7 @@ class GameEngine(val prefs: GamePreferences, val audio: GameAudio = SilentAudio)
                 if (enemy.roarBoostTimer <= 0f) enemy.roarSpeedBoost = 1f
             }
             if (enemy.isAtBase(baseX, baseY)) {
-                baseHp -= enemy.damage
+                damageBase(enemy.damage * currentWeather.enemyDamageMultiplier)
                 audio.play(SfxType.BASE_HIT)
                 hapticPending = 1  // light haptic on base damage
                 enemy.reachedBase = true
@@ -1353,20 +1453,77 @@ class GameEngine(val prefs: GamePreferences, val audio: GameAudio = SilentAudio)
 
         val deadEnemies = enemies.filter { it.isDead() && !it.deathProcessed }
         deadEnemies.forEach { enemy ->
+            // Void Phoenix Rebirth mechanic
+            if (enemy.bossType == BossType.VOID_PHOENIX && !enemy.hasReborn && !enemy.reachedBase) {
+                enemy.hasReborn = true
+                enemy.hp = enemy.maxHp * 0.45f
+                floatingTexts.add(FloatingText(enemy.x, enemy.y - enemy.size, "\uD83D\uDD25 REBIRTH!", 0xFFFF1744.toInt(), 1.5f, 32f))
+                audio.play(SfxType.BOSS_SUMMON)
+                shakeTimer = 0.4f; shakeIntensity = 12f
+                repeat(25) {
+                    val angle = Math.random() * Math.PI * 2
+                    particles.add(Particle(enemy.x, enemy.y,
+                        (Math.cos(angle) * 180).toFloat(), (Math.sin(angle) * 180).toFloat(),
+                        0.7f, 0xFFFF1744.toInt(), 6f))
+                }
+                return@forEach
+            }
             enemy.deathProcessed = true
             enemy.deathAnimTimer = 0.4f  // 400ms shrink+fade animation
             // Enemies that reached the base are removed but give no rewards
             if (enemy.reachedBase) return@forEach
 
             audio.play(SfxType.ENEMY_DIE)
-            val comboGold = (enemy.goldReward * comboMultiplier * skillTree.goldBonusMultiplier()).toInt()
-            val baseGold = enemy.goldReward.toInt()
+            val relicGoldMult = if (skillTree.isRelicUnlocked(RelicId.MIDAS_CRUCIBLE)) 1.30f else 1.0f
+            val weatherGoldMult = currentWeather.goldMultiplier
+            val greedGoldMult = if (hasMerchantItem(MerchantItemId.GREED_CURSE)) 2.5f else 1.0f
+            val comboGold = (enemy.goldReward * comboMultiplier * skillTree.goldBonusMultiplier() * relicGoldMult * weatherGoldMult * greedGoldMult).toInt()
+            val baseGold = (enemy.goldReward * weatherGoldMult * greedGoldMult).toInt()
             gold += comboGold
             totalGoldEarned += comboGold
             score += comboGold
             scoreFromKills += baseGold
             scoreFromCombos += (comboGold - baseGold).coerceAtLeast(0)
             totalKills++
+
+            if (hasMerchantItem(MerchantItemId.GREED_CURSE)) {
+                greedCurseKillCount++
+                if (greedCurseKillCount % 20 == 0) {
+                    val currentDiamonds = prefs.getInt("diamonds", 0) + 1
+                    prefs.edit().putInt("diamonds", currentDiamonds).apply()
+                    diamondsEarnedThisRun += 1
+                    floatingTexts.add(FloatingText(enemy.x, enemy.y - 30f, "+1 💎 Greed Bonus!", 0xFF00E5FF.toInt(), 1.5f, 26f))
+                }
+            }
+
+            // Soul Conduit proc: dying near Vortex tower
+            if (hasMerchantItem(MerchantItemId.SOUL_CONDUIT)) {
+                val nearVortex = towers.find { it.type == TowerType.VORTEX && it.distanceTo(enemy.x, enemy.y) <= 200f }
+                if (nearVortex != null) {
+                    val soulPulseDmg = 120f
+                    val pulseRadius = 160f
+                    val caught = enemies.filter { it.hp > 0 && it != enemy && it.distanceTo(enemy.x, enemy.y) <= pulseRadius }
+                    for (ce in caught) {
+                        ce.hp -= soulPulseDmg
+                        ce.hitFlash = 0.2f
+                        val pdx = enemy.x - ce.x
+                        val pdy = enemy.y - ce.y
+                        val pdist = kotlin.math.hypot(pdx, pdy)
+                        if (pdist > 5f) {
+                            ce.x += (pdx / pdist) * 25f
+                            ce.y += (pdy / pdist) * 25f
+                        }
+                    }
+                    floatingTexts.add(FloatingText(enemy.x, enemy.y - 20f, "🌀 SOUL PULSE!", 0xFFB388FF.toInt(), 1.2f, 26f))
+                    repeat(12) {
+                        val a = Math.random() * Math.PI * 2
+                        val spd = 50f + Math.random().toFloat() * 70f
+                        particles.add(Particle(enemy.x, enemy.y,
+                            (Math.cos(a) * spd).toFloat(), (Math.sin(a) * spd).toFloat(),
+                            0.6f, 0xFFAB47BC.toInt(), 5f))
+                    }
+                }
+            }
 
             // Bounty tracking
             trackBountyKill(enemy)
@@ -1544,6 +1701,55 @@ class GameEngine(val prefs: GamePreferences, val audio: GameAudio = SilentAudio)
                             0.6f, 0xFFE0E0E0.toInt(), 4f))
                     }
                 }
+                EnemyType.NECROMANCER -> {
+                    // Swirling dark violet soul energy
+                    repeat(12) {
+                        val angle = Math.random() * Math.PI * 2
+                        val sp = 60f + (Math.random() * 80f).toFloat()
+                        particles.add(Particle(enemy.x, enemy.y,
+                            (Math.cos(angle) * sp).toFloat(), (Math.sin(angle) * sp - 30f).toFloat(),
+                            0.9f, 0xFF9C27B0.toInt(), 5f))
+                    }
+                }
+                EnemyType.GHOST -> {
+                    // Dissipating cyan spirit vapor
+                    repeat(14) {
+                        val angle = Math.random() * Math.PI * 2
+                        val sp = 40f + (Math.random() * 50f).toFloat()
+                        particles.add(Particle(enemy.x, enemy.y,
+                            (Math.cos(angle) * sp).toFloat(), (Math.sin(angle) * sp - 20f).toFloat(),
+                            1.1f, 0xFF80DEEA.toInt(), 5f))
+                    }
+                }
+                EnemyType.MAGMA_CRAB -> {
+                    // Molten rock fragments and fiery smoke
+                    repeat(10) {
+                        val angle = Math.random() * Math.PI * 2
+                        val sp = 70f + (Math.random() * 90f).toFloat()
+                        particles.add(Particle(enemy.x, enemy.y,
+                            (Math.cos(angle) * sp).toFloat(), (Math.sin(angle) * sp).toFloat(),
+                            0.8f, 0xFFFF3D00.toInt(), 6f))
+                    }
+                }
+                EnemyType.HARPY -> {
+                    // Plumage feathers drifting downward
+                    repeat(10) {
+                        val ox = (Math.random().toFloat() - 0.5f) * 35f
+                        particles.add(Particle(enemy.x + ox, enemy.y,
+                            (Math.random().toFloat() - 0.5f) * 40f, 25f + Math.random().toFloat() * 30f,
+                            1.2f, 0xFF9575CD.toInt(), 4f))
+                    }
+                }
+                EnemyType.TREANT -> {
+                    // Wood splinters and mossy leaves
+                    repeat(14) {
+                        val angle = Math.random() * Math.PI * 2
+                        val sp = 60f + (Math.random() * 70f).toFloat()
+                        particles.add(Particle(enemy.x, enemy.y,
+                            (Math.cos(angle) * sp).toFloat(), (Math.sin(angle) * sp).toFloat(),
+                            1.0f, if (Math.random() < 0.5) 0xFF4E342E.toInt() else 0xFF4CAF50.toInt(), 6f))
+                    }
+                }
                 else -> {} // Goblin etc. uses the default death burst above
             }
 
@@ -1557,14 +1763,24 @@ class GameEngine(val prefs: GamePreferences, val audio: GameAudio = SilentAudio)
                         0.8f, bossColor, 8f))
                 }
                 checkAchievement("boss_kill")
+                when (enemy.bossType) {
+                    BossType.STORM_LEVIATHAN -> checkAchievement("boss_leviathan")
+                    BossType.VOID_PHOENIX -> checkAchievement("boss_phoenix")
+                    BossType.SPORE_OVERLORD -> checkAchievement("boss_spore")
+                    BossType.CHRONO_LICH -> checkAchievement("boss_chrono")
+                    BossType.IRON_DREADNOUGHT -> checkAchievement("boss_dreadnought")
+                    else -> {}
+                }
                 bossesKilledThisRun++
                 trackBountyBossKill()
                 if (bossesKilledThisRun >= 5) checkAchievement("5_bosses")
                 if (bossesKilledThisRun >= 10) checkAchievement("10_bosses")
                 if (isBossRush && bossesKilledThisRun >= 5) checkAchievement("boss_rush_5")
+                if (isBossRush && bossesKilledThisRun >= 10) checkAchievement("boss_rush_10")
                 currentBoss = null
                 // Boss always drops diamonds
-                val diamondDrop = (2 + wave / 5).coerceAtMost(10)
+                val midasMult = if (skillTree.isRelicUnlocked(RelicId.MIDAS_CRUCIBLE)) 1.5f else 1.0f
+                val diamondDrop = ((2 + wave / 5) * midasMult).toInt().coerceAtMost(15)
                 skillTree.addDiamonds(diamondDrop)
                 diamondsEarnedThisRun += diamondDrop
                 audio.play(SfxType.DIAMOND_DROP)
@@ -1572,7 +1788,8 @@ class GameEngine(val prefs: GamePreferences, val audio: GameAudio = SilentAudio)
                     "+${diamondDrop} \uD83D\uDC8E", 0xFF00E5FF.toInt(), 1.5f, 30f))
             } else {
                 // Regular enemies have a small diamond drop chance
-                val dropChance = 0.03f + skillTree.diamondDropBonus()
+                val midasChanceBonus = if (skillTree.isRelicUnlocked(RelicId.MIDAS_CRUCIBLE)) 0.03f else 0f
+                val dropChance = 0.03f + skillTree.diamondDropBonus() + midasChanceBonus
                 if (Math.random() < dropChance) {
                     skillTree.addDiamonds(1)
                     diamondsEarnedThisRun += 1
@@ -1736,7 +1953,8 @@ class GameEngine(val prefs: GamePreferences, val audio: GameAudio = SilentAudio)
         }
 
         towers.forEach { tower ->
-            tower.update(dt)
+            val elixirSpeedMult = if (hasMerchantItem(MerchantItemId.ALCHEMIST_ELIXIR)) 1.35f else 1f
+            tower.update(dt * elixirSpeedMult)
             // ICE towers don't fire projectiles — they use aura (handled above)
             if (tower.type == TowerType.ICE) return@forEach
             // HEALER towers don't fire — they heal base and nearby blockades
@@ -1780,12 +1998,81 @@ class GameEngine(val prefs: GamePreferences, val audio: GameAudio = SilentAudio)
                     val isCrit = Math.random() < critChance
                     val critMult = if (isCrit) critMultiplier else 1f
                     val shieldMult = if (target.shieldTimer > 0) 0.3f else 1f
-                    var dmg = tower.damage * towerDmgMult * resistMult * synergyMult * critMult * shieldMult
+                    val glassMult = if (hasMerchantItem(MerchantItemId.GLASS_CANNON)) 1.50f else 1f
+                    var dmg = tower.damage * towerDmgMult * resistMult * synergyMult * critMult * shieldMult * glassMult
 
                     // Necro execute: massive bonus damage to low-HP enemies
                     if (tower.type == TowerType.NECRO && target.hp < target.maxHp * 0.15f) {
                         dmg *= 3f
                         floatingTexts.add(FloatingText(target.x, target.y - target.size - 15f, "EXECUTE!", 0xFF9C27B0.toInt(), 1f, 22f))
+                    }
+
+                    // --- TOWER SPECIALIZATIONS ---
+                    when (tower.specialization) {
+                        TowerSpecialization.SNIPER -> {
+                            if (Math.random() < 0.25 || (target.type != EnemyType.BOSS && target.hp < target.maxHp * 0.20f)) {
+                                dmg *= 2.5f
+                                floatingTexts.add(FloatingText(target.x, target.y - target.size - 12f, "HEADSHOT! 🎯", 0xFFFFD700.toInt(), 1f, 22f))
+                            }
+                        }
+                        TowerSpecialization.RANGER -> {
+                            val otherTargets = inRange.filter { it != target }.take(2)
+                            for (other in otherTargets) {
+                                val volleyDmg = dmg * 0.70f
+                                other.hp -= volleyDmg
+                                other.hitFlash = 0.15f
+                                tower.totalDamageDealt += volleyDmg
+                                other.lastHitTower = tower
+                                projectiles.add(Projectile(tower.x, tower.y, other.x, other.y, speed = 800f, damage = volleyDmg, size = 6f, color = 0xFFFFD700.toInt()))
+                            }
+                        }
+                        TowerSpecialization.CLUSTER_MORTAR -> {
+                            val nearbyEnemies = enemies.filter { it.hp > 0 && it != target && it.distanceTo(target.x, target.y) < 90f }
+                            for (near in nearbyEnemies) {
+                                val splash = dmg * 0.40f
+                                near.hp -= splash
+                                near.hitFlash = 0.15f
+                                tower.totalDamageDealt += splash
+                                near.lastHitTower = tower
+                            }
+                            repeat(6) {
+                                particles.add(Particle(target.x + (Math.random().toFloat() - 0.5f) * 60f, target.y + (Math.random().toFloat() - 0.5f) * 60f, (Math.random().toFloat() - 0.5f) * 60f, (Math.random().toFloat() - 0.5f) * 60f, 0.4f, 0xFFFF7043.toInt(), 5f))
+                            }
+                        }
+                        TowerSpecialization.RAILGUN -> {
+                            val lineEnemies = enemies.filter { it.hp > 0 && it != target && it.distanceTo(tower.x, tower.y) < tower.range }
+                            for (pe in lineEnemies) {
+                                val lDx = target.x - tower.x
+                                val lDy = target.y - tower.y
+                                val lLenSq = lDx * lDx + lDy * lDy
+                                if (lLenSq > 10f) {
+                                    val t = (((pe.x - tower.x) * lDx + (pe.y - tower.y) * lDy) / lLenSq).coerceIn(0f, 1f)
+                                    val px = tower.x + t * lDx
+                                    val py = tower.y + t * lDy
+                                    val distToBeam = Math.sqrt(((pe.x - px) * (pe.x - px) + (pe.y - py) * (pe.y - py)).toDouble()).toFloat()
+                                    if (distToBeam < 35f) {
+                                        val pierceDmg = dmg * 0.65f
+                                        pe.hp -= pierceDmg
+                                        pe.hitFlash = 0.15f
+                                        tower.totalDamageDealt += pierceDmg
+                                        pe.lastHitTower = tower
+                                    }
+                                }
+                            }
+                        }
+                        TowerSpecialization.RIFT_WARP -> {
+                            val pathIdx = target.pathIndex
+                            if (pathIdx in paths.indices) {
+                                val wps = paths[pathIdx].waypoints
+                                if (target.waypointIndex > 1) {
+                                    val prevWp = wps[target.waypointIndex - 1]
+                                    target.x = (target.x + prevWp.x) / 2f
+                                    target.y = (target.y + prevWp.y) / 2f
+                                    floatingTexts.add(FloatingText(target.x, target.y - target.size - 10f, "WARP! 🌀", 0xFFAB47BC.toInt(), 0.8f, 20f))
+                                }
+                            }
+                        }
+                        else -> {}
                     }
 
                     target.hp -= dmg
@@ -1795,6 +2082,55 @@ class GameEngine(val prefs: GamePreferences, val audio: GameAudio = SilentAudio)
                     if (tower.type == TowerType.FLAME) {
                         target.burnTimer = 3f
                         target.burnDps = tower.damage * towerDmgMult * 0.3f  // 30% of damage as DPS for 3s
+                        if (hasMerchantItem(MerchantItemId.THERMAL_SHOCK) && (target.iceSlowFactor < 0.95f || target.deepFreezeTimer > 0f)) {
+                            val shatterDmg = 140f
+                            val aoeRadius = 120f
+                            val aoeEnemies = enemies.filter { it.hp > 0 && it.distanceTo(target.x, target.y) <= aoeRadius }
+                            for (ae in aoeEnemies) {
+                                ae.hp -= shatterDmg
+                                ae.hitFlash = 0.2f
+                                ae.lastHitTower = tower
+                                tower.totalDamageDealt += shatterDmg
+                            }
+                            floatingTexts.add(FloatingText(target.x, target.y - target.size - 15f, "💥 SHATTER!", 0xFF00E5FF.toInt(), 1.2f, 26f))
+                            audio.play(SfxType.TOWER_UPGRADE)
+                            repeat(12) {
+                                val a = Math.random() * Math.PI * 2
+                                val spd = 60f + Math.random().toFloat() * 80f
+                                particles.add(Particle(target.x, target.y,
+                                    (Math.cos(a) * spd).toFloat(), (Math.sin(a) * spd).toFloat(),
+                                    0.5f, 0xFF81D4FA.toInt(), 5f))
+                            }
+                        }
+                    }
+
+                    if (tower.type == TowerType.POISON) {
+                        target.poisonTimer = 4f
+                        target.poisonDps = tower.damage * towerDmgMult * 0.35f
+                    }
+
+                    if (tower.type == TowerType.TESLA) {
+                        if (hasMerchantItem(MerchantItemId.NEUROTOXIN_CHAIN) && target.poisonTimer > 0f) {
+                            val burstRadius = 140f
+                            val nearby = enemies.filter { it.hp > 0 && it != target && it.distanceTo(target.x, target.y) <= burstRadius }
+                            for (ne in nearby) {
+                                ne.poisonTimer = 4f
+                                ne.poisonDps = (ne.poisonDps).coerceAtLeast(target.poisonDps)
+                                val toxicBurstDmg = 80f
+                                ne.hp -= toxicBurstDmg
+                                ne.hitFlash = 0.2f
+                                tower.totalDamageDealt += toxicBurstDmg
+                                ne.lastHitTower = tower
+                            }
+                            floatingTexts.add(FloatingText(target.x, target.y - target.size - 15f, "⚡ TOXIN BURST!", 0xFF00E676.toInt(), 1.2f, 26f))
+                            repeat(10) {
+                                val a = Math.random() * Math.PI * 2
+                                val spd = 40f + Math.random().toFloat() * 60f
+                                particles.add(Particle(target.x, target.y,
+                                    (Math.cos(a) * spd).toFloat(), (Math.sin(a) * spd).toFloat(),
+                                    0.5f, 0xFF00E676.toInt(), 5f))
+                            }
+                        }
                     }
 
                     // Vortex tower: pull enemy slightly toward tower
@@ -1879,6 +2215,7 @@ class GameEngine(val prefs: GamePreferences, val audio: GameAudio = SilentAudio)
         if (baseHp <= 0) {
             baseHp = 0f
             gameOver = true
+            clearSave()
             audio.play(SfxType.GAME_OVER)
             saveRunHistory("Lost")
             isNewHighScore = score > highScore
@@ -1937,6 +2274,17 @@ class GameEngine(val prefs: GamePreferences, val audio: GameAudio = SilentAudio)
         waveBannerTimer = 1.5f
         eliteSpawnedThisWave = false
 
+        // Decrement temporary merchant boosters
+        val expiredMerchantItems = mutableListOf<MerchantItemId>()
+        activeTemporaryMerchantItems.forEach { (id, remaining) ->
+            if (remaining <= 1) {
+                expiredMerchantItems.add(id)
+            } else {
+                activeTemporaryMerchantItems[id] = remaining - 1
+            }
+        }
+        expiredMerchantItems.forEach { activeTemporaryMerchantItems.remove(it) }
+
         // Endless mode: progressive scaling every 10 waves
         if (isEndlessMode && wave > 10) {
             val tier = ((wave - 10) / 10f).coerceAtMost(5f)
@@ -1963,6 +2311,11 @@ class GameEngine(val prefs: GamePreferences, val audio: GameAudio = SilentAudio)
         if (wave >= 50) checkAchievement("wave_50")
         if (wave >= 100) checkAchievement("wave_100")
         if (isEndlessMode && wave >= 10) checkAchievement("endless_10")
+        if (isEndlessMode && wave >= 25) checkAchievement("endless_25")
+        if (isEndlessMode && wave >= 50) checkAchievement("endless_50")
+        if (skillTree.isRelicUnlocked(RelicId.AEGIS_OF_DAWN)) {
+            baseShield = 100f
+        }
         if (mapType == MapType.VOLCANO && wave >= 15) checkAchievement("volcano_win")
         if (isRandomizerMode && wave >= 15) checkAchievement("randomizer_win")
         if (wave >= 5 && towers.isEmpty()) checkAchievement("streak_no_tower")
@@ -1975,9 +2328,21 @@ class GameEngine(val prefs: GamePreferences, val audio: GameAudio = SilentAudio)
         baseHpBeforeWave = baseHp
         if (isBossRush) bossRushWave++
 
-        // Use pre-determined modifier from preview (so preview matches reality)
+        // Use pre-determined modifier and weather from preview (so preview matches reality)
         val preview = nextWavePreview
         currentWaveModifier = preview?.modifier ?: WaveModifier.NONE
+        currentWeather = preview?.weather ?: WeatherEvent.CLEAR
+        weatherLightningTimer = 2.5f
+        if (currentWeather != WeatherEvent.CLEAR) {
+            showWeatherBanner = true
+            weatherBannerTimer = 3.5f
+            when (currentWeather) {
+                WeatherEvent.BLOOD_MOON -> audio.play(SfxType.WEATHER_BLOOD_MOON)
+                WeatherEvent.THUNDERSTORM -> audio.play(SfxType.WEATHER_THUNDER)
+                WeatherEvent.SOLAR_ECLIPSE -> audio.play(SfxType.WEATHER_ECLIPSE)
+                else -> {}
+            }
+        }
 
         if (isBossRush || wave % bossInterval == 0) {
             if (bossPool.isEmpty()) {
@@ -2015,7 +2380,8 @@ class GameEngine(val prefs: GamePreferences, val audio: GameAudio = SilentAudio)
         val boss = currentBoss
         if (boss != null) {
             val bossRushScale = if (isBossRush) 1f + bossRushWave * 0.12f else 1f
-            val hp = (boss.baseHp + wave * 40f) * waveScale * enemyHpMult * bossRushScale
+            val greedHpMult = if (hasMerchantItem(MerchantItemId.GREED_CURSE)) 1.15f else 1f
+            val hp = (boss.baseHp + wave * 40f) * waveScale * enemyHpMult * bossRushScale * greedHpMult
             enemies.add(Enemy(
                 x = spawn.x, y = spawn.y,
                 speed = boss.baseSpeed * enemySpeedMult,
@@ -2025,7 +2391,14 @@ class GameEngine(val prefs: GamePreferences, val audio: GameAudio = SilentAudio)
                 type = EnemyType.BOSS, bossType = boss, size = 55f,
                 pathIndex = pathIdx,
                 bossAbilityTimer = 5f,
-                bossAbilityCooldown = if (boss.ability == BossAbility.SHIELD) 12f else 5f
+                bossAbilityCooldown = when (boss.ability) {
+                    BossAbility.SHIELD -> 12f
+                    BossAbility.EMP_BLAST -> 9f
+                    BossAbility.TIME_WARP -> 11f
+                    BossAbility.SPORE_CLOUD -> 8f
+                    BossAbility.BARRAGE -> 7f
+                    else -> 6f
+                }
             ))
             val minionCount = if (isBossRush) {
                 (boss.minionCount * spawnRateMult * 0.6f).toInt().coerceAtLeast(1)
@@ -2039,13 +2412,18 @@ class GameEngine(val prefs: GamePreferences, val audio: GameAudio = SilentAudio)
 
         val type = when {
             wave >= 18 && Math.random() < 0.06 -> EnemyType.SHAPESHIFTER
+            wave >= 16 && Math.random() < 0.07 -> EnemyType.TREANT
             wave >= 15 && Math.random() < 0.07 -> EnemyType.COMMANDER
+            wave >= 13 && Math.random() < 0.08 -> EnemyType.NECROMANCER
             wave >= 12 && Math.random() < 0.08 -> EnemyType.BERSERKER
             wave >= 10 && Math.random() < 0.08 -> EnemyType.WISP
             wave >= 9 && Math.random() < 0.08 -> EnemyType.SHADOW
             wave >= 8 && Math.random() < 0.12 -> EnemyType.ARMORED_GOLEM
+            wave >= 7 && Math.random() < 0.12 -> EnemyType.MAGMA_CRAB
             wave >= 7 && Math.random() < 0.15 -> EnemyType.DRAGON
+            wave >= 6 && Math.random() < 0.14 -> EnemyType.HARPY
             wave >= 5 && Math.random() < 0.18 -> EnemyType.DEMON
+            wave >= 4 && Math.random() < 0.14 -> EnemyType.GHOST
             wave >= 4 && Math.random() < 0.18 -> EnemyType.FAST_SKELETON
             wave >= 3 && Math.random() < 0.25 -> EnemyType.ORC
             wave >= 2 && Math.random() < 0.35 -> EnemyType.SKELETON
@@ -2071,6 +2449,11 @@ class GameEngine(val prefs: GamePreferences, val audio: GameAudio = SilentAudio)
             EnemyType.BERSERKER -> arrayOf(50f, 70f, 10f, 14f)
             EnemyType.COMMANDER -> arrayOf(70f, 55f, 15f, 10f)
             EnemyType.SHAPESHIFTER -> arrayOf(45f, 90f, 12f, 9f)
+            EnemyType.NECROMANCER -> arrayOf(75f, 60f, 18f, 14f)
+            EnemyType.GHOST -> arrayOf(35f, 95f, 9f, 8f)
+            EnemyType.MAGMA_CRAB -> arrayOf(90f, 45f, 12f, 12f)
+            EnemyType.HARPY -> arrayOf(38f, 125f, 11f, 10f)
+            EnemyType.TREANT -> arrayOf(160f, 35f, 22f, 22f)
             else -> arrayOf(20f, 80f, 3f, 5f)
         }
 
@@ -2092,7 +2475,8 @@ class GameEngine(val prefs: GamePreferences, val audio: GameAudio = SilentAudio)
             else -> {}
         }
 
-        val hp = baseHpVal * waveScale * enemyHpMult * hpMod * nightHpMultiplier
+        val greedHpMult = if (hasMerchantItem(MerchantItemId.GREED_CURSE)) 1.15f else 1f
+        val hp = baseHpVal * waveScale * enemyHpMult * hpMod * nightHpMultiplier * greedHpMult
         // Elite enemies on every 5th non-boss wave (first enemy of the wave)
         val isElite = wave % 5 == 0 && wave % bossInterval != 0 && !eliteSpawnedThisWave && wave >= 5
         val eliteHpMult = if (isElite) 3f else 1f
@@ -2222,7 +2606,7 @@ class GameEngine(val prefs: GamePreferences, val audio: GameAudio = SilentAudio)
                 // Also damage base if in range
                 val dbx = baseX - boss.x; val dby = baseY - boss.y
                 if (dbx * dbx + dby * dby < range * range) {
-                    baseHp = (baseHp - 15f).coerceAtLeast(0f)
+                    damageBase(15f)
                 }
                 floatingTexts.add(FloatingText(boss.x, boss.y - boss.size, "\uD83D\uDD25 AOE!", 0xFFFF5722.toInt(), 1.2f, 32f))
                 audio.play(SfxType.BOSS_AOE)
@@ -2337,6 +2721,92 @@ class GameEngine(val prefs: GamePreferences, val audio: GameAudio = SilentAudio)
                     }
                 }
             }
+            BossAbility.EMP_BLAST -> {
+                val inRange = towers.sortedBy { it.distanceTo(boss.x, boss.y) }.take(4)
+                inRange.forEach { it.fireTimer += 3.0f }
+                enemies.filter { it.type == EnemyType.HARPY || it.type == EnemyType.BAT }.forEach {
+                    it.roarSpeedBoost = 1.6f
+                    it.roarBoostTimer = 4f
+                }
+                audio.play(SfxType.TESLA_FIRE)
+                floatingTexts.add(FloatingText(boss.x, boss.y - boss.size, "\u26A1 EMP BLAST!", bt.color, 1.2f, 30f))
+                shakeTimer = 0.2f; shakeIntensity = 8f
+                repeat(18) {
+                    val angle = Math.random() * Math.PI * 2
+                    particles.add(Particle(boss.x, boss.y,
+                        (Math.cos(angle) * 140).toFloat(), (Math.sin(angle) * 140).toFloat(),
+                        0.6f, bt.color, 5f))
+                }
+            }
+            BossAbility.REBIRTH -> {
+                // Active Solar Flare while alive
+                towers.filter { it.distanceTo(boss.x, boss.y) < 200f }.forEach { it.fireTimer += 1.5f }
+                floatingTexts.add(FloatingText(boss.x, boss.y - boss.size, "\uD83D\uDD25 SOLAR FLARE!", bt.color, 1.2f, 30f))
+                audio.play(SfxType.POWER_FIREBALL)
+                repeat(16) {
+                    val angle = Math.random() * Math.PI * 2
+                    particles.add(Particle(boss.x, boss.y,
+                        (Math.cos(angle) * 120).toFloat(), (Math.sin(angle) * 120).toFloat(),
+                        0.6f, bt.color, 6f))
+                }
+            }
+            BossAbility.SPORE_CLOUD -> {
+                towers.filter { it.distanceTo(boss.x, boss.y) < 240f }.forEach { it.thornJamTimer = 3.5f }
+                if (player.distanceTo(boss.x, boss.y) < 220f) {
+                    player.hp = (player.hp - 12f).coerceAtLeast(0f)
+                    floatingTexts.add(FloatingText(player.x, player.y - 30f, "-12 POISON", 0xFF00E676.toInt(), 1f, 22f))
+                }
+                floatingTexts.add(FloatingText(boss.x, boss.y - boss.size, "\uD83C\uDF44 SPORE CLOUD!", bt.color, 1.2f, 30f))
+                audio.play(SfxType.BOSS_ROAR)
+                repeat(20) {
+                    val angle = Math.random() * Math.PI * 2
+                    val dist = Math.random() * 220f
+                    particles.add(Particle(
+                        boss.x + (Math.cos(angle) * dist).toFloat(),
+                        boss.y + (Math.sin(angle) * dist).toFloat(),
+                        0f, -20f, 0.8f, 0xFF00E676.toInt(), 5f))
+                }
+            }
+            BossAbility.TIME_WARP -> {
+                enemies.filter { it != boss && !it.isDead() }.forEach { minion ->
+                    val path = paths.getOrNull(minion.pathIndex)
+                    if (path != null && minion.waypointIndex > 1) {
+                        minion.waypointIndex = (minion.waypointIndex - 2).coerceAtLeast(1)
+                        val wp = path.waypoints[minion.waypointIndex]
+                        minion.x = wp.x; minion.y = wp.y
+                    }
+                    minion.hp = (minion.hp + minion.maxHp * 0.15f).coerceAtMost(minion.maxHp)
+                    minion.hitFlash = 0.3f
+                }
+                floatingTexts.add(FloatingText(boss.x, boss.y - boss.size, "\u23F3 TIME WARP!", bt.color, 1.3f, 30f))
+                audio.play(SfxType.BOSS_TELEPORT)
+                repeat(18) {
+                    val angle = Math.random() * Math.PI * 2
+                    particles.add(Particle(boss.x, boss.y,
+                        (Math.cos(angle) * 110).toFloat(), (Math.sin(angle) * 110).toFloat(),
+                        0.7f, bt.color, 5f))
+                }
+            }
+            BossAbility.BARRAGE -> {
+                val targetBlockade = blockades.minByOrNull { it.distanceTo(boss.x, boss.y) }
+                if (targetBlockade != null) {
+                    targetBlockade.hp -= 40f
+                    floatingTexts.add(FloatingText(targetBlockade.x, targetBlockade.y - 20f, "-40 HP", 0xFFFF9100.toInt(), 1f, 24f))
+                }
+                if (player.distanceTo(boss.x, boss.y) < 300f) {
+                    player.hp = (player.hp - 15f).coerceAtLeast(0f)
+                    floatingTexts.add(FloatingText(player.x, player.y - 30f, "-15 BARRAGE", 0xFFFF9100.toInt(), 1f, 24f))
+                }
+                floatingTexts.add(FloatingText(boss.x, boss.y - boss.size, "\uD83E\uDD16 BARRAGE!", bt.color, 1.2f, 30f))
+                audio.play(SfxType.CANNON_FIRE)
+                shakeTimer = 0.3f; shakeIntensity = 10f
+                repeat(16) {
+                    val angle = Math.random() * Math.PI * 2
+                    particles.add(Particle(boss.x, boss.y,
+                        (Math.cos(angle) * 160).toFloat(), (Math.sin(angle) * 160).toFloat(),
+                        0.6f, 0xFFFF9100.toInt(), 6f))
+                }
+            }
         }
     }
 
@@ -2357,6 +2827,31 @@ class GameEngine(val prefs: GamePreferences, val audio: GameAudio = SilentAudio)
         } else 100f
         return wpIdx + (1f - (distToWp / segLen).coerceIn(0f, 1f))
     }
+
+    fun canPlaceTower(x: Float, y: Float, type: TowerType): Boolean { synchronized(lock) {
+        if (!isTowerAllowed(type)) return false
+        val cost = getTowerCost(type)
+        if (gold < cost) return false
+        if (towers.any { it.distanceTo(x, y) < 70f }) return false
+        val distToBase = Math.sqrt(((x - baseX) * (x - baseX) + (y - baseY) * (y - baseY)).toDouble()).toFloat()
+        if (distToBase < 60f) return false
+
+        for (gamePath in paths) {
+            val wps = gamePath.waypoints
+            for (i in 0 until wps.size - 1) {
+                val ax = wps[i].x; val ay = wps[i].y
+                val bx2 = wps[i + 1].x; val by2 = wps[i + 1].y
+                val segLenSq = (bx2 - ax) * (bx2 - ax) + (by2 - ay) * (by2 - ay)
+                val t = if (segLenSq < 0.01f) 0f else
+                    (((x - ax) * (bx2 - ax) + (y - ay) * (by2 - ay)) / segLenSq).coerceIn(0f, 1f)
+                val px = ax + t * (bx2 - ax)
+                val py = ay + t * (by2 - ay)
+                val dx = x - px; val dy = y - py
+                if (dx * dx + dy * dy < 50f * 50f) return false
+            }
+        }
+        return true
+    } }
 
     fun placeTower(x: Float, y: Float, type: TowerType): Boolean { synchronized(lock) {
         if (!isTowerAllowed(type)) return false
@@ -2477,10 +2972,11 @@ class GameEngine(val prefs: GamePreferences, val audio: GameAudio = SilentAudio)
         if (distToBase < 80f) return false
 
         gold -= type.cost
+        val extraUses = if (skillTree.isRelicUnlocked(RelicId.DEMOLITION_SATCHEL)) 2 else 0
         val uses = when (type) {
-            TrapType.SPIKE -> 5 + wave / 5
-            TrapType.TAR -> 8 + wave / 4
-            TrapType.MINE -> 1
+            TrapType.SPIKE -> 5 + wave / 5 + extraUses
+            TrapType.TAR -> 8 + wave / 4 + extraUses
+            TrapType.MINE -> 1 + if (extraUses > 0) 1 else 0
         }
         traps.add(Trap(x, y, type, uses, uses))
         audio.play(SfxType.TOWER_PLACE)
@@ -2492,6 +2988,7 @@ class GameEngine(val prefs: GamePreferences, val audio: GameAudio = SilentAudio)
     } }
 
     fun upgradeTower(tower: Tower): Boolean { synchronized(lock) {
+        if (!tower.canUpgrade()) return false
         val cost = tower.upgradeCost()
         if (gold < cost) return false
         gold -= cost
@@ -2769,34 +3266,60 @@ class GameEngine(val prefs: GamePreferences, val audio: GameAudio = SilentAudio)
         return true
     } }
 
+    companion object {
+        const val MAX_PLAYER_DAMAGE_LEVEL = 20
+        const val MAX_PLAYER_SPEED_LEVEL = 10
+        const val MAX_PLAYER_HP_LEVEL = 20
+        const val MAX_BASE_HP_LEVEL = 20
+    }
+
+    fun getPlayerDamageCost(): Int =
+        if (playerDamageLevel >= MAX_PLAYER_DAMAGE_LEVEL) Int.MAX_VALUE
+        else 25 + (playerDamageLevel - 1) * 20 + (playerDamageLevel - 1) * (playerDamageLevel - 1) * 8
+
+    fun getPlayerSpeedCost(): Int =
+        if (playerSpeedLevel >= MAX_PLAYER_SPEED_LEVEL) Int.MAX_VALUE
+        else 20 + (playerSpeedLevel - 1) * 25 + (playerSpeedLevel - 1) * (playerSpeedLevel - 1) * 12
+
+    fun getPlayerHpCost(): Int =
+        if (playerHpLevel >= MAX_PLAYER_HP_LEVEL) Int.MAX_VALUE
+        else 30 + (playerHpLevel - 1) * 25 + (playerHpLevel - 1) * (playerHpLevel - 1) * 10
+
+    fun getBaseHpCost(): Int =
+        if (baseHpLevel >= MAX_BASE_HP_LEVEL) Int.MAX_VALUE
+        else 40 + (baseHpLevel - 1) * 35 + (baseHpLevel - 1) * (baseHpLevel - 1) * 12
+
     fun upgradePlayerDamage(): Boolean { synchronized(lock) {
-        val cost = playerDamageLevel * 25
+        if (playerDamageLevel >= MAX_PLAYER_DAMAGE_LEVEL) return false
+        val cost = getPlayerDamageCost()
         if (gold < cost) return false
         gold -= cost
         playerDamageLevel++
-        player.attackDamage += 5f
+        player.attackDamage += 3f
         audio.play(SfxType.PLAYER_UPGRADE)
         checkUpgradeAll()
         return true
     } }
 
     fun upgradePlayerSpeed(): Boolean { synchronized(lock) {
-        val cost = playerSpeedLevel * 20
+        if (playerSpeedLevel >= MAX_PLAYER_SPEED_LEVEL) return false
+        val cost = getPlayerSpeedCost()
         if (gold < cost) return false
         gold -= cost
         playerSpeedLevel++
-        player.speed += 30f
+        player.speed = min(525f, player.speed + 25f)
         audio.play(SfxType.PLAYER_UPGRADE)
         checkUpgradeAll()
         return true
     } }
 
     fun upgradePlayerHp(): Boolean { synchronized(lock) {
-        val cost = playerHpLevel * 30
+        if (playerHpLevel >= MAX_PLAYER_HP_LEVEL) return false
+        val cost = getPlayerHpCost()
         if (gold < cost) return false
         gold -= cost
         playerHpLevel++
-        player.maxHp += 25f
+        player.maxHp += 20f
         player.hp = player.maxHp
         audio.play(SfxType.PLAYER_UPGRADE)
         checkUpgradeAll()
@@ -2804,12 +3327,13 @@ class GameEngine(val prefs: GamePreferences, val audio: GameAudio = SilentAudio)
     } }
 
     fun upgradeBaseHp(): Boolean { synchronized(lock) {
-        val cost = baseHpLevel * 40
+        if (baseHpLevel >= MAX_BASE_HP_LEVEL) return false
+        val cost = getBaseHpCost()
         if (gold < cost) return false
         gold -= cost
         baseHpLevel++
-        maxBaseHp += 30f
-        baseHp = (baseHp + 30f).coerceAtMost(maxBaseHp)
+        maxBaseHp += 25f
+        baseHp = (baseHp + 25f).coerceAtMost(maxBaseHp)
         audio.play(SfxType.PLAYER_UPGRADE)
         checkUpgradeAll()
         return true
@@ -2859,6 +3383,8 @@ class GameEngine(val prefs: GamePreferences, val audio: GameAudio = SilentAudio)
         }
         floatingTexts.add(FloatingText(screenW / 2, screenH * 0.35f,
             "${buff.emoji} ${buff.label}!", 0xFFFFD700.toInt(), 2f, 36f))
+        checkAchievement("milestone_first")
+        if (endlessBuffs.size >= 3) checkAchievement("milestone_trio")
     } }
 
     fun usePower(type: PowerType): Boolean { synchronized(lock) {
@@ -2957,74 +3483,6 @@ class GameEngine(val prefs: GamePreferences, val audio: GameAudio = SilentAudio)
     } }
 
     fun getPowerCooldown(type: PowerType): Float = powerCooldowns.getOrDefault(type, 0f)
-
-    /** Player dash — teleport to target and deal AoE damage along the path */
-    fun playerDash(targetX: Float, targetY: Float): Boolean { synchronized(lock) {
-        if (dashCooldown > 0 || player.hp <= 0) return false
-        val dx = targetX - player.x
-        val dy = targetY - player.y
-        val dist = Math.sqrt((dx * dx + dy * dy).toDouble()).toFloat()
-        if (dist < 30f) return false
-
-        val actualDist = dist.coerceAtMost(dashRange)
-        val nx = dx / dist
-        val ny = dy / dist
-
-        // Save trail start
-        dashTrailX = player.x
-        dashTrailY = player.y
-
-        // Damage enemies along the dash path
-        val dashEndX = player.x + nx * actualDist
-        val dashEndY = player.y + ny * actualDist
-        enemies.filter { it.hp > 0 }.forEach { enemy ->
-            // Point-to-segment distance
-            val ex = enemy.x - player.x; val ey = enemy.y - player.y
-            val lx = dashEndX - player.x; val ly = dashEndY - player.y
-            val lenSq = lx * lx + ly * ly
-            val t = if (lenSq < 0.01f) 0f else ((ex * lx + ey * ly) / lenSq).coerceIn(0f, 1f)
-            val px = player.x + t * lx; val py = player.y + t * ly
-            val dsx = enemy.x - px; val dsy = enemy.y - py
-            if (dsx * dsx + dsy * dsy < 60f * 60f) {
-                val shieldMult = if (enemy.shieldTimer > 0) 0.3f else 1f
-                val actualDashDmg = dashDamage * shieldMult
-                enemy.hp -= actualDashDmg
-                enemy.hitFlash = 0.3f
-                floatingTexts.add(FloatingText(enemy.x, enemy.y - enemy.size,
-                    "DASH! -${actualDashDmg.toInt()}", 0xFF00E5FF.toInt(), 0.8f, 24f))
-            }
-        }
-
-        // Move player to end position, clamped to playable area
-        val groundTop = screenH * 0.12f + player.size
-        var clampedEndX = dashEndX.coerceIn(player.size, screenW - player.size)
-        var clampedEndY = dashEndY.coerceIn(groundTop, screenH - player.size)
-        // If dash lands in river, snap back to start
-        if (isPointOnRiver(clampedEndX, clampedEndY)) {
-            clampedEndX = dashTrailX
-            clampedEndY = dashTrailY
-        }
-        player.x = clampedEndX
-        player.y = clampedEndY
-        player.targetX = clampedEndX
-        player.targetY = clampedEndY
-
-        // Trail particles
-        repeat(12) { i ->
-            val t = i / 12f
-            particles.add(Particle(
-                dashTrailX + (dashEndX - dashTrailX) * t,
-                dashTrailY + (dashEndY - dashTrailY) * t,
-                (Math.random().toFloat() - 0.5f) * 60f,
-                (Math.random().toFloat() - 0.5f) * 60f,
-                0.6f, 0xFF00E5FF.toInt(), 6f))
-        }
-        shakeTimer = 0.1f; shakeIntensity = 5f
-        isDashing = true
-        dashCooldown = dashCooldownMax
-        audio.play(SfxType.PLAYER_ATTACK)
-        return true
-    } }
 
     // ─── BOUNTY SYSTEM ───
 
@@ -3163,18 +3621,26 @@ class GameEngine(val prefs: GamePreferences, val audio: GameAudio = SilentAudio)
     }
 
     /** Save game state to preferences for continuing later */
-    fun saveGame() {
+    fun saveGame() { synchronized(lock) {
+        if (gameOver || campaignVictory || wave <= 0) {
+            clearSave()
+            return
+        }
         val ed = prefs.edit()
         ed.putInt("save_wave", wave)
         ed.putInt("save_gold", gold)
         ed.putInt("save_score", score)
         ed.putInt("save_totalKills", totalKills)
+        ed.putInt("save_totalGoldEarned", totalGoldEarned)
+        ed.putInt("save_bestCombo", bestCombo)
         ed.putFloat("save_baseHp", baseHp)
         ed.putFloat("save_maxBaseHp", maxBaseHp)
         ed.putFloat("save_playerHp", player.hp)
         ed.putFloat("save_playerMaxHp", player.maxHp)
         ed.putFloat("save_playerDmg", player.attackDamage)
         ed.putFloat("save_playerSpd", player.speed)
+        ed.putFloat("save_playerX", player.x)
+        ed.putFloat("save_playerY", player.y)
         ed.putInt("save_difficulty", difficulty)
         ed.putInt("save_dmgLvl", playerDamageLevel)
         ed.putInt("save_spdLvl", playerSpeedLevel)
@@ -3182,24 +3648,81 @@ class GameEngine(val prefs: GamePreferences, val audio: GameAudio = SilentAudio)
         ed.putInt("save_baseLvl", baseHpLevel)
         ed.putInt("save_diamonds", diamondsEarnedThisRun)
         ed.putString("save_map", mapType.name)
+
+        // Mode flags
+        ed.putBoolean("save_isEndless", isEndlessMode)
+        ed.putBoolean("save_isBossRush", isBossRush)
+        ed.putBoolean("save_isDaily", isDailyChallenge)
+        ed.putBoolean("save_isRandomizer", isRandomizerMode)
+        ed.putBoolean("save_isIronman", isIronmanMode)
+        ed.putBoolean("save_isArena", isArenaMode)
+        ed.putBoolean("save_isSurvival", isSurvivalMode)
+        ed.putInt("save_campaignLevelId", campaignLevel?.id ?: -1)
+
+        // Endless buffs
+        val buffsStr = endlessBuffs.joinToString(";") { it.name }
+        ed.putString("save_endlessBuffs", buffsStr)
+
+        // Towers (positions, levels, types, targeting, stats, specialization)
+        val towerStr = towers.joinToString(";") { t ->
+            "${t.x},${t.y},${t.level},${t.type.name},${t.targetingMode.name},${t.range},${t.damage},${t.fireRate},${t.totalKills},${t.totalDamageDealt.toInt()},${t.specialization.name}"
+        }
+        ed.putString("save_towers", towerStr)
+
+        // Traps
+        val trapStr = traps.joinToString(";") { tr ->
+            "${tr.x},${tr.y},${tr.type.name},${tr.uses},${tr.maxUses}"
+        }
+        ed.putString("save_traps", trapStr)
+
+        // Blockades
+        val blockadeStr = blockades.joinToString(";") { b ->
+            "${b.x},${b.y},${b.hp},${b.maxHp}"
+        }
+        ed.putString("save_blockades", blockadeStr)
+
+        val permMerchantStr = activePermanentMerchantItems.joinToString(";") { it.name }
+        ed.putString("save_permMerchant", permMerchantStr)
+        val tempMerchantStr = activeTemporaryMerchantItems.entries.joinToString(";") { "${it.key.name},${it.value}" }
+        ed.putString("save_tempMerchant", tempMerchantStr)
+        ed.putInt("save_greedKills", greedCurseKillCount)
+
         ed.putBoolean("has_save", true)
         ed.apply()
-    }
+    } }
 
     /** Load saved game state */
-    fun loadGame(): Boolean {
+    fun loadGame(): Boolean { synchronized(lock) {
         if (!prefs.getBoolean("has_save", false)) return false
-        // Restore difficulty + mode flags + map before loading stats
         val savedDifficulty = prefs.getInt("save_difficulty", 1)
         applyDifficulty(savedDifficulty)
-        val savedMap = prefs.getString("save_map", "CLASSIC") ?: "CLASSIC"
+        val savedMap = prefs.getString("save_map", "CLASSIC")
         try { mapType = MapType.valueOf(savedMap) } catch (_: Exception) {}
+
+        isEndlessMode = prefs.getBoolean("save_isEndless", false)
+        isBossRush = prefs.getBoolean("save_isBossRush", false)
+        isDailyChallenge = prefs.getBoolean("save_isDaily", false)
+        isRandomizerMode = prefs.getBoolean("save_isRandomizer", false)
+        isIronmanMode = prefs.getBoolean("save_isIronman", false)
+        isArenaMode = prefs.getBoolean("save_isArena", false)
+        isSurvivalMode = prefs.getBoolean("save_isSurvival", false)
+
+        val campId = prefs.getInt("save_campaignLevelId", -1)
+        if (campId > 0) {
+            val cl = CampaignData.levels.find { it.id == campId }
+            if (cl != null) applyCampaign(cl)
+        }
+
         wave = prefs.getInt("save_wave", 0)
         gold = prefs.getInt("save_gold", 50)
         score = prefs.getInt("save_score", 0)
         totalKills = prefs.getInt("save_totalKills", 0)
+        totalGoldEarned = prefs.getInt("save_totalGoldEarned", 0)
+        bestCombo = prefs.getInt("save_bestCombo", 0)
         baseHp = prefs.getFloat("save_baseHp", 100f)
         maxBaseHp = prefs.getFloat("save_maxBaseHp", 100f)
+        player.x = prefs.getFloat("save_playerX", 400f)
+        player.y = prefs.getFloat("save_playerY", 600f)
         player.hp = prefs.getFloat("save_playerHp", 100f)
         player.maxHp = prefs.getFloat("save_playerMaxHp", 100f)
         player.attackDamage = prefs.getFloat("save_playerDmg", 10f)
@@ -3209,11 +3732,122 @@ class GameEngine(val prefs: GamePreferences, val audio: GameAudio = SilentAudio)
         playerHpLevel = prefs.getInt("save_hpLvl", 1)
         baseHpLevel = prefs.getInt("save_baseLvl", 1)
         diamondsEarnedThisRun = prefs.getInt("save_diamonds", 0)
+
+        activePermanentMerchantItems.clear()
+        val permStr = prefs.getString("save_permMerchant", "")
+        if (permStr.isNotBlank()) {
+            for (item in permStr.split(";")) {
+                if (item.isBlank()) continue
+                runCatching { MerchantItemId.valueOf(item) }.getOrNull()?.let { activePermanentMerchantItems.add(it) }
+            }
+        }
+        activeTemporaryMerchantItems.clear()
+        val tempStr = prefs.getString("save_tempMerchant", "")
+        if (tempStr.isNotBlank()) {
+            for (item in tempStr.split(";")) {
+                if (item.isBlank()) continue
+                val parts = item.split(",")
+                if (parts.size == 2) {
+                    val id = runCatching { MerchantItemId.valueOf(parts[0]) }.getOrNull()
+                    val dur = parts[1].toIntOrNull()
+                    if (id != null && dur != null) {
+                        activeTemporaryMerchantItems[id] = dur
+                    }
+                }
+            }
+        }
+        greedCurseKillCount = prefs.getInt("save_greedKills", 0)
+
+        // Restore endless buffs
+        endlessBuffs.clear()
+        endlessBuffTowerDmg = 1f
+        endlessBuffGold = 1f
+        endlessBuffBaseHp = 0f
+        endlessBuffPowerCdr = 0f
+        endlessBuffCritChance = 0f
+        endlessBuffTowerRange = 1f
+        val buffsRaw = prefs.getString("save_endlessBuffs", "")
+        if (buffsRaw.isNotBlank()) {
+            for (bName in buffsRaw.split(";")) {
+                if (bName.isBlank()) continue
+                val b = runCatching { EndlessBuff.valueOf(bName) }.getOrNull()
+                if (b != null) pickEndlessBuff(b)
+            }
+        }
+
+        // Restore Towers
+        towers.clear()
+        val towersRaw = prefs.getString("save_towers", "")
+        if (towersRaw.isNotBlank()) {
+            for (tStr in towersRaw.split(";")) {
+                if (tStr.isBlank()) continue
+                val p = tStr.split(",")
+                if (p.size >= 5) {
+                    val tx = p[0].toFloatOrNull() ?: continue
+                    val ty = p[1].toFloatOrNull() ?: continue
+                    val tLvl = p[2].toIntOrNull() ?: 1
+                    val tType = runCatching { TowerType.valueOf(p[3]) }.getOrDefault(TowerType.ARROW)
+                    val tTarget = runCatching { TargetingMode.valueOf(p[4]) }.getOrDefault(TargetingMode.CLOSE)
+                    val tRange = if (p.size >= 6) p[5].toFloatOrNull() ?: (tType.baseRange + (tLvl - 1) * 10f) else (tType.baseRange + (tLvl - 1) * 10f)
+                    val tDamage = if (p.size >= 7) p[6].toFloatOrNull() ?: (tType.baseDamage + (tLvl - 1) * (tType.baseDamage * 0.70f)) else (tType.baseDamage + (tLvl - 1) * (tType.baseDamage * 0.70f))
+                    val tFireRate = if (p.size >= 8) p[7].toFloatOrNull() ?: tType.baseFireRate else tType.baseFireRate
+                    val tKills = if (p.size >= 9) p[8].toIntOrNull() ?: 0 else 0
+                    val tDmgDealt = if (p.size >= 10) p[9].toFloatOrNull() ?: 0f else 0f
+                    val tSpec = if (p.size >= 11) runCatching { TowerSpecialization.valueOf(p[10]) }.getOrDefault(TowerSpecialization.NONE) else TowerSpecialization.NONE
+                    towers.add(Tower(
+                        x = tx, y = ty, level = tLvl, range = tRange, damage = tDamage, fireRate = tFireRate,
+                        type = tType, targetingMode = tTarget, specialization = tSpec, totalKills = tKills, totalDamageDealt = tDmgDealt
+                    ))
+                }
+            }
+        }
+
+        // Restore Traps
+        traps.clear()
+        val trapsRaw = prefs.getString("save_traps", "")
+        if (trapsRaw.isNotBlank()) {
+            for (trStr in trapsRaw.split(";")) {
+                if (trStr.isBlank()) continue
+                val p = trStr.split(",")
+                if (p.size >= 5) {
+                    val trx = p[0].toFloatOrNull() ?: continue
+                    val tryY = p[1].toFloatOrNull() ?: continue
+                    val trType = runCatching { TrapType.valueOf(p[2]) }.getOrDefault(TrapType.SPIKE)
+                    val trUses = p[3].toIntOrNull() ?: 1
+                    val trMax = p[4].toIntOrNull() ?: trUses
+                    traps.add(Trap(trx, tryY, trType, uses = trUses, maxUses = trMax))
+                } else if (p.size >= 4) {
+                    val trx = p[0].toFloatOrNull() ?: continue
+                    val tryY = p[1].toFloatOrNull() ?: continue
+                    val trType = runCatching { TrapType.valueOf(p[2]) }.getOrDefault(TrapType.SPIKE)
+                    val trUses = p[3].toIntOrNull() ?: 1
+                    traps.add(Trap(trx, tryY, trType, uses = trUses, maxUses = trUses))
+                }
+            }
+        }
+
+        // Restore Blockades
+        blockades.clear()
+        val blockadesRaw = prefs.getString("save_blockades", "")
+        if (blockadesRaw.isNotBlank()) {
+            for (bStr in blockadesRaw.split(";")) {
+                if (bStr.isBlank()) continue
+                val p = bStr.split(",")
+                if (p.size >= 4) {
+                    val bx = p[0].toFloatOrNull() ?: continue
+                    val by = p[1].toFloatOrNull() ?: continue
+                    val bhp = p[2].toFloatOrNull() ?: 150f
+                    val bmax = p[3].toFloatOrNull() ?: 150f
+                    blockades.add(Blockade(bx, by, hp = bhp, maxHp = bmax))
+                }
+            }
+        }
+
         waveInProgress = false
         waveTimer = 4f
         generateNextWavePreview()
         return true
-    }
+    } }
 
     /** Clear saved game */
     fun clearSave() {
@@ -3223,6 +3857,7 @@ class GameEngine(val prefs: GamePreferences, val audio: GameAudio = SilentAudio)
     fun hasSave(): Boolean = prefs.getBoolean("has_save", false)
 
     fun restart() { synchronized(lock) {
+        clearSave()
         enemies.clear()
         towers.clear()
         projectiles.clear()
@@ -3247,6 +3882,11 @@ class GameEngine(val prefs: GamePreferences, val audio: GameAudio = SilentAudio)
         endlessBuffTowerRange = 1f
         endlessMilestoneChoices = emptyList()
         endlessMilestonePending = false
+        activePermanentMerchantItems.clear()
+        activeTemporaryMerchantItems.clear()
+        merchantShopChoices = emptyList()
+        merchantShopPending = false
+        greedCurseKillCount = 0
         campaignStars = 0
         applyDifficulty(difficulty)
         wave = 0
@@ -3284,8 +3924,8 @@ class GameEngine(val prefs: GamePreferences, val audio: GameAudio = SilentAudio)
         abilityTowerTypesUsed.clear()
         trapsPlacedThisRun = 0
         baseHpBeforeWave = 100f
-        dashCooldown = 0f
-        isDashing = false
+        baseShield = if (skillTree.isRelicUnlocked(RelicId.AEGIS_OF_DAWN)) 100f else 0f
+        aegisHealTimer = 0f
         isNight = false
         eliteSpawnedThisWave = false
         bestCombo = 0
@@ -3296,6 +3936,11 @@ class GameEngine(val prefs: GamePreferences, val audio: GameAudio = SilentAudio)
         totalEnemiesThisWave = 0
         enemiesSpawnedThisWave = 0
         currentWaveModifier = WaveModifier.NONE
+        currentWeather = WeatherEvent.CLEAR
+        showWeatherBanner = false
+        weatherBannerTimer = 0f
+        lightningFlashTimer = 0f
+        lastLightningTarget = null
         isPaused = false
         gameSpeed = 1
         val savedBossRush = isBossRush

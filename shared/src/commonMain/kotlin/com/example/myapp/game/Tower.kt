@@ -1,6 +1,7 @@
 package com.example.myapp.game
 
 import kotlin.math.hypot
+import kotlin.math.min
 
 /**
  * Damage categories — each enemy archetype has its own resistance/weakness profile
@@ -36,6 +37,23 @@ enum class TargetingMode(val label: String) {
 }
 
 /**
+ * Specialization branch choices available to towers when reaching Level 5.
+ */
+enum class TowerSpecialization(
+    val displayName: String,
+    val description: String,
+    val emoji: String
+) {
+    NONE("None", "Default upgrade path", ""),
+    SNIPER("Sniper", "+60 range, 2.5x critical headshot chance", "\uD83C\uDFAF"),
+    RANGER("Ranger", "Fires 3 arrows simultaneously in a volley", "\uD83C\uDFF9"),
+    CLUSTER_MORTAR("Cluster Mortar", "Shells detonate into 3 cluster bomblets", "\uD83D\uDCA3"),
+    RAILGUN("Railgun", "Fires high-velocity piercing beam through all enemies", "\u26A1"),
+    ARCANE_BEAM("Arcane Beam", "Continuous ramping single-target beam", "\uD83D\uDD2E"),
+    RIFT_WARP("Rift Altar", "Periodically teleports enemies 120px back on path", "\uD83C\uDF00")
+}
+
+/**
  * Runtime state for a placed tower. We use a `data class` so equality and toString
  * fall out for free, which makes save/restore and unit tests cleaner.
  *
@@ -53,6 +71,7 @@ data class Tower(
     val size: Float = 35f,
     val type: TowerType = TowerType.ARROW,
     var targetingMode: TargetingMode = TargetingMode.CLOSE,
+    var specialization: TowerSpecialization = TowerSpecialization.NONE,
     var abilityTimer: Float = 0f,
     /** Thorns jam: when > 0 the tower's effective fire rate is halved. */
     var thornJamTimer: Float = 0f,
@@ -86,24 +105,75 @@ data class Tower(
      */
     fun distanceTo(ex: Float, ey: Float): Float = hypot(x - ex, y - ey)
 
-    /** Gold cost of the next upgrade. Scales linearly — predictable for the player. */
-    fun upgradeCost(): Int = level * 50
-
-    /** Apply a single level-up. Numbers tuned for ~10 levels worth of headroom. */
-    fun upgrade() {
-        level++
-        damage *= 1.4f
-        range += 15f
-        fireRate *= 1.15f
+    companion object {
+        const val MAX_TOWER_LEVEL = 10
     }
 
-    /** Refund value if the player sells this tower. 60% base + small per-level bonus. */
-    fun sellValue(): Int = (type.baseCost * 0.6f).toInt() + (level - 1) * 15
+    fun canUpgrade(): Boolean = level < MAX_TOWER_LEVEL
+
+    /** Gold cost of the next upgrade. Scales progressively with base cost and current level. */
+    fun upgradeCost(): Int {
+        if (level >= MAX_TOWER_LEVEL) return Int.MAX_VALUE
+        val base = type.baseCost
+        return (base * (0.6f + level * 0.5f) + (level - 1) * (level - 1) * 15).toInt()
+    }
+
+    /** Apply a single level-up. Balanced linear damage increase with strict caps on range and fire rate. */
+    fun upgrade() {
+        if (level >= MAX_TOWER_LEVEL) return
+        level++
+        damage += type.baseDamage * 0.70f
+        range = min(type.baseRange * 1.5f, range + 10f)
+        fireRate = min(type.baseFireRate * 1.6f, fireRate + type.baseFireRate * 0.08f)
+    }
+
+    /** Refund value if the player sells this tower. 60% of total gold invested. */
+    fun sellValue(): Int {
+        var totalInvested = type.baseCost
+        for (lvl in 1 until level) {
+            val base = type.baseCost
+            totalInvested += (base * (0.6f + lvl * 0.5f) + (lvl - 1) * (lvl - 1) * 15).toInt()
+        }
+        return (totalInvested * 0.6f).toInt()
+    }
 
     fun canUseAbility(): Boolean = abilityTimer <= 0f
 
     fun useAbility() {
         abilityTimer = type.abilityCooldown
+    }
+
+    /** Returns true if this tower has reached level 5 and has not yet chosen a specialization. */
+    fun canSpecialize(): Boolean = level >= 5 && specialization == TowerSpecialization.NONE
+
+    /** Returns available specialization branches for this tower type. */
+    fun availableSpecializations(): List<TowerSpecialization> = when (type) {
+        TowerType.ARROW -> listOf(TowerSpecialization.SNIPER, TowerSpecialization.RANGER)
+        TowerType.CANNON -> listOf(TowerSpecialization.CLUSTER_MORTAR, TowerSpecialization.RAILGUN)
+        TowerType.MAGIC -> listOf(TowerSpecialization.ARCANE_BEAM, TowerSpecialization.RIFT_WARP)
+        else -> emptyList()
+    }
+
+    /** Applies a specialization choice, adapting stats and setting specialization. */
+    fun applySpecialization(spec: TowerSpecialization) {
+        specialization = spec
+        when (spec) {
+            TowerSpecialization.SNIPER -> {
+                range += 60f
+                fireRate *= 0.85f
+            }
+            TowerSpecialization.RANGER -> {
+                fireRate *= 1.15f
+            }
+            TowerSpecialization.ARCANE_BEAM -> {
+                fireRate *= 1.3f
+            }
+            TowerSpecialization.RAILGUN -> {
+                range += 40f
+                damage *= 1.25f
+            }
+            else -> {}
+        }
     }
 }
 
@@ -127,5 +197,7 @@ enum class TowerType(
     NECRO("\uD83D\uDC80", 110, 18f, 200f, 0.6f, DamageType.DARK, 35f, "Soul Harvest"),
     BALLISTA("\uD83C\uDFAF", 140, 50f, 300f, 0.3f, DamageType.PHYSICAL, 40f, "Siege Shot"),
     VORTEX("\uD83C\uDF00", 100, 4f, 240f, 1.5f, DamageType.MAGIC, 28f, "Singularity"),
-    HEALER("\uD83D\uDC9A", 80, 0f, 220f, 0.2f, DamageType.MAGIC, 20f, "Mass Heal")
+    HEALER("\uD83D\uDC9A", 80, 0f, 220f, 0.2f, DamageType.MAGIC, 20f, "Mass Heal");
+
+    val displayName: String get() = name.lowercase().replaceFirstChar { if (it.isLowerCase()) it.titlecase() else it.toString() }
 }

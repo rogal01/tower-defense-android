@@ -5,385 +5,512 @@
     android:layout_height="match_parent"
     android:background="@color/bg_dark">
 
-<ScrollView
-    android:layout_width="match_parent"
-    android:layout_height="match_parent"
-    android:fillViewport="true">
-
-<LinearLayout
-    android:layout_width="match_parent"
-    android:layout_height="wrap_content"
-    android:orientation="vertical"
-    android:gravity="center_horizontal"
-    android:padding="32dp">
-
-    <!-- Language toggle -->
-    <LinearLayout
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:orientation="horizontal"
-        android:gravity="center"
-        android:layout_gravity="end"
-        android:layout_marginBottom="4dp">
-        <Button
-            android:id="@+id/btn_lang_en"
-            android:layout_width="48dp"
-            android:layout_height="36dp"
-            android:text="🇺🇸"
-            android:textSize="18sp"
-            android:padding="0dp"
-            android:minWidth="0dp"
-            android:minHeight="0dp"
-            android:backgroundTint="#33FFFFFF"
-            android:layout_marginEnd="4dp" />
-        <Button
-            android:id="@+id/btn_lang_pl"
-            android:layout_width="48dp"
-            android:layout_height="36dp"
-            android:text="🇵🇱"
-            android:textSize="18sp"
-            android:padding="0dp"
-            android:minWidth="0dp"
-            android:minHeight="0dp"
-            android:backgroundTint="#33FFFFFF" />
-    </LinearLayout>
-
-    <!-- Title -->
-    <TextView
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:text="🏰"
-        android:textSize="72sp"
-        android:gravity="center"
-        android:layout_marginTop="24dp" />
-
-    <TextView
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:text="@string/app_name"
-        android:textColor="@color/gold"
-        android:textSize="40sp"
-        android:textStyle="bold"
-        android:gravity="center"
-        android:layout_marginTop="8dp" />
-
-    <TextView
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:text="@string/menu_subtitle"
-        android:textColor="@color/text_secondary"
-        android:textSize="16sp"
-        android:gravity="center"
-        android:layout_marginTop="4dp" />
-
-    <!-- High Score -->
-    <TextView
-        android:id="@+id/text_high_score"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:textColor="@color/gold"
-        android:textSize="16sp"
-        android:gravity="center"
-        android:layout_marginTop="16dp" />
-
-    <!-- Difficulty is chosen inside Endless popup — no standalone selector -->
-
-    <!-- Campaign button (primary) -->
-    <Button
-        android:id="@+id/btn_campaign"
+    <ScrollView
         android:layout_width="match_parent"
-        android:layout_height="64dp"
-        android:layout_marginTop="24dp"
-        android:text="@string/campaign"
-        android:textSize="22sp"
-        android:textStyle="bold"
-        android:backgroundTint="#FF9800"
-        android:textColor="@color/bg_dark" />
+        android:layout_height="match_parent"
+        android:fillViewport="true"
+        android:scrollbars="none">
 
-    <!-- Endless Mode button (primary play mode) -->
-    <Button
-        android:id="@+id/btn_endless"
-        android:layout_width="match_parent"
-        android:layout_height="64dp"
-        android:layout_marginTop="8dp"
-        android:text="@string/endless_mode"
-        android:textSize="22sp"
-        android:textStyle="bold"
-        android:backgroundTint="@color/gold"
-        android:textColor="@color/bg_dark" />
-
-    <!-- Continue saved game -->
-    <Button
-        android:id="@+id/btn_continue"
-        android:layout_width="match_parent"
-        android:layout_height="52dp"
-        android:layout_marginTop="8dp"
-        android:text="@string/continue_game"
-        android:textSize="18sp"
-        android:textStyle="bold"
-        android:backgroundTint="#4CAF50"
-        android:textColor="@color/bg_dark"
-        android:visibility="gone" />
-
-    <!-- Endless high wave -->
-    <TextView
-        android:id="@+id/text_endless_record"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:textColor="#E040FB"
-        android:textSize="14sp"
-        android:gravity="center"
-        android:layout_marginTop="4dp" />
-
-    <!-- Boss Rush high wave -->
-    <TextView
-        android:id="@+id/text_boss_rush_record"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:textColor="#D50000"
-        android:textSize="14sp"
-        android:gravity="center"
-        android:layout_marginTop="4dp" />
-
-    <!-- More Modes — expandable toggle -->
-    <Button
-        android:id="@+id/btn_more_modes"
-        android:layout_width="match_parent"
-        android:layout_height="52dp"
-        android:layout_marginTop="8dp"
-        android:text="\u25B6 More Modes"
-        android:textSize="18sp"
-        android:textStyle="bold"
-        android:backgroundTint="#546E7A"
-        android:textColor="@android:color/white" />
-
-    <!-- Collapsible modes container -->
-    <LinearLayout
-        android:id="@+id/modes_container"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:orientation="vertical"
-        android:visibility="gone">
-
-        <!-- Boss Rush button -->
-        <Button
-            android:id="@+id/btn_boss_rush"
+        <LinearLayout
             android:layout_width="match_parent"
-            android:layout_height="48dp"
-            android:layout_marginTop="4dp"
-            android:text="@string/boss_rush"
-            android:textSize="16sp"
-            android:textStyle="bold"
-            android:backgroundTint="#D50000"
-            android:textColor="@android:color/white" />
-
-        <!-- Randomizer button -->
-        <Button
-            android:id="@+id/btn_randomizer"
-            android:layout_width="match_parent"
-            android:layout_height="48dp"
-            android:layout_marginTop="4dp"
-            android:text="@string/randomizer"
-            android:textSize="16sp"
-            android:textStyle="bold"
-            android:backgroundTint="#AA00FF"
-            android:textColor="@android:color/white" />
-
-        <!-- Survival button -->
-        <Button
-            android:id="@+id/btn_survival"
-            android:layout_width="match_parent"
-            android:layout_height="48dp"
-            android:layout_marginTop="4dp"
-            android:text="@string/survival_mode"
-            android:textSize="16sp"
-            android:textStyle="bold"
-            android:backgroundTint="#795548"
-            android:textColor="@android:color/white" />
-
-        <!-- Arena button -->
-        <Button
-            android:id="@+id/btn_arena"
-            android:layout_width="match_parent"
-            android:layout_height="48dp"
-            android:layout_marginTop="4dp"
-            android:text="@string/arena_mode"
-            android:textSize="16sp"
-            android:textStyle="bold"
-            android:backgroundTint="#F57C00"
-            android:textColor="@android:color/white" />
-
-        <!-- Ironman button -->
-        <Button
-            android:id="@+id/btn_ironman"
-            android:layout_width="match_parent"
-            android:layout_height="48dp"
-            android:layout_marginTop="4dp"
-            android:text="@string/ironman_mode"
-            android:textSize="16sp"
-            android:textStyle="bold"
-            android:backgroundTint="#B71C1C"
-            android:textColor="@android:color/white" />
-
-        <!-- Loadout button -->
-        <Button
-            android:id="@+id/btn_loadout"
-            android:layout_width="match_parent"
-            android:layout_height="48dp"
-            android:layout_marginTop="4dp"
-            android:text="@string/loadout_mode"
-            android:textSize="16sp"
-            android:textStyle="bold"
-            android:backgroundTint="#00838F"
-            android:textColor="@android:color/white" />
-
-    </LinearLayout>
-
-    <!-- Settings button -->
-    <Button
-        android:id="@+id/btn_settings"
-        style="@style/Widget.MaterialComponents.Button.OutlinedButton"
-        android:layout_width="match_parent"
-        android:layout_height="48dp"
-        android:layout_marginTop="12dp"
-        android:text="@string/settings"
-        android:textSize="16sp"
-        android:textColor="@color/text_secondary" />
-
-    <!-- Skill Tree button -->
-    <Button
-        android:id="@+id/btn_skill_tree"
-        android:layout_width="match_parent"
-        android:layout_height="48dp"
-        android:layout_marginTop="8dp"
-        android:text="@string/skill_tree"
-        android:textSize="16sp"
-        android:backgroundTint="#00E5FF"
-        android:textColor="@color/bg_dark" />
-
-    <!-- Statistics button -->
-    <Button
-        android:id="@+id/btn_stats"
-        style="@style/Widget.MaterialComponents.Button.OutlinedButton"
-        android:layout_width="match_parent"
-        android:layout_height="48dp"
-        android:layout_marginTop="8dp"
-        android:text="@string/statistics"
-        android:textSize="16sp"
-        android:textColor="@color/text_secondary" />
-
-    <!-- Achievements button -->
-    <Button
-        android:id="@+id/btn_achievements"
-        style="@style/Widget.MaterialComponents.Button.OutlinedButton"
-        android:layout_width="match_parent"
-        android:layout_height="48dp"
-        android:layout_marginTop="8dp"
-        android:text="@string/achievements"
-        android:textSize="16sp"
-        android:textColor="@color/text_secondary" />
-
-    <!-- Daily Challenge button -->
-    <Button
-        android:id="@+id/btn_daily"
-        android:layout_width="match_parent"
-        android:layout_height="48dp"
-        android:layout_marginTop="8dp"
-        android:text="@string/daily_challenge"
-        android:textSize="16sp"
-        android:backgroundTint="#FFAB00"
-        android:textColor="@color/bg_dark" />
-
-    <!-- Help button -->
-    <Button
-        android:id="@+id/btn_help"
-        style="@style/Widget.MaterialComponents.Button.OutlinedButton"
-        android:layout_width="match_parent"
-        android:layout_height="48dp"
-        android:layout_marginTop="8dp"
-        android:text="@string/help_mechanics"
-        android:textSize="16sp"
-        android:textColor="@color/text_secondary" />
-
-    <!-- Run History button -->
-    <Button
-        android:id="@+id/btn_history"
-        style="@style/Widget.MaterialComponents.Button.OutlinedButton"
-        android:layout_width="match_parent"
-        android:layout_height="48dp"
-        android:layout_marginTop="4dp"
-        android:text="\uD83D\uDCDC Run History"
-        android:textSize="16sp"
-        android:textColor="@color/text_secondary" />
-
-    <!-- Diamond counter -->
-    <TextView
-        android:id="@+id/text_diamonds"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:textColor="#00E5FF"
-        android:textSize="16sp"
-        android:textStyle="bold"
-        android:gravity="center"
-        android:layout_marginTop="8dp" />
-
-    <!-- Beta tester banner — shown only in debug builds via code -->
-    <LinearLayout
-        android:id="@+id/beta_banner"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:orientation="vertical"
-        android:background="#33FF9800"
-        android:padding="12dp"
-        android:layout_marginTop="16dp"
-        android:gravity="center"
-        android:visibility="gone">
-        <TextView
-            android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="\uD83E\uDDEA BETA BUILD"
-            android:textColor="#FF9800"
-            android:textSize="16sp"
-            android:textStyle="bold"
-            android:gravity="center" />
-        <TextView
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="Thanks for testing! Report bugs to rogal01."
-            android:textColor="#CCCCCC"
-            android:textSize="12sp"
-            android:gravity="center"
-            android:layout_marginTop="2dp" />
-    </LinearLayout>
+            android:orientation="vertical"
+            android:paddingHorizontal="24dp"
+            android:paddingTop="16dp"
+            android:paddingBottom="32dp"
+            android:gravity="center_horizontal">
 
-    <!-- Copyright -->
-    <TextView
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:text="© 2025–2026 rogal01 · MIT License"
-        android:textColor="#666666"
-        android:textSize="11sp"
-        android:gravity="center"
-        android:layout_marginTop="12dp"
-        android:layout_marginBottom="24dp" />
+            <!-- Top Action Bar: Daily Reward, Diamonds Pill, Language Switcher -->
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:gravity="center_vertical"
+                android:layout_marginBottom="16dp">
 
-</LinearLayout>
-</ScrollView>
+                <!-- Daily Reward Button -->
+                <Button
+                    android:id="@+id/btn_daily_reward"
+                    android:layout_width="44dp"
+                    android:layout_height="44dp"
+                    android:text="📅"
+                    android:textSize="20sp"
+                    android:background="@drawable/bg_card_menu_primary"
+                    android:padding="0dp"
+                    android:minWidth="0dp"
+                    android:minHeight="0dp" />
 
-<!-- Floating Daily Reward calendar button -->
-<Button
-    android:id="@+id/btn_daily_reward"
-    android:layout_width="56dp"
-    android:layout_height="56dp"
-    android:layout_gravity="top|end"
-    android:layout_marginTop="12dp"
-    android:layout_marginEnd="12dp"
-    android:text="📅"
-    android:textSize="24sp"
-    android:backgroundTint="#FF6F00"
-    android:elevation="8dp"
-    android:padding="0dp"
-    android:minWidth="0dp"
-    android:minHeight="0dp" />
+                <!-- Spacer -->
+                <View
+                    android:layout_width="0dp"
+                    android:layout_height="1dp"
+                    android:layout_weight="1" />
 
+                <!-- Diamonds Badge Pill -->
+                <LinearLayout
+                    android:layout_width="wrap_content"
+                    android:layout_height="38dp"
+                    android:orientation="horizontal"
+                    android:gravity="center_vertical"
+                    android:background="@drawable/bg_hud_chip"
+                    android:paddingHorizontal="12dp"
+                    android:layout_marginEnd="8dp">
+
+                    <TextView
+                        android:id="@+id/text_diamonds"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:textColor="#00E5FF"
+                        android:textSize="14sp"
+                        android:textStyle="bold"
+                        android:text="💎 0" />
+                </LinearLayout>
+
+                <!-- Language toggle -->
+                <LinearLayout
+                    android:layout_width="wrap_content"
+                    android:layout_height="38dp"
+                    android:orientation="horizontal"
+                    android:gravity="center_vertical"
+                    android:background="@drawable/bg_card_glass"
+                    android:padding="3dp">
+
+                    <Button
+                        android:id="@+id/btn_lang_en"
+                        android:layout_width="38dp"
+                        android:layout_height="32dp"
+                        android:text="🇺🇸"
+                        android:textSize="16sp"
+                        android:padding="0dp"
+                        android:minWidth="0dp"
+                        android:minHeight="0dp"
+                        android:background="@drawable/bg_pill_lang" />
+
+                    <Button
+                        android:id="@+id/btn_lang_pl"
+                        android:layout_width="38dp"
+                        android:layout_height="32dp"
+                        android:text="🇵🇱"
+                        android:textSize="16sp"
+                        android:padding="0dp"
+                        android:minWidth="0dp"
+                        android:minHeight="0dp"
+                        android:layout_marginStart="3dp"
+                        android:background="@drawable/bg_pill_lang" />
+                </LinearLayout>
+            </LinearLayout>
+
+            <!-- Title & Branding -->
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="🏰"
+                android:textSize="64sp"
+                android:gravity="center"
+                android:layout_marginTop="8dp" />
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="@string/app_name"
+                android:textColor="@color/gold"
+                android:textSize="32sp"
+                android:textStyle="bold"
+                android:gravity="center"
+                android:layout_marginTop="4dp" />
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="@string/menu_subtitle"
+                android:textColor="@color/text_secondary"
+                android:textSize="14sp"
+                android:gravity="center"
+                android:layout_marginTop="2dp" />
+
+            <!-- High Score Chip Card -->
+            <LinearLayout
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:gravity="center"
+                android:background="@drawable/bg_hud_chip"
+                android:paddingHorizontal="16dp"
+                android:paddingVertical="6dp"
+                android:layout_marginTop="12dp">
+
+                <TextView
+                    android:id="@+id/text_high_score"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:textColor="@color/gold"
+                    android:textSize="13sp"
+                    android:textStyle="bold"
+                    android:gravity="center" />
+            </LinearLayout>
+
+            <!-- Main Play Cards -->
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:layout_marginTop="24dp">
+
+                <!-- Continue Saved Game (Gone by default) -->
+                <Button
+                    android:id="@+id/btn_continue"
+                    android:layout_width="match_parent"
+                    android:layout_height="54dp"
+                    android:text="@string/continue_game"
+                    android:textSize="16sp"
+                    android:textStyle="bold"
+                    android:textAllCaps="false"
+                    android:background="@drawable/bg_card_menu_emerald"
+                    android:textColor="#FFFFFF"
+                    android:elevation="4dp"
+                    android:layout_marginBottom="10dp"
+                    android:visibility="gone" />
+
+                <!-- Campaign Button (Hero Card) -->
+                <Button
+                    android:id="@+id/btn_campaign"
+                    android:layout_width="match_parent"
+                    android:layout_height="58dp"
+                    android:text="@string/campaign"
+                    android:textSize="18sp"
+                    android:textStyle="bold"
+                    android:textAllCaps="false"
+                    android:background="@drawable/bg_card_menu_primary"
+                    android:textColor="#101820"
+                    android:elevation="6dp"
+                    android:layout_marginBottom="10dp" />
+
+                <!-- Endless Mode Button (Secondary Hero Card) -->
+                <Button
+                    android:id="@+id/btn_endless"
+                    android:layout_width="match_parent"
+                    android:layout_height="54dp"
+                    android:text="@string/endless_mode"
+                    android:textSize="16sp"
+                    android:textStyle="bold"
+                    android:textAllCaps="false"
+                    android:background="@drawable/bg_card_menu_secondary"
+                    android:textColor="#FFFFFF"
+                    android:elevation="4dp"
+                    android:layout_marginBottom="6dp" />
+
+                <!-- Records Info -->
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="horizontal"
+                    android:gravity="center"
+                    android:layout_marginBottom="8dp">
+
+                    <TextView
+                        android:id="@+id/text_endless_record"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:textColor="#E040FB"
+                        android:textSize="12sp"
+                        android:layout_marginHorizontal="6dp" />
+
+                    <TextView
+                        android:id="@+id/text_boss_rush_record"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:textColor="#EF5350"
+                        android:textSize="12sp"
+                        android:layout_marginHorizontal="6dp" />
+                </LinearLayout>
+            </LinearLayout>
+
+            <!-- Quick Features 2-Column Grid -->
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:layout_marginTop="8dp">
+
+                <!-- Row 1: Daily Challenge + Skill Tree -->
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="horizontal"
+                    android:layout_marginBottom="8dp">
+
+                    <Button
+                        android:id="@+id/btn_daily"
+                        android:layout_width="0dp"
+                        android:layout_height="48dp"
+                        android:layout_weight="1"
+                        android:layout_marginEnd="4dp"
+                        android:text="@string/daily_challenge"
+                        android:textSize="13sp"
+                        android:textStyle="bold"
+                        android:textAllCaps="false"
+                        android:background="@drawable/bg_card_menu_action"
+                        android:textColor="@color/gold"
+                        android:padding="0dp" />
+
+                    <Button
+                        android:id="@+id/btn_skill_tree"
+                        android:layout_width="0dp"
+                        android:layout_height="48dp"
+                        android:layout_weight="1"
+                        android:layout_marginStart="4dp"
+                        android:text="@string/skill_tree"
+                        android:textSize="13sp"
+                        android:textStyle="bold"
+                        android:textAllCaps="false"
+                        android:background="@drawable/bg_card_menu_action"
+                        android:textColor="#00E5FF"
+                        android:padding="0dp" />
+                </LinearLayout>
+
+                <!-- Row 2: Achievements + Statistics -->
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="horizontal"
+                    android:layout_marginBottom="8dp">
+
+                    <Button
+                        android:id="@+id/btn_achievements"
+                        android:layout_width="0dp"
+                        android:layout_height="48dp"
+                        android:layout_weight="1"
+                        android:layout_marginEnd="4dp"
+                        android:text="@string/achievements"
+                        android:textSize="13sp"
+                        android:textStyle="bold"
+                        android:textAllCaps="false"
+                        android:background="@drawable/bg_card_menu_action"
+                        android:textColor="#E0E0E0"
+                        android:padding="0dp" />
+
+                    <Button
+                        android:id="@+id/btn_stats"
+                        android:layout_width="0dp"
+                        android:layout_height="48dp"
+                        android:layout_weight="1"
+                        android:layout_marginStart="4dp"
+                        android:text="@string/statistics"
+                        android:textSize="13sp"
+                        android:textStyle="bold"
+                        android:textAllCaps="false"
+                        android:background="@drawable/bg_card_menu_action"
+                        android:textColor="#E0E0E0"
+                        android:padding="0dp" />
+                </LinearLayout>
+
+                <!-- Row 3: Run History + Settings -->
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="horizontal"
+                    android:layout_marginBottom="8dp">
+
+                    <Button
+                        android:id="@+id/btn_history"
+                        android:layout_width="0dp"
+                        android:layout_height="48dp"
+                        android:layout_weight="1"
+                        android:layout_marginEnd="4dp"
+                        android:text="📜 Run History"
+                        android:textSize="13sp"
+                        android:textStyle="bold"
+                        android:textAllCaps="false"
+                        android:background="@drawable/bg_card_menu_action"
+                        android:textColor="#E0E0E0"
+                        android:padding="0dp" />
+
+                    <Button
+                        android:id="@+id/btn_settings"
+                        android:layout_width="0dp"
+                        android:layout_height="48dp"
+                        android:layout_weight="1"
+                        android:layout_marginStart="4dp"
+                        android:text="@string/settings"
+                        android:textSize="13sp"
+                        android:textStyle="bold"
+                        android:textAllCaps="false"
+                        android:background="@drawable/bg_card_menu_action"
+                        android:textColor="#E0E0E0"
+                        android:padding="0dp" />
+                </LinearLayout>
+
+                <!-- Row 4: Bestiary & Codex + Help / Mechanics -->
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="horizontal"
+                    android:layout_marginBottom="12dp">
+
+                    <Button
+                        android:id="@+id/btn_bestiary"
+                        android:layout_width="0dp"
+                        android:layout_height="48dp"
+                        android:layout_weight="1"
+                        android:layout_marginEnd="4dp"
+                        android:text="📖 Bestiary"
+                        android:textSize="13sp"
+                        android:textStyle="bold"
+                        android:textAllCaps="false"
+                        android:background="@drawable/bg_card_menu_action"
+                        android:textColor="#FFD54F"
+                        android:padding="0dp" />
+
+                    <Button
+                        android:id="@+id/btn_help"
+                        android:layout_width="0dp"
+                        android:layout_height="48dp"
+                        android:layout_weight="1"
+                        android:layout_marginStart="4dp"
+                        android:text="@string/help_mechanics"
+                        android:textSize="13sp"
+                        android:textStyle="bold"
+                        android:textAllCaps="false"
+                        android:background="@drawable/bg_card_menu_action"
+                        android:textColor="#B0BEC5"
+                        android:padding="0dp" />
+                </LinearLayout>
+            </LinearLayout>
+
+            <!-- More Modes Collapsible -->
+            <Button
+                android:id="@+id/btn_more_modes"
+                android:layout_width="match_parent"
+                android:layout_height="46dp"
+                android:text="▶ More Modes"
+                android:textSize="14sp"
+                android:textStyle="bold"
+                android:textAllCaps="false"
+                android:background="@drawable/bg_btn_action"
+                android:textColor="#ECEFF1" />
+
+            <LinearLayout
+                android:id="@+id/modes_container"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:paddingTop="6dp"
+                android:visibility="gone">
+
+                <Button
+                    android:id="@+id/btn_boss_rush"
+                    android:layout_width="match_parent"
+                    android:layout_height="46dp"
+                    android:layout_marginTop="4dp"
+                    android:text="@string/boss_rush"
+                    android:textSize="14sp"
+                    android:textStyle="bold"
+                    android:textAllCaps="false"
+                    android:background="@drawable/bg_btn_danger"
+                    android:textColor="#FFFFFF" />
+
+                <Button
+                    android:id="@+id/btn_randomizer"
+                    android:layout_width="match_parent"
+                    android:layout_height="46dp"
+                    android:layout_marginTop="6dp"
+                    android:text="@string/randomizer"
+                    android:textSize="14sp"
+                    android:textStyle="bold"
+                    android:textAllCaps="false"
+                    android:background="@drawable/bg_card_menu_secondary"
+                    android:textColor="#FFFFFF" />
+
+                <Button
+                    android:id="@+id/btn_survival"
+                    android:layout_width="match_parent"
+                    android:layout_height="46dp"
+                    android:layout_marginTop="6dp"
+                    android:text="@string/survival_mode"
+                    android:textSize="14sp"
+                    android:textStyle="bold"
+                    android:textAllCaps="false"
+                    android:background="@drawable/bg_btn_action"
+                    android:textColor="#FFFFFF" />
+
+                <Button
+                    android:id="@+id/btn_arena"
+                    android:layout_width="match_parent"
+                    android:layout_height="46dp"
+                    android:layout_marginTop="6dp"
+                    android:text="@string/arena_mode"
+                    android:textSize="14sp"
+                    android:textStyle="bold"
+                    android:textAllCaps="false"
+                    android:background="@drawable/bg_btn_action"
+                    android:textColor="#FFFFFF" />
+
+                <Button
+                    android:id="@+id/btn_ironman"
+                    android:layout_width="match_parent"
+                    android:layout_height="46dp"
+                    android:layout_marginTop="6dp"
+                    android:text="@string/ironman_mode"
+                    android:textSize="14sp"
+                    android:textStyle="bold"
+                    android:textAllCaps="false"
+                    android:background="@drawable/bg_btn_danger"
+                    android:textColor="#FFFFFF" />
+
+                <Button
+                    android:id="@+id/btn_loadout"
+                    android:layout_width="match_parent"
+                    android:layout_height="46dp"
+                    android:layout_marginTop="6dp"
+                    android:text="@string/loadout_mode"
+                    android:textSize="14sp"
+                    android:textStyle="bold"
+                    android:textAllCaps="false"
+                    android:background="@drawable/bg_btn_action"
+                    android:textColor="#FFFFFF" />
+            </LinearLayout>
+
+            <!-- Beta banner -->
+            <LinearLayout
+                android:id="@+id/beta_banner"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:background="@drawable/bg_card_glass"
+                android:padding="12dp"
+                android:layout_marginTop="20dp"
+                android:gravity="center"
+                android:visibility="gone">
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="🧪 BETA BUILD"
+                    android:textColor="@color/gold"
+                    android:textSize="14sp"
+                    android:textStyle="bold"
+                    android:gravity="center" />
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Thanks for testing! Report bugs to rogal01."
+                    android:textColor="#CCCCCC"
+                    android:textSize="12sp"
+                    android:gravity="center"
+                    android:layout_marginTop="2dp" />
+            </LinearLayout>
+
+            <!-- Copyright -->
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="© 2025–2026 rogal01 · MIT License"
+                android:textColor="#78909C"
+                android:textSize="11sp"
+                android:gravity="center"
+                android:layout_marginTop="16dp" />
+
+        </LinearLayout>
+    </ScrollView>
 </FrameLayout>

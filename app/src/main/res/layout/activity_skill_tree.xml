@@ -5,7 +5,7 @@
     android:layout_height="match_parent"
     android:orientation="vertical"
     android:background="@color/bg_dark"
-    android:padding="20dp">
+    android:padding="16dp">
 
     <!-- Header -->
     <LinearLayout
@@ -13,23 +13,24 @@
         android:layout_height="wrap_content"
         android:orientation="horizontal"
         android:gravity="center_vertical"
-        android:layout_marginBottom="12dp">
+        android:layout_marginBottom="8dp">
 
         <ImageButton
             android:id="@+id/btn_back"
-            android:layout_width="48dp"
-            android:layout_height="48dp"
+            android:layout_width="44dp"
+            android:layout_height="44dp"
             android:src="@android:drawable/ic_menu_revert"
             android:background="?attr/selectableItemBackgroundBorderless"
             android:contentDescription="@string/back" />
 
         <TextView
+            android:id="@+id/text_header_title"
             android:layout_width="0dp"
             android:layout_height="wrap_content"
             android:layout_weight="1"
             android:text="@string/skill_tree_title"
             android:textColor="@color/gold"
-            android:textSize="26sp"
+            android:textSize="22sp"
             android:textStyle="bold"
             android:gravity="center" />
 
@@ -40,20 +41,53 @@
             android:layout_height="wrap_content"
             android:text="💎 0"
             android:textColor="#00E5FF"
-            android:textSize="20sp"
+            android:textSize="18sp"
             android:textStyle="bold" />
     </LinearLayout>
 
+    <!-- Tab Toggle -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:layout_marginBottom="10dp">
+
+        <Button
+            android:id="@+id/btn_tab_skills"
+            android:layout_width="0dp"
+            android:layout_height="40dp"
+            android:layout_weight="1"
+            android:text="💎 Passives"
+            android:textSize="12sp"
+            android:textStyle="bold"
+            android:textColor="#FFFFFF"
+            android:background="@drawable/bg_tab_active"
+            android:layout_marginEnd="6dp" />
+
+        <Button
+            android:id="@+id/btn_tab_relics"
+            android:layout_width="0dp"
+            android:layout_height="40dp"
+            android:layout_weight="1"
+            android:text="🏺 Relic Vault"
+            android:textSize="12sp"
+            android:textStyle="bold"
+            android:textColor="#90A4AE"
+            android:background="@drawable/bg_tab_inactive"
+            android:layout_marginStart="6dp" />
+    </LinearLayout>
+
     <TextView
+        android:id="@+id/text_subtitle"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:text="@string/skill_tree_subtitle"
         android:textColor="@color/text_secondary"
-        android:textSize="14sp"
+        android:textSize="13sp"
         android:gravity="center"
-        android:layout_marginBottom="16dp" />
+        android:layout_marginBottom="12dp" />
 
-    <!-- Skill list — scrollable -->
+    <!-- Content container — scrollable -->
     <ScrollView
         android:layout_width="match_parent"
         android:layout_height="0dp"

@@ -6,9 +6,14 @@ import android.widget.Toast
 import android.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import com.example.myapp.databinding.ActivityMainBinding
+import android.graphics.Color
+import android.content.Intent
+import android.view.HapticFeedbackConstants
 import com.example.myapp.game.CampaignData
 import com.example.myapp.game.EndlessBuff
+import com.example.myapp.game.MerchantCard
 import com.example.myapp.game.PowerType
+import com.example.myapp.game.SfxType
 import com.example.myapp.game.TowerType
 import com.example.myapp.game.TrapType
 
@@ -21,6 +26,10 @@ class MainActivity : ImmersiveActivity() {
     private val cooldownRunnable = object : Runnable {
         override fun run() {
             updatePowerButtons()
+            val sel = runCatching { binding.gameView.getSelectedTower() }.getOrNull()
+            if (sel != null && binding.layoutTowerInspector.visibility == View.VISIBLE) {
+                updateTowerInspector(sel)
+            }
             cooldownHandler.postDelayed(this, 500)
         }
     }
@@ -41,14 +50,6 @@ class MainActivity : ImmersiveActivity() {
         applyBtn(binding.btnPowerFireball,  com.example.myapp.game.PowerType.FIREBALL,  "\uD83D\uDD25",   0xFFFF7043.toInt())
         applyBtn(binding.btnPowerFreeze,    com.example.myapp.game.PowerType.FREEZE,    "\u2744\uFE0F", 0xFF42A5F5.toInt())
         applyBtn(binding.btnPowerLightning, com.example.myapp.game.PowerType.LIGHTNING, "\u26A1",         0xFFFFD700.toInt())
-        val dashCd = engine.dashCooldown
-        if (dashCd > 0f) {
-            binding.btnDash.text = "${dashCd.toInt() + 1}"
-            binding.btnDash.alpha = 0.45f
-        } else {
-            binding.btnDash.text = "\uD83D\uDCA8"
-            binding.btnDash.alpha = 1f
-        }
     }
 
     override fun onStart() {
@@ -150,9 +151,11 @@ class MainActivity : ImmersiveActivity() {
             binding.btnTowerHealer.visibility = if (TowerType.HEALER in loadoutSet) View.VISIBLE else View.GONE
         }
 
-        // Campaign victory — return to level select
+        // Campaign victory
         gameView.onCampaignVictory = {
-            finish()
+            runOnUiThread {
+                showBattleResultsDialog(isVictory = true, score = engine.score, wave = engine.wave)
+            }
         }
 
         // HUD updates from game thread
@@ -162,6 +165,9 @@ class MainActivity : ImmersiveActivity() {
         }
         gameView.onWaveChanged = { wave ->
             binding.textWave.text = S.waveHud(wave)
+            if (!engine.gameOver && !engine.campaignVictory && wave > 0) {
+                engine.saveGame()
+            }
         }
         gameView.onDiamondsChanged = { diamonds ->
             binding.textKills.text = S.diamondsHud(diamonds)
@@ -169,105 +175,61 @@ class MainActivity : ImmersiveActivity() {
         gameView.onGameOver = { score, wave ->
             binding.textGold.text = S.gameOverHud(score, wave)
             binding.textWave.text = S.gameOverWaveHud(score, wave)
-            val goDialog = AlertDialog.Builder(this@MainActivity, com.google.android.material.R.style.ThemeOverlay_MaterialComponents_Dialog_Alert)
-                .setTitle("Game Over")
-                .setMessage("Wave $wave  ·  Score $score")
-                .setPositiveButton("▶ Play Again") { _, _ ->
-                    synchronized(engine.lock) { engine.restart() }
-                    gameView.resetGameOverState()
+            showBattleResultsDialog(isVictory = false, score = score, wave = wave)
+        }
+
+        // Setup bottom categorized dock tabs
+        setupCategoryTabs()
+
+        // Setup placement cancellation & inspector close
+        binding.btnCancelPlacement.setOnClickListener {
+            exitPlacement()
+        }
+        binding.btnInspectorClose.setOnClickListener {
+            gameView.clearSelectedTower()
+        }
+
+        // Placement mode change callback from GameView
+        gameView.onPlacementModeChanged = { isPlacing ->
+            if (!isPlacing) {
+                binding.layoutPlacementBar.visibility = View.GONE
+                if (gameView.getSelectedTower() != null) {
+                    binding.layoutTowerInspector.visibility = View.VISIBLE
+                } else {
+                    binding.layoutBuildDock.visibility = View.VISIBLE
                 }
-                .setNegativeButton("🏠 Menu") { _, _ ->
-                    finish()
-                }
-                .setCancelable(true)
-                .create()
-            goDialog.show()
-            goDialog.window?.setBackgroundDrawableResource(android.R.color.transparent)
-            goDialog.getButton(AlertDialog.BUTTON_POSITIVE)?.setTextColor(0xFF4CAF50.toInt())
-            goDialog.getButton(AlertDialog.BUTTON_NEGATIVE)?.setTextColor(0xFF9E9E9E.toInt())
+            }
+        }
+
+        // Selected tower callback from GameView
+        gameView.onTowerSelected = { tower ->
+            updateTowerInspector(tower)
         }
 
         // Tower placement buttons
-        binding.btnTowerArrow.setOnClickListener {
-            val cost = engine.getTowerCost(TowerType.ARROW)
-            if (engine.gold >= cost) {
-                gameView.placementMode = TowerType.ARROW
-                Toast.makeText(this, S.towerPlacementToast("🏹", "Arrow", cost), Toast.LENGTH_SHORT).show()
-            } else Toast.makeText(this, S.notEnoughGold, Toast.LENGTH_SHORT).show()
+        fun bindTowerBtn(btn: android.widget.Button, type: TowerType, name: String, emoji: String) {
+            btn.setOnClickListener {
+                val cost = engine.getTowerCost(type)
+                startPlacement(name, emoji, cost) {
+                    gameView.placementMode = type
+                }
+            }
         }
-        binding.btnTowerMagic.setOnClickListener {
-            val cost = engine.getTowerCost(TowerType.MAGIC)
-            if (engine.gold >= cost) {
-                gameView.placementMode = TowerType.MAGIC
-                Toast.makeText(this, S.towerPlacementToast("🧨", "Magic", cost), Toast.LENGTH_SHORT).show()
-            } else Toast.makeText(this, S.notEnoughGold, Toast.LENGTH_SHORT).show()
-        }
-        binding.btnTowerCannon.setOnClickListener {
-            val cost = engine.getTowerCost(TowerType.CANNON)
-            if (engine.gold >= cost) {
-                gameView.placementMode = TowerType.CANNON
-                Toast.makeText(this, S.towerPlacementToast("💣", "Cannon", cost), Toast.LENGTH_SHORT).show()
-            } else Toast.makeText(this, S.notEnoughGold, Toast.LENGTH_SHORT).show()
-        }
-        binding.btnTowerPoison.setOnClickListener {
-            val cost = engine.getTowerCost(TowerType.POISON)
-            if (engine.gold >= cost) {
-                gameView.placementMode = TowerType.POISON
-                Toast.makeText(this, S.towerPlacementToast("☠️", "Poison", cost), Toast.LENGTH_SHORT).show()
-            } else Toast.makeText(this, S.notEnoughGold, Toast.LENGTH_SHORT).show()
-        }
-        binding.btnTowerTesla.setOnClickListener {
-            val cost = engine.getTowerCost(TowerType.TESLA)
-            if (engine.gold >= cost) {
-                gameView.placementMode = TowerType.TESLA
-                Toast.makeText(this, S.towerPlacementToast("⚡", "Tesla", cost), Toast.LENGTH_SHORT).show()
-            } else Toast.makeText(this, S.notEnoughGold, Toast.LENGTH_SHORT).show()
-        }
-        binding.btnTowerIce.setOnClickListener {
-            val cost = engine.getTowerCost(TowerType.ICE)
-            if (engine.gold >= cost) {
-                gameView.placementMode = TowerType.ICE
-                Toast.makeText(this, S.towerPlacementToast("❄️", "Ice", cost), Toast.LENGTH_SHORT).show()
-            } else Toast.makeText(this, S.notEnoughGold, Toast.LENGTH_SHORT).show()
-        }
-        binding.btnTowerFlame.setOnClickListener {
-            val cost = engine.getTowerCost(TowerType.FLAME)
-            if (engine.gold >= cost) {
-                gameView.placementMode = TowerType.FLAME
-                Toast.makeText(this, S.towerPlacementToast("🔥", "Flame", cost), Toast.LENGTH_SHORT).show()
-            } else Toast.makeText(this, S.notEnoughGold, Toast.LENGTH_SHORT).show()
-        }
-        binding.btnTowerNecro.setOnClickListener {
-            val cost = engine.getTowerCost(TowerType.NECRO)
-            if (engine.gold >= cost) {
-                gameView.placementMode = TowerType.NECRO
-                Toast.makeText(this, S.towerPlacementToast("💀", "Necro", cost), Toast.LENGTH_SHORT).show()
-            } else Toast.makeText(this, S.notEnoughGold, Toast.LENGTH_SHORT).show()
-        }
-        binding.btnTowerBallista.setOnClickListener {
-            val cost = engine.getTowerCost(TowerType.BALLISTA)
-            if (engine.gold >= cost) {
-                gameView.placementMode = TowerType.BALLISTA
-                Toast.makeText(this, S.towerPlacementToast("🎯", "Ballista", cost), Toast.LENGTH_SHORT).show()
-            } else Toast.makeText(this, S.notEnoughGold, Toast.LENGTH_SHORT).show()
-        }
-        binding.btnTowerVortex.setOnClickListener {
-            val cost = engine.getTowerCost(TowerType.VORTEX)
-            if (engine.gold >= cost) {
-                gameView.placementMode = TowerType.VORTEX
-                Toast.makeText(this, S.towerPlacementToast("🌀", "Vortex", cost), Toast.LENGTH_SHORT).show()
-            } else Toast.makeText(this, S.notEnoughGold, Toast.LENGTH_SHORT).show()
-        }
-        binding.btnTowerHealer.setOnClickListener {
-            val cost = engine.getTowerCost(TowerType.HEALER)
-            if (engine.gold >= cost) {
-                gameView.placementMode = TowerType.HEALER
-                Toast.makeText(this, S.towerPlacementToast("💚", "Healer", cost), Toast.LENGTH_SHORT).show()
-            } else Toast.makeText(this, S.notEnoughGold, Toast.LENGTH_SHORT).show()
-        }
+        bindTowerBtn(binding.btnTowerArrow,    TowerType.ARROW,    "Arrow",    "🏹")
+        bindTowerBtn(binding.btnTowerMagic,    TowerType.MAGIC,    "Magic",    "🧨")
+        bindTowerBtn(binding.btnTowerCannon,   TowerType.CANNON,   "Cannon",   "💣")
+        bindTowerBtn(binding.btnTowerPoison,   TowerType.POISON,   "Poison",   "☠️")
+        bindTowerBtn(binding.btnTowerTesla,    TowerType.TESLA,    "Tesla",    "⚡")
+        bindTowerBtn(binding.btnTowerIce,      TowerType.ICE,      "Ice",      "❄️")
+        bindTowerBtn(binding.btnTowerFlame,    TowerType.FLAME,    "Flame",    "🔥")
+        bindTowerBtn(binding.btnTowerNecro,    TowerType.NECRO,    "Necro",    "💀")
+        bindTowerBtn(binding.btnTowerBallista, TowerType.BALLISTA, "Ballista", "🎯")
+        bindTowerBtn(binding.btnTowerVortex,   TowerType.VORTEX,   "Vortex",   "🌀")
+        bindTowerBtn(binding.btnTowerHealer,   TowerType.HEALER,   "Healer",   "💚")
 
         // Power buttons
         binding.btnPowerFireball.setOnClickListener {
+            runCatching { binding.btnPowerFireball.performHapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP) }
             val cd = engine.getPowerCooldown(PowerType.FIREBALL)
             if (cd > 0) { Toast.makeText(this, S.cooldownFmt(cd.toInt()), Toast.LENGTH_SHORT).show(); return@setOnClickListener }
             if (engine.usePower(PowerType.FIREBALL)) {
@@ -275,6 +237,7 @@ class MainActivity : ImmersiveActivity() {
             } else Toast.makeText(this, S.fireballNeedGold(PowerType.FIREBALL.cost), Toast.LENGTH_SHORT).show()
         }
         binding.btnPowerFreeze.setOnClickListener {
+            runCatching { binding.btnPowerFreeze.performHapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP) }
             val cd = engine.getPowerCooldown(PowerType.FREEZE)
             if (cd > 0) { Toast.makeText(this, S.cooldownFmt(cd.toInt()), Toast.LENGTH_SHORT).show(); return@setOnClickListener }
             if (engine.usePower(PowerType.FREEZE)) {
@@ -282,6 +245,7 @@ class MainActivity : ImmersiveActivity() {
             } else Toast.makeText(this, S.freezeNeedGold(PowerType.FREEZE.cost), Toast.LENGTH_SHORT).show()
         }
         binding.btnPowerLightning.setOnClickListener {
+            runCatching { binding.btnPowerLightning.performHapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP) }
             val cd = engine.getPowerCooldown(PowerType.LIGHTNING)
             if (cd > 0) { Toast.makeText(this, S.cooldownFmt(cd.toInt()), Toast.LENGTH_SHORT).show(); return@setOnClickListener }
             if (engine.usePower(PowerType.LIGHTNING)) {
@@ -289,23 +253,12 @@ class MainActivity : ImmersiveActivity() {
             } else Toast.makeText(this, S.lightningNeedGold(PowerType.LIGHTNING.cost), Toast.LENGTH_SHORT).show()
         }
 
-        // Dash button
-        binding.btnDash.setOnClickListener {
-            if (engine.dashCooldown > 0) {
-                Toast.makeText(this, S.dashCooldownFmt(engine.dashCooldown.toInt()), Toast.LENGTH_SHORT).show()
-                return@setOnClickListener
-            }
-            if (engine.playerDash(engine.player.targetX, engine.player.targetY)) {
-                Toast.makeText(this, S.dashUsed, Toast.LENGTH_SHORT).show()
-            } else {
-                Toast.makeText(this, S.cantDash, Toast.LENGTH_SHORT).show()
-            }
-        }
-
         // Repair base
         binding.btnRepair.setOnClickListener {
+            runCatching { binding.btnRepair.performHapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP) }
             if (engine.repairBase()) {
                 Toast.makeText(this, S.baseRepaired, Toast.LENGTH_SHORT).show()
+                updateUpgradeCosts()
             } else if (engine.baseHp >= engine.maxBaseHp) {
                 Toast.makeText(this, S.baseFullHp, Toast.LENGTH_SHORT).show()
             } else Toast.makeText(this, S.notEnoughGold, Toast.LENGTH_SHORT).show()
@@ -314,41 +267,29 @@ class MainActivity : ImmersiveActivity() {
         // Blockade placement
         binding.btnBlockade.setOnClickListener {
             val cost = engine.blockadeCost
-            if (engine.gold >= cost) {
+            startPlacement("Blockade", "🧱", cost) {
                 gameView.blockadePlacementMode = true
-                gameView.placementMode = null
-                gameView.trapPlacementMode = null
-                Toast.makeText(this, S.blockadePlacement(cost), Toast.LENGTH_SHORT).show()
-            } else Toast.makeText(this, S.notEnoughGold, Toast.LENGTH_SHORT).show()
+            }
         }
 
         // Trap placement buttons
         binding.btnTrapSpike.setOnClickListener {
             val cost = TrapType.SPIKE.cost
-            if (engine.gold >= cost) {
+            startPlacement("Spike Trap", "🗡️", cost) {
                 gameView.trapPlacementMode = TrapType.SPIKE
-                gameView.placementMode = null
-                gameView.blockadePlacementMode = false
-                Toast.makeText(this, S.placeTrapSpike(cost), Toast.LENGTH_SHORT).show()
-            } else Toast.makeText(this, S.notEnoughGold, Toast.LENGTH_SHORT).show()
+            }
         }
         binding.btnTrapTar.setOnClickListener {
             val cost = TrapType.TAR.cost
-            if (engine.gold >= cost) {
+            startPlacement("Tar Trap", "🟣", cost) {
                 gameView.trapPlacementMode = TrapType.TAR
-                gameView.placementMode = null
-                gameView.blockadePlacementMode = false
-                Toast.makeText(this, S.placeTrapTar(cost), Toast.LENGTH_SHORT).show()
-            } else Toast.makeText(this, S.notEnoughGold, Toast.LENGTH_SHORT).show()
+            }
         }
         binding.btnTrapMine.setOnClickListener {
             val cost = TrapType.MINE.cost
-            if (engine.gold >= cost) {
+            startPlacement("Landmine", "💣", cost) {
                 gameView.trapPlacementMode = TrapType.MINE
-                gameView.placementMode = null
-                gameView.blockadePlacementMode = false
-                Toast.makeText(this, S.placeTrapMine(cost), Toast.LENGTH_SHORT).show()
-            } else Toast.makeText(this, S.notEnoughGold, Toast.LENGTH_SHORT).show()
+            }
         }
 
         // Endless milestone buff callback
@@ -356,63 +297,79 @@ class MainActivity : ImmersiveActivity() {
             runOnUiThread { showMilestoneBuffDialog() }
         }
 
+        // Wandering Merchant shop callback
+        gameView.onMerchantShop = {
+            runOnUiThread { showMerchantShopDialog() }
+        }
+
         // Upgrade buttons
         binding.btnUpDamage.setOnClickListener {
-            val cost = engine.playerDamageLevel * 25
+            val cost = engine.getPlayerDamageCost()
             if (engine.upgradePlayerDamage()) {
+                runCatching { binding.btnUpDamage.performHapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP) }
                 Toast.makeText(this, S.attackUp(cost), Toast.LENGTH_SHORT).show()
                 updateUpgradeCosts()
+            } else if (engine.playerDamageLevel >= com.example.myapp.game.GameEngine.MAX_PLAYER_DAMAGE_LEVEL) {
+                Toast.makeText(this, "Attack is already at MAX level!", Toast.LENGTH_SHORT).show()
             } else Toast.makeText(this, S.needGold(cost), Toast.LENGTH_SHORT).show()
         }
         binding.btnUpSpeed.setOnClickListener {
-            val cost = engine.playerSpeedLevel * 20
+            val cost = engine.getPlayerSpeedCost()
             if (engine.upgradePlayerSpeed()) {
+                runCatching { binding.btnUpSpeed.performHapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP) }
                 Toast.makeText(this, S.speedUp(cost), Toast.LENGTH_SHORT).show()
                 updateUpgradeCosts()
+            } else if (engine.playerSpeedLevel >= com.example.myapp.game.GameEngine.MAX_PLAYER_SPEED_LEVEL) {
+                Toast.makeText(this, "Speed is already at MAX level!", Toast.LENGTH_SHORT).show()
             } else Toast.makeText(this, S.needGold(cost), Toast.LENGTH_SHORT).show()
         }
         binding.btnUpHp.setOnClickListener {
-            val cost = engine.playerHpLevel * 30
+            val cost = engine.getPlayerHpCost()
             if (engine.upgradePlayerHp()) {
+                runCatching { binding.btnUpHp.performHapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP) }
                 Toast.makeText(this, S.hpUp(cost), Toast.LENGTH_SHORT).show()
                 updateUpgradeCosts()
+            } else if (engine.playerHpLevel >= com.example.myapp.game.GameEngine.MAX_PLAYER_HP_LEVEL) {
+                Toast.makeText(this, "Hero HP is already at MAX level!", Toast.LENGTH_SHORT).show()
             } else Toast.makeText(this, S.needGold(cost), Toast.LENGTH_SHORT).show()
         }
         binding.btnUpBase.setOnClickListener {
-            val cost = engine.baseHpLevel * 40
+            val cost = engine.getBaseHpCost()
             if (engine.upgradeBaseHp()) {
+                runCatching { binding.btnUpBase.performHapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP) }
                 Toast.makeText(this, S.baseUp(cost), Toast.LENGTH_SHORT).show()
                 updateUpgradeCosts()
+            } else if (engine.baseHpLevel >= com.example.myapp.game.GameEngine.MAX_BASE_HP_LEVEL) {
+                Toast.makeText(this, "Base HP is already at MAX level!", Toast.LENGTH_SHORT).show()
             } else Toast.makeText(this, S.needGold(cost), Toast.LENGTH_SHORT).show()
         }
+
+        // Selected Tower Inspector actions
         binding.btnUpTower.setOnClickListener {
             val selected = gameView.getSelectedTower()
             if (selected != null) {
+                if (selected.level >= com.example.myapp.game.Tower.MAX_TOWER_LEVEL) {
+                    Toast.makeText(this, "Tower is at MAX level (${com.example.myapp.game.Tower.MAX_TOWER_LEVEL})!", Toast.LENGTH_SHORT).show()
+                    return@setOnClickListener
+                }
                 val cost = selected.upgradeCost()
-                if (engine.upgradeTower(selected)) Toast.makeText(this, S.towerUpgraded(selected.level, cost), Toast.LENGTH_SHORT).show()
-                else Toast.makeText(this, S.needGold(cost), Toast.LENGTH_SHORT).show()
+                if (engine.upgradeTower(selected)) {
+                    runCatching { binding.btnUpTower.performHapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP) }
+                    Toast.makeText(this, S.towerUpgraded(selected.level, cost), Toast.LENGTH_SHORT).show()
+                    updateTowerInspector(selected)
+                    updateUpgradeCosts()
+                } else Toast.makeText(this, S.needGold(cost), Toast.LENGTH_SHORT).show()
             } else Toast.makeText(this, S.tapTowerFirst, Toast.LENGTH_SHORT).show()
         }
         binding.btnTarget.setOnClickListener {
             val selected = gameView.getSelectedTower()
             if (selected != null) {
                 selected.targetingMode = selected.targetingMode.next()
-                binding.btnTarget.text = "\uD83C\uDFAF ${selected.targetingMode.label}"
+                runCatching { binding.btnTarget.performHapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP) }
+                binding.btnTarget.text = "🎯 ${selected.targetingMode.label}"
                 Toast.makeText(this, S.targetMode(selected.targetingMode.label), Toast.LENGTH_SHORT).show()
             } else Toast.makeText(this, S.tapTowerFirst, Toast.LENGTH_SHORT).show()
         }
-
-        gameView.onTowerSelected = { tower ->
-            binding.btnTarget.text = "\uD83C\uDFAF ${tower?.targetingMode?.label ?: "Close"}"
-            // Update ability button with tower's ability name
-            if (tower != null) {
-                binding.btnAbility.text = "\u2728 ${tower.type.abilityName}"
-            } else {
-                binding.btnAbility.text = "\u2728 Ability"
-            }
-        }
-
-        // Sell tower
         binding.btnSell.setOnClickListener {
             val selected = gameView.getSelectedTower()
             if (selected != null) {
@@ -421,29 +378,32 @@ class MainActivity : ImmersiveActivity() {
                 if (now - sellPendingTime < 2000L) {
                     engine.sellTower(selected)
                     gameView.clearSelectedTower()
+                    runCatching { binding.btnSell.performHapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP) }
                     Toast.makeText(this, S.soldTower(value), Toast.LENGTH_SHORT).show()
                     sellPendingTime = 0L
-                    binding.btnSell.text = "\uD83D\uDCB8 Sell"
-                    binding.btnSell.backgroundTintList = android.content.res.ColorStateList.valueOf(0xFFEF5350.toInt())
+                    binding.btnSell.text = "💰 Sell\n+${value}g"
+                    updateUpgradeCosts()
                 } else {
                     sellPendingTime = now
-                    binding.btnSell.text = "+${value}g — tap again!"
-                    binding.btnSell.backgroundTintList = android.content.res.ColorStateList.valueOf(0xFFE65100.toInt())
+                    binding.btnSell.text = "Confirm?\n+${value}g"
+                    runCatching { binding.btnSell.performHapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP) }
                     android.os.Handler(android.os.Looper.getMainLooper()).postDelayed({
                         if (System.currentTimeMillis() - sellPendingTime >= 2000L) {
-                            binding.btnSell.text = "\uD83D\uDCB8 Sell"
-                            binding.btnSell.backgroundTintList = android.content.res.ColorStateList.valueOf(0xFFEF5350.toInt())
+                            val selNow = gameView.getSelectedTower()
+                            if (selNow != null) {
+                                val vNow = (selNow.sellValue() * (1f + engine.skillTree.sellValueBonus())).toInt()
+                                binding.btnSell.text = "💰 Sell\n+${vNow}g"
+                            }
                         }
                     }, 2100)
                 }
             } else Toast.makeText(this, S.tapTowerFirst, Toast.LENGTH_SHORT).show()
         }
-
-        // Tower ability
         binding.btnAbility.setOnClickListener {
             val selected = gameView.getSelectedTower()
             if (selected != null) {
                 if (engine.activateTowerAbility(selected)) {
+                    runCatching { binding.btnAbility.performHapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP) }
                     Toast.makeText(this, S.abilityActivated(selected.type.abilityName), Toast.LENGTH_SHORT).show()
                 } else {
                     val remaining = selected.abilityTimer.toInt()
@@ -452,37 +412,36 @@ class MainActivity : ImmersiveActivity() {
             } else Toast.makeText(this, S.tapTowerFirst, Toast.LENGTH_SHORT).show()
         }
 
-        // Speed 2x toggle
+        // Speed 1-tap cycle (1x -> 2x -> 3x -> 1x)
         binding.btnSpeed.setOnClickListener {
-            engine.gameSpeed = if (engine.gameSpeed == 2) 1 else 2
+            engine.gameSpeed = when (engine.gameSpeed) {
+                1 -> 2
+                2 -> 3
+                else -> 1
+            }
             updateSpeedButtons()
-            Toast.makeText(this, S.speedToast(engine.gameSpeed), Toast.LENGTH_SHORT).show()
-        }
-
-        // Speed 3x toggle
-        binding.btnSpeed3.setOnClickListener {
-            engine.gameSpeed = if (engine.gameSpeed == 3) 1 else 3
-            updateSpeedButtons()
+            runCatching { binding.btnSpeed.performHapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP) }
             Toast.makeText(this, S.speedToast(engine.gameSpeed), Toast.LENGTH_SHORT).show()
         }
 
         // Pause
         binding.btnPause.setOnClickListener {
             engine.isPaused = !engine.isPaused
-            binding.btnPause.text = if (engine.isPaused) "\u25B6\uFE0F Play" else "\u23F8\uFE0F Pause"
-            binding.btnPause.backgroundTintList = android.content.res.ColorStateList.valueOf(
-                if (engine.isPaused) 0xFF4CAF50.toInt() else 0xFFD32F2F.toInt()
+            runCatching { binding.btnPause.performHapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP) }
+            binding.btnPause.text = if (engine.isPaused) "▶" else "⏸"
+            binding.btnPause.background = getDrawable(
+                if (engine.isPaused) R.drawable.bg_btn_green else R.drawable.bg_btn_danger
             )
         }
 
         // Auto-wave toggle
         binding.btnAutoWave.setOnClickListener {
             engine.autoWave = !engine.autoWave
-            binding.btnAutoWave.backgroundTintList = android.content.res.ColorStateList.valueOf(
-                if (engine.autoWave) 0xFF4CAF50.toInt() else 0xFF455A64.toInt()
-            )
+            updateAutoWaveButton()
+            runCatching { binding.btnAutoWave.performHapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP) }
             Toast.makeText(this, if (engine.autoWave) "Auto-Wave ON" else "Auto-Wave OFF", Toast.LENGTH_SHORT).show()
         }
+        updateAutoWaveButton()
 
         // Daily challenge setup
         val isDaily = intent.getBooleanExtra("daily_challenge", false)
@@ -505,35 +464,583 @@ class MainActivity : ImmersiveActivity() {
         updateUpgradeCosts()
     }
 
-    private fun updateUpgradeCosts() {
+    private fun setupCategoryTabs() {
+        fun selectTab(selectedTab: android.widget.Button, activeContainer: View) {
+            binding.containerTowers.visibility = if (activeContainer == binding.containerTowers) View.VISIBLE else View.GONE
+            binding.containerTraps.visibility = if (activeContainer == binding.containerTraps) View.VISIBLE else View.GONE
+            binding.containerHero.visibility = if (activeContainer == binding.containerHero) View.VISIBLE else View.GONE
+
+            binding.tabTowers.background = getDrawable(if (selectedTab == binding.tabTowers) R.drawable.bg_tab_active else R.drawable.bg_tab_inactive)
+            binding.tabTowers.setTextColor(if (selectedTab == binding.tabTowers) Color.WHITE else Color.parseColor("#B0BEC5"))
+
+            binding.tabTraps.background = getDrawable(if (selectedTab == binding.tabTraps) R.drawable.bg_tab_active else R.drawable.bg_tab_inactive)
+            binding.tabTraps.setTextColor(if (selectedTab == binding.tabTraps) Color.WHITE else Color.parseColor("#B0BEC5"))
+
+            binding.tabHero.background = getDrawable(if (selectedTab == binding.tabHero) R.drawable.bg_tab_active else R.drawable.bg_tab_inactive)
+            binding.tabHero.setTextColor(if (selectedTab == binding.tabHero) Color.WHITE else Color.parseColor("#B0BEC5"))
+
+            runCatching { selectedTab.performHapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP) }
+        }
+
+        binding.tabTowers.setOnClickListener { selectTab(binding.tabTowers, binding.containerTowers) }
+        binding.tabTraps.setOnClickListener { selectTab(binding.tabTraps, binding.containerTraps) }
+        binding.tabHero.setOnClickListener { selectTab(binding.tabHero, binding.containerHero) }
+    }
+
+    private fun startPlacement(name: String, emoji: String, cost: Int, onSetMode: () -> Unit) {
         val engine = binding.gameView.getEngine()
-        binding.btnUpDamage.text = "\u2694\uFE0F ATK\n${engine.playerDamageLevel * 25}g"
-        binding.btnUpSpeed.text = "\uD83D\uDC5F SPD\n${engine.playerSpeedLevel * 20}g"
-        binding.btnUpHp.text = "\u2764\uFE0F HP\n${engine.playerHpLevel * 30}g"
-        binding.btnUpBase.text = "\uD83C\uDFF0 BASE\n${engine.baseHpLevel * 40}g"
-        binding.btnRepair.text = "\uD83D\uDD27 Repair\n${engine.repairCost}g"
+        if (engine.gold < cost) {
+            Toast.makeText(this, S.needGold(cost), Toast.LENGTH_SHORT).show()
+            return
+        }
+        binding.gameView.clearSelectedTower()
+        onSetMode()
+        binding.layoutBuildDock.visibility = View.GONE
+        binding.layoutTowerInspector.visibility = View.GONE
+        binding.layoutPlacementBar.visibility = View.VISIBLE
+        binding.textPlacementInfo.text = "Placing: $emoji $name (${cost}g)"
+        runCatching { binding.layoutPlacementBar.performHapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP) }
+    }
+
+    private fun exitPlacement() {
+        binding.gameView.clearPlacementMode()
+        binding.layoutPlacementBar.visibility = View.GONE
+        val selected = binding.gameView.getSelectedTower()
+        if (selected != null) {
+            binding.layoutTowerInspector.visibility = View.VISIBLE
+        } else {
+            binding.layoutBuildDock.visibility = View.VISIBLE
+        }
+        runCatching { binding.btnCancelPlacement.performHapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP) }
+    }
+
+    private fun updateTowerInspector(tower: com.example.myapp.game.Tower?) {
+        if (tower == null) {
+            binding.layoutTowerInspector.visibility = View.GONE
+            if (binding.gameView.placementMode == null && !binding.gameView.blockadePlacementMode && binding.gameView.trapPlacementMode == null) {
+                binding.layoutBuildDock.visibility = View.VISIBLE
+            }
+            return
+        }
+
+        binding.layoutPlacementBar.visibility = View.GONE
+        binding.layoutBuildDock.visibility = View.GONE
+        binding.layoutTowerInspector.visibility = View.VISIBLE
+
+        val engine = binding.gameView.getEngine()
+        val spec = tower.specialization
+        val typeName = tower.type.name.lowercase().replaceFirstChar { it.uppercase() }
+        val titleText = if (spec != com.example.myapp.game.TowerSpecialization.NONE) {
+            "${tower.type.emoji} $typeName (Lv. ${tower.level} · ${spec.emoji} ${spec.displayName})"
+        } else {
+            "${tower.type.emoji} $typeName (Lv. ${tower.level})"
+        }
+        binding.inspectorTowerTitle.text = titleText
+        val spd = (tower.fireRate * 10).toInt() / 10f
+        binding.inspectorTowerStats.text = "Dmg: ${tower.damage.toInt()} · Rng: ${tower.range.toInt()} · Spd: ${spd}/s"
+
+        if (tower.canSpecialize()) {
+            binding.layoutTowerSpec.visibility = View.VISIBLE
+            binding.btnSpecialize.setOnClickListener {
+                showSpecializationDialog(tower)
+            }
+        } else {
+            binding.layoutTowerSpec.visibility = View.GONE
+        }
+
+        if (tower.level >= com.example.myapp.game.Tower.MAX_TOWER_LEVEL) {
+            binding.btnUpTower.text = "⚡ Upgrade\nMAX"
+            binding.btnUpTower.alpha = 0.5f
+            binding.btnUpTower.isEnabled = false
+        } else {
+            val upCost = tower.upgradeCost()
+            binding.btnUpTower.text = "⚡ Upgrade\n${upCost}g"
+            binding.btnUpTower.alpha = if (engine.gold >= upCost) 1.0f else 0.5f
+            binding.btnUpTower.isEnabled = true
+        }
+
+        binding.btnTarget.text = "🎯 ${tower.targetingMode.label}"
+
+        val sellVal = (tower.sellValue() * (1f + engine.skillTree.sellValueBonus())).toInt()
+        binding.btnSell.text = "💰 Sell\n+${sellVal}g"
+
+        val cd = tower.abilityTimer.toInt()
+        if (cd > 0) {
+            binding.btnAbility.text = "✨ ${tower.type.abilityName}\n(${cd}s)"
+            binding.btnAbility.alpha = 0.5f
+        } else {
+            binding.btnAbility.text = "✨ ${tower.type.abilityName}"
+            binding.btnAbility.alpha = 1.0f
+        }
+    }
+
+    private fun showSpecializationDialog(tower: com.example.myapp.game.Tower) {
+        val specs = tower.availableSpecializations()
+        if (specs.isEmpty()) return
+        val engine = binding.gameView.getEngine()
+
+        val view = layoutInflater.inflate(R.layout.dialog_tower_specialization, null)
+        val dialog = AlertDialog.Builder(this)
+            .setView(view)
+            .create()
+
+        val towerBadge = view.findViewById<android.widget.TextView>(R.id.spec_tower_badge)
+        towerBadge.text = "${tower.type.emoji} ${tower.type.displayName} · Level ${tower.level} Mastery"
+
+        // Branch 1
+        val s1 = specs[0]
+        val spec1Emoji = view.findViewById<android.widget.TextView>(R.id.spec_1_emoji)
+        val spec1Name = view.findViewById<android.widget.TextView>(R.id.spec_1_name)
+        val spec1Desc = view.findViewById<android.widget.TextView>(R.id.spec_1_desc)
+        val btnSpec1 = view.findViewById<android.widget.Button>(R.id.btn_choose_spec_1)
+        val cardSpec1 = view.findViewById<android.view.View>(R.id.card_spec_1)
+
+        spec1Emoji.text = s1.emoji
+        spec1Name.text = s1.displayName
+        spec1Desc.text = s1.description
+        val pickS1 = {
+            tower.applySpecialization(s1)
+            engine.onTowerSpecialized(tower)
+            SoundManager.play(com.example.myapp.game.SfxType.ACHIEVEMENT)
+            Toast.makeText(this, "Specialized into ${s1.emoji} ${s1.displayName}!", Toast.LENGTH_SHORT).show()
+            updateTowerInspector(tower)
+            dialog.dismiss()
+        }
+        btnSpec1.setOnClickListener { pickS1() }
+        cardSpec1.setOnClickListener { pickS1() }
+
+        // Branch 2
+        val cardSpec2 = view.findViewById<android.view.View>(R.id.card_spec_2)
+        if (specs.size > 1) {
+            val s2 = specs[1]
+            val spec2Emoji = view.findViewById<android.widget.TextView>(R.id.spec_2_emoji)
+            val spec2Name = view.findViewById<android.widget.TextView>(R.id.spec_2_name)
+            val spec2Desc = view.findViewById<android.widget.TextView>(R.id.spec_2_desc)
+            val btnSpec2 = view.findViewById<android.widget.Button>(R.id.btn_choose_spec_2)
+
+            cardSpec2.visibility = View.VISIBLE
+            spec2Emoji.text = s2.emoji
+            spec2Name.text = s2.displayName
+            spec2Desc.text = s2.description
+            val pickS2 = {
+                tower.applySpecialization(s2)
+                engine.onTowerSpecialized(tower)
+                SoundManager.play(com.example.myapp.game.SfxType.ACHIEVEMENT)
+                Toast.makeText(this, "Specialized into ${s2.emoji} ${s2.displayName}!", Toast.LENGTH_SHORT).show()
+                updateTowerInspector(tower)
+                dialog.dismiss()
+            }
+            btnSpec2.setOnClickListener { pickS2() }
+            cardSpec2.setOnClickListener { pickS2() }
+        } else {
+            cardSpec2.visibility = View.GONE
+        }
+
+        view.findViewById<android.widget.Button>(R.id.btn_spec_cancel).setOnClickListener {
+            dialog.dismiss()
+        }
+
+        dialog.show()
+        dialog.window?.setBackgroundDrawableResource(android.R.color.transparent)
+    }
+
+    private fun updateAutoWaveButton() {
+        val engine = runCatching { binding.gameView.getEngine() }.getOrNull() ?: return
+        if (engine.autoWave) {
+            binding.btnAutoWave.text = "Auto ✓"
+            binding.btnAutoWave.setTextColor(Color.parseColor("#4CAF50"))
+            binding.btnAutoWave.background = getDrawable(R.drawable.bg_btn_green)
+        } else {
+            binding.btnAutoWave.text = "Auto"
+            binding.btnAutoWave.setTextColor(Color.parseColor("#B0BEC5"))
+            binding.btnAutoWave.background = getDrawable(R.drawable.bg_btn_action)
+        }
     }
 
     private fun updateSpeedButtons() {
-        val engine = binding.gameView.getEngine()
+        val engine = runCatching { binding.gameView.getEngine() }.getOrNull() ?: return
         val s = engine.gameSpeed
-        binding.btnSpeed.alpha = if (s == 2) 1f else 0.5f
-        binding.btnSpeed3.alpha = if (s == 3) 1f else 0.5f
+        binding.btnSpeed.text = "${s}x"
+        when (s) {
+            1 -> {
+                binding.btnSpeed.setTextColor(Color.parseColor("#B0BEC5"))
+                binding.btnSpeed.background = getDrawable(R.drawable.bg_btn_action)
+            }
+            2 -> {
+                binding.btnSpeed.setTextColor(Color.parseColor("#FFD54F"))
+                binding.btnSpeed.background = getDrawable(R.drawable.bg_btn_primary)
+            }
+            3 -> {
+                binding.btnSpeed.setTextColor(Color.parseColor("#FFFFFF"))
+                binding.btnSpeed.background = getDrawable(R.drawable.bg_btn_danger)
+            }
+        }
+    }
+
+    private fun updateUpgradeCosts() {
+        val engine = runCatching { binding.gameView.getEngine() }.getOrNull() ?: return
+        val gold = engine.gold
+
+        // Hero Upgrades
+        if (engine.playerDamageLevel >= com.example.myapp.game.GameEngine.MAX_PLAYER_DAMAGE_LEVEL) {
+            binding.btnUpDamage.text = "⚔️ ATK\nMAX"
+            binding.btnUpDamage.alpha = 0.5f
+            binding.btnUpDamage.isEnabled = false
+        } else {
+            val dmgCost = engine.getPlayerDamageCost()
+            binding.btnUpDamage.text = "⚔️ ATK\n${dmgCost}g"
+            binding.btnUpDamage.alpha = if (gold >= dmgCost) 1.0f else 0.5f
+            binding.btnUpDamage.isEnabled = true
+        }
+
+        if (engine.playerSpeedLevel >= com.example.myapp.game.GameEngine.MAX_PLAYER_SPEED_LEVEL) {
+            binding.btnUpSpeed.text = "👟 SPD\nMAX"
+            binding.btnUpSpeed.alpha = 0.5f
+            binding.btnUpSpeed.isEnabled = false
+        } else {
+            val spdCost = engine.getPlayerSpeedCost()
+            binding.btnUpSpeed.text = "👟 SPD\n${spdCost}g"
+            binding.btnUpSpeed.alpha = if (gold >= spdCost) 1.0f else 0.5f
+            binding.btnUpSpeed.isEnabled = true
+        }
+
+        if (engine.playerHpLevel >= com.example.myapp.game.GameEngine.MAX_PLAYER_HP_LEVEL) {
+            binding.btnUpHp.text = "❤️ HP\nMAX"
+            binding.btnUpHp.alpha = 0.5f
+            binding.btnUpHp.isEnabled = false
+        } else {
+            val hpCost = engine.getPlayerHpCost()
+            binding.btnUpHp.text = "❤️ HP\n${hpCost}g"
+            binding.btnUpHp.alpha = if (gold >= hpCost) 1.0f else 0.5f
+            binding.btnUpHp.isEnabled = true
+        }
+
+        if (engine.baseHpLevel >= com.example.myapp.game.GameEngine.MAX_BASE_HP_LEVEL) {
+            binding.btnUpBase.text = "🏰 BASE\nMAX"
+            binding.btnUpBase.alpha = 0.5f
+            binding.btnUpBase.isEnabled = false
+        } else {
+            val baseCost = engine.getBaseHpCost()
+            binding.btnUpBase.text = "🏰 BASE\n${baseCost}g"
+            binding.btnUpBase.alpha = if (gold >= baseCost) 1.0f else 0.5f
+            binding.btnUpBase.isEnabled = true
+        }
+
+        val repCost = engine.repairCost
+        binding.btnRepair.text = "🔧 Repair\n${repCost}g"
+        binding.btnRepair.alpha = if (gold >= repCost && engine.baseHp < engine.maxBaseHp) 1.0f else 0.5f
+
+        // Defenses costs alpha
+        binding.btnBlockade.alpha = if (gold >= engine.blockadeCost) 1.0f else 0.5f
+        binding.btnTrapSpike.alpha = if (gold >= TrapType.SPIKE.cost) 1.0f else 0.5f
+        binding.btnTrapTar.alpha = if (gold >= TrapType.TAR.cost) 1.0f else 0.5f
+        binding.btnTrapMine.alpha = if (gold >= TrapType.MINE.cost) 1.0f else 0.5f
+
+        // Tower button alpha
+        fun applyTowerAlpha(btn: android.widget.Button, type: TowerType) {
+            btn.alpha = if (gold >= engine.getTowerCost(type)) 1.0f else 0.5f
+        }
+        applyTowerAlpha(binding.btnTowerArrow, TowerType.ARROW)
+        applyTowerAlpha(binding.btnTowerMagic, TowerType.MAGIC)
+        applyTowerAlpha(binding.btnTowerCannon, TowerType.CANNON)
+        applyTowerAlpha(binding.btnTowerPoison, TowerType.POISON)
+        applyTowerAlpha(binding.btnTowerTesla, TowerType.TESLA)
+        applyTowerAlpha(binding.btnTowerIce, TowerType.ICE)
+        applyTowerAlpha(binding.btnTowerFlame, TowerType.FLAME)
+        applyTowerAlpha(binding.btnTowerNecro, TowerType.NECRO)
+        applyTowerAlpha(binding.btnTowerBallista, TowerType.BALLISTA)
+        applyTowerAlpha(binding.btnTowerVortex, TowerType.VORTEX)
+        applyTowerAlpha(binding.btnTowerHealer, TowerType.HEALER)
+
+        // Selected tower inspector update if visible
+        val selected = binding.gameView.getSelectedTower()
+        if (selected != null) {
+            if (selected.level >= com.example.myapp.game.Tower.MAX_TOWER_LEVEL) {
+                binding.btnUpTower.text = "⚡ Upgrade\nMAX"
+                binding.btnUpTower.alpha = 0.5f
+                binding.btnUpTower.isEnabled = false
+            } else {
+                val upCost = selected.upgradeCost()
+                binding.btnUpTower.text = "⚡ Upgrade\n${upCost}g"
+                binding.btnUpTower.alpha = if (gold >= upCost) 1.0f else 0.5f
+                binding.btnUpTower.isEnabled = true
+            }
+        }
     }
 
     private fun showMilestoneBuffDialog() {
         val engine = binding.gameView.getEngine()
         val choices = engine.endlessMilestoneChoices
         if (choices.isEmpty()) return
-        val items = choices.map { "${it.emoji} ${it.label}\n${it.description}" }.toTypedArray()
-        AlertDialog.Builder(this, com.google.android.material.R.style.ThemeOverlay_MaterialComponents_Dialog_Alert)
-            .setTitle(S.milestoneTitle(engine.wave))
-            .setItems(items) { _, which ->
-                engine.pickEndlessBuff(choices[which])
-                SoundManager.play(com.example.myapp.game.SfxType.UI_CLICK)
-            }
+
+        val view = layoutInflater.inflate(R.layout.dialog_milestone_buff, null)
+        val dialog = AlertDialog.Builder(this)
+            .setView(view)
             .setCancelable(false)
-            .show()
+            .create()
+
+        val titleView = view.findViewById<android.widget.TextView>(R.id.milestone_title)
+        val subtitleView = view.findViewById<android.widget.TextView>(R.id.milestone_subtitle)
+        titleView.text = S.milestoneTitle(engine.wave)
+        subtitleView.text = "The realm acknowledges your valor! Choose one permanent boon:"
+
+        fun setupBuffCard(cardId: Int, emojiId: Int, nameId: Int, descId: Int, btnId: Int, buff: EndlessBuff) {
+            val card = view.findViewById<android.view.View>(cardId)
+            val emoji = view.findViewById<android.widget.TextView>(emojiId)
+            val name = view.findViewById<android.widget.TextView>(nameId)
+            val desc = view.findViewById<android.widget.TextView>(descId)
+            val btn = view.findViewById<android.widget.Button>(btnId)
+
+            card.visibility = View.VISIBLE
+            emoji.text = buff.emoji
+            name.text = buff.label
+            desc.text = buff.description
+
+            val selectAction = {
+                engine.pickEndlessBuff(buff)
+                SoundManager.play(SfxType.ACHIEVEMENT)
+                Toast.makeText(this, "Acquired: ${buff.emoji} ${buff.label}!", Toast.LENGTH_SHORT).show()
+                dialog.dismiss()
+            }
+            card.setOnClickListener { selectAction() }
+            btn.setOnClickListener { selectAction() }
+        }
+
+        if (choices.isNotEmpty()) {
+            setupBuffCard(R.id.card_buff_1, R.id.buff_1_emoji, R.id.buff_1_title, R.id.buff_1_desc, R.id.btn_pick_buff_1, choices[0])
+        }
+        if (choices.size > 1) {
+            setupBuffCard(R.id.card_buff_2, R.id.buff_2_emoji, R.id.buff_2_title, R.id.buff_2_desc, R.id.btn_pick_buff_2, choices[1])
+        } else {
+            view.findViewById<android.view.View>(R.id.card_buff_2).visibility = View.GONE
+        }
+        if (choices.size > 2) {
+            setupBuffCard(R.id.card_buff_3, R.id.buff_3_emoji, R.id.buff_3_title, R.id.buff_3_desc, R.id.btn_pick_buff_3, choices[2])
+        } else {
+            view.findViewById<android.view.View>(R.id.card_buff_3).visibility = View.GONE
+        }
+
+        dialog.show()
+        dialog.window?.setBackgroundDrawableResource(android.R.color.transparent)
+    }
+
+    private fun showMerchantShopDialog() {
+        val engine = binding.gameView.getEngine()
+        val choices = engine.merchantShopChoices
+        if (choices.isEmpty()) return
+
+        val view = layoutInflater.inflate(R.layout.dialog_merchant_shop, null)
+        val dialog = AlertDialog.Builder(this)
+            .setView(view)
+            .setCancelable(false)
+            .create()
+
+        val goldDisplay = view.findViewById<android.widget.TextView>(R.id.merchant_gold_display)
+        goldDisplay.text = "💰 Your Gold: ${engine.gold}g"
+
+        fun setupMerchantCard(
+            cardId: Int, tierBadgeId: Int, formulaId: Int,
+            emojiId: Int, titleId: Int, descId: Int,
+            btnId: Int, card: MerchantCard
+        ) {
+            val cardView = view.findViewById<android.view.View>(cardId)
+            val tierBadge = view.findViewById<android.widget.TextView>(tierBadgeId)
+            val formula = view.findViewById<android.widget.TextView>(formulaId)
+            val emoji = view.findViewById<android.widget.TextView>(emojiId)
+            val title = view.findViewById<android.widget.TextView>(titleId)
+            val desc = view.findViewById<android.widget.TextView>(descId)
+            val btn = view.findViewById<android.widget.Button>(btnId)
+
+            cardView.visibility = View.VISIBLE
+            tierBadge.text = card.tier.displayName
+            tierBadge.setTextColor(card.tier.badgeColor)
+            formula.text = card.synergyFormula ?: ""
+            emoji.text = card.emoji
+            title.text = card.title
+            desc.text = card.description
+
+            val canAfford = engine.gold >= card.cost
+            btn.text = if (card.cost > 0) "PURCHASE • ${card.cost}g" else "SACRIFICE & TAKE"
+            btn.isEnabled = canAfford
+            btn.alpha = if (canAfford) 1.0f else 0.45f
+
+            val buyAction = {
+                if (engine.draftMerchantCard(card)) {
+                    SoundManager.play(SfxType.REWARD_CHEST)
+                    Toast.makeText(this, "Acquired: ${card.emoji} ${card.title}!", Toast.LENGTH_SHORT).show()
+                    dialog.dismiss()
+                } else {
+                    Toast.makeText(this, "Insufficient Gold!", Toast.LENGTH_SHORT).show()
+                }
+            }
+            btn.setOnClickListener { buyAction() }
+            if (canAfford) {
+                cardView.setOnClickListener { buyAction() }
+            }
+        }
+
+        if (choices.isNotEmpty()) {
+            setupMerchantCard(R.id.card_merchant_1, R.id.item_tier_badge_1, R.id.item_formula_1, R.id.item_emoji_1, R.id.item_title_1, R.id.item_desc_1, R.id.btn_buy_1, choices[0])
+        }
+        if (choices.size > 1) {
+            setupMerchantCard(R.id.card_merchant_2, R.id.item_tier_badge_2, R.id.item_formula_2, R.id.item_emoji_2, R.id.item_title_2, R.id.item_desc_2, R.id.btn_buy_2, choices[1])
+        } else {
+            view.findViewById<android.view.View>(R.id.card_merchant_2).visibility = View.GONE
+        }
+        if (choices.size > 2) {
+            setupMerchantCard(R.id.card_merchant_3, R.id.item_tier_badge_3, R.id.item_formula_3, R.id.item_emoji_3, R.id.item_title_3, R.id.item_desc_3, R.id.btn_buy_3, choices[2])
+        } else {
+            view.findViewById<android.view.View>(R.id.card_merchant_3).visibility = View.GONE
+        }
+
+        val btnSkip = view.findViewById<android.widget.Button>(R.id.btn_merchant_skip)
+        btnSkip.setOnClickListener {
+            engine.skipMerchantShop()
+            SoundManager.play(SfxType.UI_CLICK)
+            dialog.dismiss()
+        }
+
+        dialog.show()
+        dialog.window?.setBackgroundDrawableResource(android.R.color.transparent)
+    }
+
+    private fun showBattleResultsDialog(isVictory: Boolean, score: Int, wave: Int) {
+        val engine = binding.gameView.getEngine()
+        val cl = engine.campaignLevel
+
+        val view = layoutInflater.inflate(R.layout.dialog_battle_results, null)
+        val dialog = AlertDialog.Builder(this)
+            .setView(view)
+            .setCancelable(false)
+            .create()
+
+        val textIcon = view.findViewById<android.widget.TextView>(R.id.result_icon)
+        val textTitle = view.findViewById<android.widget.TextView>(R.id.result_title)
+        val textSubtitle = view.findViewById<android.widget.TextView>(R.id.result_subtitle)
+        val layoutStars = view.findViewById<android.view.View>(R.id.layout_stars)
+        val textStars = view.findViewById<android.widget.TextView>(R.id.result_stars)
+        val layoutObjectives = view.findViewById<android.view.View>(R.id.layout_objectives)
+        val textObj1 = view.findViewById<android.widget.TextView>(R.id.result_obj1)
+        val textObj2 = view.findViewById<android.widget.TextView>(R.id.result_obj2)
+        val textObj3 = view.findViewById<android.widget.TextView>(R.id.result_obj3)
+
+        val statWaves = view.findViewById<android.widget.TextView>(R.id.stat_waves)
+        val statScore = view.findViewById<android.widget.TextView>(R.id.stat_score)
+        val statKills = view.findViewById<android.widget.TextView>(R.id.stat_kills)
+        val statCombo = view.findViewById<android.widget.TextView>(R.id.stat_combo)
+        val statDiamonds = view.findViewById<android.widget.TextView>(R.id.stat_diamonds)
+        val statBosses = view.findViewById<android.widget.TextView>(R.id.stat_bosses)
+        val rewardBanner = view.findViewById<android.widget.TextView>(R.id.result_reward_banner)
+
+        val btnNextMission = view.findViewById<android.widget.Button>(R.id.btn_next_mission)
+        val btnPlayAgain = view.findViewById<android.widget.Button>(R.id.btn_play_again)
+        val btnMenu = view.findViewById<android.widget.Button>(R.id.btn_menu)
+
+        val kills = engine.totalKills
+        val combo = engine.bestCombo
+        val diamonds = engine.diamondsEarnedThisRun
+        val bosses = engine.bossesKilledThisRun
+
+        statWaves.text = if (cl != null) "🌊 Wave $wave/${cl.targetWave}" else "🌊 Wave $wave"
+        statScore.text = "🎯 ${score} pts"
+        statKills.text = "⚔️ $kills Slain"
+        statCombo.text = "🔥 ${combo}x Combo"
+        statDiamonds.text = "💎 +$diamonds"
+        statBosses.text = "👑 $bosses Defeated"
+
+        if (isVictory) {
+            textIcon.text = "🏆"
+            textTitle.text = if (cl != null) "REALM DEFENDED!" else "VICTORY!"
+            textTitle.setTextColor(resources.getColor(R.color.gold, theme))
+            textSubtitle.text = cl?.let { "${it.emoji} ${it.title}" } ?: "Wave $wave Cleared"
+
+            if (cl != null) {
+                layoutStars.visibility = View.VISIBLE
+                val stars = engine.campaignStars.coerceIn(1, 3)
+                textStars.text = "⭐".repeat(stars) + "☆".repeat(3 - stars)
+                layoutObjectives.visibility = View.VISIBLE
+                textObj1.text = "✓ Clear Wave ${cl.targetWave}"
+                textObj1.setTextColor(Color.WHITE)
+
+                val star2Met = score >= cl.star2Score
+                textObj2.text = if (star2Met) "✓ Score ≥ ${cl.star2Score}" else "✗ Score ≥ ${cl.star2Score} ($score)"
+                textObj2.setTextColor(if (star2Met) Color.WHITE else Color.parseColor("#EF5350"))
+
+                val star3Met = score >= cl.star3Score
+                textObj3.text = if (star3Met) "✓ Score ≥ ${cl.star3Score}" else "✗ Score ≥ ${cl.star3Score} ($score)"
+                textObj3.setTextColor(if (star3Met) Color.WHITE else Color.parseColor("#EF5350"))
+            } else {
+                layoutStars.visibility = View.GONE
+                layoutObjectives.visibility = View.GONE
+            }
+
+            if (diamonds > 0) {
+                rewardBanner.visibility = View.VISIBLE
+                rewardBanner.text = "✨ +$diamonds Diamonds claimed for your vault!"
+            } else {
+                rewardBanner.visibility = View.GONE
+            }
+
+            val nextLevel = if (cl != null) CampaignData.levels.find { it.id == cl.id + 1 } else null
+            if (nextLevel != null) {
+                btnNextMission.visibility = View.VISIBLE
+                btnNextMission.text = "▶ Next: ${nextLevel.emoji} ${nextLevel.title}"
+                btnNextMission.setOnClickListener {
+                    SoundManager.play(SfxType.UI_CLICK)
+                    dialog.dismiss()
+                    val intent = Intent(this, MainActivity::class.java).apply {
+                        putExtra("difficulty", intent.getIntExtra("difficulty", 1))
+                        putExtra("campaign_level", nextLevel.id)
+                    }
+                    startActivity(intent)
+                    finish()
+                }
+            } else {
+                btnNextMission.visibility = View.GONE
+            }
+        } else {
+            textIcon.text = "💀"
+            textTitle.text = "REALM OVERRUN"
+            textTitle.setTextColor(Color.parseColor("#EF5350"))
+            textSubtitle.text = "Fallen on Wave $wave · ${cl?.title ?: "Endless Defense"}"
+            layoutStars.visibility = View.GONE
+            btnNextMission.visibility = View.GONE
+
+            if (cl != null) {
+                layoutObjectives.visibility = View.VISIBLE
+                textObj1.text = "✗ Survived ${wave}/${cl.targetWave} Waves"
+                textObj1.setTextColor(Color.parseColor("#EF5350"))
+                textObj2.text = "Hint: " + cl.hint.ifBlank { "Upgrade towers or adjust positioning." }
+                textObj2.setTextColor(Color.parseColor("#B0BEC5"))
+                textObj3.visibility = View.GONE
+            } else {
+                layoutObjectives.visibility = View.GONE
+            }
+
+            if (diamonds > 0) {
+                rewardBanner.visibility = View.VISIBLE
+                rewardBanner.text = "💎 +$diamonds Diamonds salvaged from combat."
+            } else {
+                rewardBanner.visibility = View.GONE
+            }
+        }
+
+        btnPlayAgain.setOnClickListener {
+            SoundManager.play(SfxType.UI_CLICK)
+            dialog.dismiss()
+            synchronized(engine.lock) { engine.restart() }
+            binding.gameView.resetGameOverState()
+        }
+
+        btnMenu.text = if (cl != null) "📜 Campaign Map" else "🏠 Main Menu"
+        btnMenu.setOnClickListener {
+            SoundManager.play(SfxType.UI_CLICK)
+            dialog.dismiss()
+            finish()
+        }
+
+        dialog.show()
+        dialog.window?.setBackgroundDrawableResource(android.R.color.transparent)
     }
 
     override fun onPause() {
@@ -552,7 +1059,7 @@ class MainActivity : ImmersiveActivity() {
         super.onResume()
         binding.gameView.resume()
         cooldownHandler.post(cooldownRunnable)
-        MusicManager.start()
+        MusicManager.playTrack(MusicManager.Track.BATTLE)
     }
 
     @Deprecated("Use OnBackPressedDispatcher")
@@ -564,22 +1071,34 @@ class MainActivity : ImmersiveActivity() {
         }
         engine.isPaused = true
         binding.btnPause.text = "\u25B6\uFE0F Play"
-        val quitDialog = AlertDialog.Builder(this, com.google.android.material.R.style.ThemeOverlay_MaterialComponents_Dialog_Alert)
-            .setTitle("Quit run?")
-            .setMessage("Your progress will be saved to Run History as a quit.")
-            .setPositiveButton("Quit") { _, _ ->
-                engine.saveRunHistory("Quit")
-                finish()
-            }
-            .setNegativeButton("Resume") { _, _ ->
-                engine.isPaused = false
-                binding.btnPause.text = "\u23F8\uFE0F Pause"
-            }
+
+        val view = layoutInflater.inflate(R.layout.dialog_confirm_quit, null)
+        val dialog = AlertDialog.Builder(this)
+            .setView(view)
             .setCancelable(false)
             .create()
-        quitDialog.show()
-        quitDialog.window?.setBackgroundDrawableResource(android.R.color.transparent)
-        quitDialog.getButton(AlertDialog.BUTTON_POSITIVE)?.setTextColor(0xFFEF5350.toInt())
-        quitDialog.getButton(AlertDialog.BUTTON_NEGATIVE)?.setTextColor(0xFF4CAF50.toInt())
+
+        val textStats = view.findViewById<android.widget.TextView>(R.id.quit_dialog_stats)
+        val btnResume = view.findViewById<android.widget.Button>(R.id.btn_resume_run)
+        val btnAbandon = view.findViewById<android.widget.Button>(R.id.btn_confirm_abandon)
+
+        textStats.text = "🌊 Wave ${engine.wave}  ·  🎯 Score ${engine.score}"
+
+        btnResume.setOnClickListener {
+            engine.isPaused = false
+            binding.btnPause.text = "\u23F8\uFE0F Pause"
+            SoundManager.play(SfxType.UI_CLICK)
+            dialog.dismiss()
+        }
+
+        btnAbandon.setOnClickListener {
+            engine.saveRunHistory("Quit")
+            SoundManager.play(SfxType.UI_CLICK)
+            dialog.dismiss()
+            finish()
+        }
+
+        dialog.show()
+        dialog.window?.setBackgroundDrawableResource(android.R.color.transparent)
     }
 }

@@ -15,4 +15,27 @@
     <color name="gold">#FFFFD700</color>
     <color name="prestige_purple">#FFBB86FC</color>
     <color name="text_secondary">#FFAAAACC</color>
+
+    <!-- Modernized UI System Colors -->
+    <color name="surface_glass">#EE141F30</color>
+    <color name="surface_glass_border">#2E4A62</color>
+    <color name="surface_glass_light">#EE1C2A3F</color>
+    <color name="btn_primary">#FF9800</color>
+    <color name="btn_primary_dark">#E65100</color>
+    <color name="btn_accent">#FFD700</color>
+    <color name="btn_action_green">#00C853</color>
+    <color name="btn_action_green_dark">#1B5E20</color>
+    <color name="btn_danger">#D50000</color>
+    <color name="btn_danger_dark">#B71C1C</color>
+    <color name="btn_card_bg">#202C3F</color>
+    <color name="btn_card_border">#3B4E68</color>
+    <color name="btn_card_selected">#355278</color>
+    <color name="btn_tab_active">#FF9800</color>
+    <color name="btn_tab_inactive">#88FFFFFF</color>
+    <color name="hud_chip_bg">#D90F1A26</color>
+    <color name="hud_chip_border">#33455A64</color>
+    <color name="ripple_light">#33FFFFFF</color>
+    <color name="ripple_gold">#40FFD700</color>
+    <color name="cost_affordable">#FFD700</color>
+    <color name="cost_unaffordable">#FF5252</color>
 </resources>

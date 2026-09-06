@@ -2,6 +2,7 @@ package com.example.myapp
 
 import android.app.AlertDialog
 import android.content.Intent
+import android.graphics.Color
 import android.os.Bundle
 import android.view.View
 import android.widget.LinearLayout
@@ -215,6 +216,11 @@ class MainMenuActivity : ImmersiveActivity() {
             startActivity(Intent(this, HelpActivity::class.java))
         }
 
+        // Bestiary & Lore Codex
+        findViewById<Button>(R.id.btn_bestiary)?.setOnClickListener {
+            startActivity(Intent(this, BestiaryActivity::class.java))
+        }
+
         // Run History
         findViewById<Button>(R.id.btn_history).setOnClickListener {
             startActivity(Intent(this, RunHistoryActivity::class.java))
@@ -247,85 +253,113 @@ class MainMenuActivity : ImmersiveActivity() {
         if (highScore > 0) {
             textHighScore.text = GameStrings.highScoreFmt(highScore, highWave)
         }
+
+        MusicManager.playTrack(MusicManager.Track.MENU)
+    }
+
+    override fun onPause() {
+        super.onPause()
+        MusicManager.stop()
     }
 
     private fun showEndlessPopup() {
-        val layout = LinearLayout(this).apply {
-            orientation = LinearLayout.VERTICAL
-            setPadding(48, 32, 48, 16)
-            setBackgroundColor(0xFF1B2838.toInt())
-        }
-
-        // Title
-        layout.addView(TextView(this).apply {
-            text = GameStrings.endlessModeTitle
-            textSize = 22f
-            setTextColor(0xFFFFD700.toInt())
-            gravity = android.view.Gravity.CENTER
-        })
-
-        // Difficulty label
-        layout.addView(TextView(this).apply {
-            text = GameStrings.difficultySection
-            textSize = 16f
-            setTextColor(0xFFE0E0E0.toInt())
-            setPadding(0, 16, 0, 4)
-        })
-
-        // Difficulty radio buttons
-        val diffGroup = RadioGroup(this).apply {
-            orientation = RadioGroup.VERTICAL
-        }
-        val rbEasy = RadioButton(this).apply { text = GameStrings.diffEasy; setTextColor(0xFFE0E0E0.toInt()); id = 0 }
-        val rbNormal = RadioButton(this).apply { text = GameStrings.diffNormal; setTextColor(0xFFE0E0E0.toInt()); id = 1; isChecked = true }
-        val rbHard = RadioButton(this).apply { text = GameStrings.diffHard; setTextColor(0xFFE0E0E0.toInt()); id = 2 }
-        diffGroup.addView(rbEasy)
-        diffGroup.addView(rbNormal)
-        diffGroup.addView(rbHard)
-        layout.addView(diffGroup)
-
-        // Map label
-        layout.addView(TextView(this).apply {
-            text = GameStrings.mapSection
-            textSize = 16f
-            setTextColor(0xFFE0E0E0.toInt())
-            setPadding(0, 16, 0, 4)
-        })
-
-        // Map radio buttons
-        val mapGroup = RadioGroup(this).apply {
-            orientation = RadioGroup.VERTICAL
-        }
-        MapType.entries.forEachIndexed { idx, mt ->
-            mapGroup.addView(RadioButton(this).apply {
-                text = "${mt.emoji} ${GameStrings.mapName(mt.displayName)}"
-                setTextColor(0xFFE0E0E0.toInt())
-                id = idx + 100
-                if (mt == selectedMap) isChecked = true
-            })
-        }
-        layout.addView(mapGroup)
-
-        val dialog = AlertDialog.Builder(this, com.google.android.material.R.style.ThemeOverlay_MaterialComponents_Dialog_Alert)
-            .setView(layout)
-            .setPositiveButton(GameStrings.btnPlay) { _, _ ->
-                val subDiff = diffGroup.checkedRadioButtonId
-                val mapIdx = (mapGroup.checkedRadioButtonId - 100).coerceIn(0, MapType.entries.size - 1)
-                val chosenMap = MapType.entries[mapIdx]
-
-                val intent = Intent(this, MainActivity::class.java)
-                intent.putExtra("difficulty", 3)
-                intent.putExtra("endless_sub_difficulty", subDiff)
-                intent.putExtra("map_type", chosenMap.name)
-                startActivity(intent)
-            }
-            .setNegativeButton(GameStrings.btnCancel, null)
+        val dialogView = layoutInflater.inflate(R.layout.dialog_map_selection, null)
+        val dialog = AlertDialog.Builder(this)
+            .setView(dialogView)
             .create()
-        dialog.show()
-        // Dark theme the dialog buttons
         dialog.window?.setBackgroundDrawableResource(android.R.color.transparent)
-        dialog.getButton(AlertDialog.BUTTON_POSITIVE)?.setTextColor(0xFFFFD700.toInt())
-        dialog.getButton(AlertDialog.BUTTON_NEGATIVE)?.setTextColor(0xFF9E9E9E.toInt())
+
+        val tvTitle = dialogView.findViewById<TextView>(R.id.tv_dialog_title)
+        val btnClose = dialogView.findViewById<TextView>(R.id.btn_close_dialog)
+        val btnEasy = dialogView.findViewById<Button>(R.id.btn_diff_easy)
+        val btnNormal = dialogView.findViewById<Button>(R.id.btn_diff_normal)
+        val btnHard = dialogView.findViewById<Button>(R.id.btn_diff_hard)
+        val containerTabs = dialogView.findViewById<LinearLayout>(R.id.container_biome_tabs)
+        val mapPreview = dialogView.findViewById<com.example.myapp.game.MapPreviewView>(R.id.map_preview_view)
+        val tvMapName = dialogView.findViewById<TextView>(R.id.tv_map_name)
+        val tvLaneBadge = dialogView.findViewById<TextView>(R.id.tv_lane_badge)
+        val tvTacticalBadge = dialogView.findViewById<TextView>(R.id.tv_tactical_badge)
+        val tvMapDesc = dialogView.findViewById<TextView>(R.id.tv_map_desc)
+        val btnCancel = dialogView.findViewById<Button>(R.id.btn_cancel_dialog)
+        val btnStart = dialogView.findViewById<Button>(R.id.btn_start_run)
+
+        tvTitle.text = GameStrings.endlessModeTitle
+        btnStart.text = GameStrings.deployToEndless
+
+        var chosenSubDiff = 1 // 0=easy, 1=normal, 2=hard
+        var chosenMap = selectedMap
+
+        fun updateDifficultyUI() {
+            btnEasy.setBackgroundResource(if (chosenSubDiff == 0) R.drawable.bg_tab_active else R.drawable.bg_tab_inactive)
+            btnEasy.setTextColor(if (chosenSubDiff == 0) Color.WHITE else Color.parseColor("#B0BEC5"))
+
+            btnNormal.setBackgroundResource(if (chosenSubDiff == 1) R.drawable.bg_tab_active else R.drawable.bg_tab_inactive)
+            btnNormal.setTextColor(if (chosenSubDiff == 1) Color.WHITE else Color.parseColor("#B0BEC5"))
+
+            btnHard.setBackgroundResource(if (chosenSubDiff == 2) R.drawable.bg_tab_active else R.drawable.bg_tab_inactive)
+            btnHard.setTextColor(if (chosenSubDiff == 2) Color.WHITE else Color.parseColor("#B0BEC5"))
+        }
+
+        btnEasy.setOnClickListener { chosenSubDiff = 0; updateDifficultyUI() }
+        btnNormal.setOnClickListener { chosenSubDiff = 1; updateDifficultyUI() }
+        btnHard.setOnClickListener { chosenSubDiff = 2; updateDifficultyUI() }
+        updateDifficultyUI()
+
+        val tabButtons = mutableListOf<Button>()
+        fun updateMapCard(mapType: MapType) {
+            chosenMap = mapType
+            selectedMap = mapType
+            mapPreview.setMapType(mapType)
+            tvMapName.text = "${mapType.emoji} ${GameStrings.mapName(mapType.displayName)}"
+            val lanes = com.example.myapp.game.MapPathGenerator.getLaneCount(mapType)
+            tvLaneBadge.text = "⚔️ " + GameStrings.mapLanesFmt(lanes)
+            tvTacticalBadge.text = GameStrings.mapTacticalTag(mapType)
+            tvMapDesc.text = GameStrings.mapDescription(mapType)
+
+            tabButtons.forEachIndexed { idx, btn ->
+                val isSel = MapType.entries[idx] == mapType
+                btn.setBackgroundResource(if (isSel) R.drawable.bg_tab_active else R.drawable.bg_tab_inactive)
+                btn.setTextColor(if (isSel) Color.WHITE else Color.parseColor("#B0BEC5"))
+            }
+        }
+
+        containerTabs.removeAllViews()
+        MapType.entries.forEach { mt ->
+            val btn = Button(this).apply {
+                text = "${mt.emoji} ${GameStrings.mapName(mt.displayName)}"
+                textSize = 12f
+                isAllCaps = false
+                val padH = (12 * resources.displayMetrics.density).toInt()
+                val padV = (6 * resources.displayMetrics.density).toInt()
+                setPadding(padH, padV, padH, padV)
+                val lp = LinearLayout.LayoutParams(
+                    LinearLayout.LayoutParams.WRAP_CONTENT,
+                    (36 * resources.displayMetrics.density).toInt()
+                ).apply {
+                    marginEnd = (6 * resources.displayMetrics.density).toInt()
+                }
+                layoutParams = lp
+                setOnClickListener { updateMapCard(mt) }
+            }
+            tabButtons.add(btn)
+            containerTabs.addView(btn)
+        }
+
+        updateMapCard(chosenMap)
+
+        btnClose.setOnClickListener { dialog.dismiss() }
+        btnCancel.setOnClickListener { dialog.dismiss() }
+
+        btnStart.setOnClickListener {
+            dialog.dismiss()
+            val intent = Intent(this, MainActivity::class.java)
+            intent.putExtra("difficulty", 3)
+            intent.putExtra("endless_sub_difficulty", chosenSubDiff)
+            intent.putExtra("map_type", chosenMap.name)
+            startActivity(intent)
+        }
+
+        dialog.show()
     }
 
     private fun showLoadoutPopup() {

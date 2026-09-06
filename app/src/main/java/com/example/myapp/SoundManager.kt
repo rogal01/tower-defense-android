@@ -2,7 +2,6 @@ package com.example.myapp
 
 import android.content.Context
 import android.media.AudioAttributes
-import android.media.AudioFormat
 import android.media.SoundPool
 import com.example.myapp.game.SfxType
 import java.io.File
@@ -27,11 +26,11 @@ object SoundManager {
     private val soundIds = mutableMapOf<SfxType, Int>()
     @Volatile private var initialized = false
 
-    // Throttle: don't spam the same sound faster than every 40ms
+    // Throttle: don't spam identical sound faster than every 35ms
     private val lastPlayTime = mutableMapOf<SfxType, Long>()
-    private const val MIN_INTERVAL_MS = 40L
+    private const val MIN_INTERVAL_MS = 35L
 
-    private const val SAMPLE_RATE = 22050
+    private const val SAMPLE_RATE = 44100
 
     fun loadSettings(context: Context) {
         val prefs = context.getSharedPreferences("tower_defense_settings", Context.MODE_PRIVATE)
@@ -61,15 +60,17 @@ object SoundManager {
             .setUsage(AudioAttributes.USAGE_GAME)
             .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
             .build()
-        soundPool = SoundPool.Builder().setMaxStreams(8).setAudioAttributes(attrs).build()
+        soundPool = SoundPool.Builder().setMaxStreams(12).setAudioAttributes(attrs).build()
 
-        val cacheDir = File(context.cacheDir, "sfx")
+        val cacheDir = File(context.cacheDir, "sfx_v3")
         cacheDir.mkdirs()
 
         for (sfx in SfxType.entries) {
-            val samples = generateSamples(sfx)
             val wavFile = File(cacheDir, "${sfx.name}.wav")
-            writeWav(wavFile, samples)
+            if (!wavFile.exists() || wavFile.length() < 100) {
+                val samples = generateSamples(sfx)
+                writeWav(wavFile, samples)
+            }
             soundIds[sfx] = soundPool!!.load(wavFile.absolutePath, 1)
         }
     }
@@ -85,7 +86,21 @@ object SoundManager {
         if (now - last < MIN_INTERVAL_MS) return
         lastPlayTime[sfx] = now
 
-        pool.play(id, vol, vol, 1, 0, 1f)
+        // Organic micro-pitch modulation to eliminate acoustic fatigue on rapid sound events
+        val pitch = when (sfx) {
+            SfxType.ARROW_FIRE, SfxType.MAGIC_FIRE, SfxType.POISON_FIRE,
+            SfxType.TESLA_FIRE, SfxType.ICE_FIRE, SfxType.FLAME_FIRE,
+            SfxType.NECRO_FIRE, SfxType.BALLISTA_FIRE,
+            SfxType.PLAYER_ATTACK, SfxType.ENEMY_DIE, SfxType.BASE_HIT -> {
+                0.94f + (Math.random() * 0.12).toFloat()
+            }
+            SfxType.WEATHER_THUNDER -> {
+                0.88f + (Math.random() * 0.24).toFloat()
+            }
+            else -> 1.0f
+        }
+
+        pool.play(id, vol, vol, 1, 0, pitch)
     }
 
     private var cacheContext: Context? = null
@@ -95,209 +110,591 @@ object SoundManager {
         soundPool = null
         soundIds.clear()
         initialized = false
-        // Clean up cached WAV files
         cacheContext?.let { ctx ->
-            val sfxDir = File(ctx.cacheDir, "sfx")
+            val sfxDir = File(ctx.cacheDir, "sfx_v3")
             if (sfxDir.exists()) sfxDir.deleteRecursively()
         }
         cacheContext = null
     }
 
-    // --- Procedural sound generation ---
+    // ─── High-Fidelity Procedural Sound Synthesis ───
 
-    private fun generateSamples(sfx: SfxType): ShortArray {
+    internal fun generateSamples(sfx: SfxType): ShortArray {
         return when (sfx) {
-            SfxType.ARROW_FIRE -> chirp(0.06, 1200.0, 600.0, 0.5)
-            SfxType.MAGIC_FIRE -> shimmer(0.1, 800.0, 0.4)
-            SfxType.CANNON_FIRE -> boom(0.12, 120.0, 0.7)
-            SfxType.POISON_FIRE -> noise(0.07, 400.0, 0.35)
-            SfxType.TESLA_FIRE -> zap(0.08, 0.6)
-            SfxType.ICE_FIRE -> shimmer(0.08, 2200.0, 0.35)
-            SfxType.FLAME_FIRE -> sweep(0.1, 300.0, 1000.0, 0.5)
-            SfxType.NECRO_FIRE -> noise(0.08, 200.0, 0.4)
-            SfxType.BALLISTA_FIRE -> boom(0.1, 150.0, 0.6)
-            SfxType.VORTEX_FIRE -> shimmer(0.07, 1500.0, 0.35)
-            SfxType.HEALER_FIRE -> chime(0.12, doubleArrayOf(523.0, 659.0), 0.3)
-            SfxType.ENEMY_DIE -> chirp(0.05, 800.0, 300.0, 0.4)
-            SfxType.BOSS_APPEAR -> horn(0.3, 150.0, 0.6)
-            SfxType.POWER_FIREBALL -> sweep(0.15, 200.0, 900.0, 0.6)
-            SfxType.POWER_FREEZE -> shimmer(0.2, 2500.0, 0.45)
-            SfxType.POWER_HEAL -> chime(0.25, doubleArrayOf(523.0, 659.0, 784.0), 0.4)
-            SfxType.POWER_LIGHTNING -> zap(0.12, 0.7)
-            SfxType.WAVE_START -> horn(0.2, 440.0, 0.5)
-            SfxType.COMBO -> chirp(0.08, 600.0, 1200.0, 0.4)
-            SfxType.ACHIEVEMENT -> chime(0.3, doubleArrayOf(784.0, 988.0, 1175.0), 0.45)
-            SfxType.GAME_OVER -> chime(0.35, doubleArrayOf(440.0, 349.0, 262.0), 0.5)
-            SfxType.VICTORY -> chime(0.4, doubleArrayOf(523.0, 659.0, 784.0, 1047.0), 0.5)
-            SfxType.TOWER_PLACE -> boom(0.06, 200.0, 0.45)
-            SfxType.TOWER_UPGRADE -> sweep(0.12, 500.0, 1500.0, 0.4)
-            SfxType.TOWER_SELL -> chirp(0.08, 1200.0, 400.0, 0.35)
-            SfxType.TOWER_ABILITY -> sweep(0.15, 300.0, 1800.0, 0.55)
-            SfxType.BASE_HIT -> boom(0.05, 80.0, 0.5)
-            SfxType.PLAYER_ATTACK -> chirp(0.04, 900.0, 500.0, 0.35)
-            SfxType.WAVE_COMPLETE -> chime(0.2, doubleArrayOf(523.0, 784.0), 0.35)
-            SfxType.BOSS_CHARGE -> sweep(0.1, 300.0, 1200.0, 0.55)
-            SfxType.BOSS_SUMMON -> shimmer(0.15, 600.0, 0.4)
-            SfxType.BOSS_HEAL -> chime(0.15, doubleArrayOf(659.0, 784.0), 0.35)
-            SfxType.BOSS_AOE -> boom(0.15, 100.0, 0.65)
-            SfxType.BOSS_SHIELD -> chirp(0.1, 1500.0, 2500.0, 0.35)
-            SfxType.BOSS_ROAR -> horn(0.2, 100.0, 0.6)
-            SfxType.BOSS_TELEPORT -> sweep(0.08, 2000.0, 400.0, 0.4)
-            SfxType.BOSS_DRAIN -> sweep(0.1, 800.0, 200.0, 0.45)
-            SfxType.BOSS_QUAKE -> boom(0.2, 60.0, 0.7)
-            SfxType.BOSS_SPLIT -> noise(0.1, 300.0, 0.45)
-            SfxType.DIAMOND_DROP -> chime(0.12, doubleArrayOf(1047.0, 1319.0), 0.35)
-            SfxType.PLAYER_UPGRADE -> sweep(0.15, 400.0, 1200.0, 0.4)
-            SfxType.UI_CLICK -> chirp(0.03, 1000.0, 800.0, 0.25)
+            // Towers
+            SfxType.ARROW_FIRE -> bowShot(0.08, 1400.0, 0.45)
+            SfxType.MAGIC_FIRE -> magicOrb(0.12, 650.0, 0.4)
+            SfxType.CANNON_FIRE -> explosiveBlast(0.18, 90.0, 0.75)
+            SfxType.POISON_FIRE -> acidSpit(0.10, 420.0, 0.38)
+            SfxType.TESLA_FIRE -> electricArc(0.11, 0.55)
+            SfxType.ICE_FIRE -> crystalFrost(0.13, 2400.0, 0.35)
+            SfxType.FLAME_FIRE -> flameBurst(0.14, 250.0, 0.5)
+            SfxType.NECRO_FIRE -> darkPulse(0.12, 130.0, 0.45)
+            SfxType.BALLISTA_FIRE -> explosiveBlast(0.15, 120.0, 0.65)
+            SfxType.VORTEX_FIRE -> vortexSwirl(0.14, 0.4)
+            SfxType.HEALER_FIRE -> harpChime(0.22, doubleArrayOf(523.25, 659.25, 783.99), 0.35)
+
+            // Combat & Enemies
+            SfxType.ENEMY_DIE -> popCrunch(0.06, 520.0, 0.4)
+            SfxType.BOSS_APPEAR -> epicHorn(0.45, 110.0, 0.7)
+            SfxType.BASE_HIT -> heavyImpact(0.10, 70.0, 0.65)
+            SfxType.PLAYER_ATTACK -> swordSlash(0.06, 0.35)
+
+            // Powers
+            SfxType.POWER_FIREBALL -> flameBurst(0.22, 180.0, 0.65)
+            SfxType.POWER_FREEZE -> crystalFrost(0.26, 3200.0, 0.5)
+            SfxType.POWER_HEAL -> harpChime(0.32, doubleArrayOf(440.0, 554.37, 659.25, 880.0), 0.45)
+            SfxType.POWER_LIGHTNING -> electricArc(0.18, 0.75)
+
+            // Progression & Fanfares
+            SfxType.WAVE_START -> battleCall(0.28, 330.0, 0.55)
+            SfxType.WAVE_COMPLETE -> harpChime(0.35, doubleArrayOf(523.25, 659.25, 783.99, 1046.50), 0.5)
+            SfxType.COMBO -> harpChime(0.12, doubleArrayOf(659.25, 880.0), 0.4)
+            SfxType.ACHIEVEMENT -> harpChime(0.45, doubleArrayOf(587.33, 739.99, 880.0, 1174.66), 0.55)
+            SfxType.GAME_OVER -> harpChime(0.50, doubleArrayOf(440.0, 415.30, 392.0, 329.63), 0.55)
+            SfxType.VICTORY -> harpChime(0.60, doubleArrayOf(523.25, 659.25, 783.99, 1046.50, 1318.51), 0.6)
+
+            // Management & Economy
+            SfxType.TOWER_PLACE -> snapThud(0.08, 220.0, 0.5)
+            SfxType.TOWER_UPGRADE -> powerAscend(0.18, 400.0, 1400.0, 0.45)
+            SfxType.TOWER_SELL -> coinJingle(0.15, 0.45)
+            SfxType.TOWER_ABILITY -> powerAscend(0.20, 300.0, 1800.0, 0.55)
+            SfxType.DIAMOND_DROP -> gemRing(0.22, 1760.0, 0.45)
+            SfxType.PLAYER_UPGRADE -> powerAscend(0.20, 440.0, 1320.0, 0.45)
+            SfxType.UI_CLICK -> tactileClick(0.025, 480.0, 0.3)
+
+            // Boss abilities
+            SfxType.BOSS_CHARGE -> flameBurst(0.16, 220.0, 0.55)
+            SfxType.BOSS_SUMMON -> vortexSwirl(0.18, 0.45)
+            SfxType.BOSS_HEAL -> harpChime(0.20, doubleArrayOf(440.0, 554.37), 0.35)
+            SfxType.BOSS_AOE -> explosiveBlast(0.22, 65.0, 0.7)
+            SfxType.BOSS_SHIELD -> crystalFrost(0.18, 1800.0, 0.4)
+            SfxType.BOSS_ROAR -> epicHorn(0.35, 95.0, 0.65)
+            SfxType.BOSS_TELEPORT -> vortexSwirl(0.12, 0.45)
+            SfxType.BOSS_DRAIN -> acidSpit(0.14, 300.0, 0.45)
+            SfxType.BOSS_QUAKE -> heavyImpact(0.25, 50.0, 0.75)
+            SfxType.BOSS_SPLIT -> popCrunch(0.12, 380.0, 0.5)
+
+            // Weather events & Special combat
+            SfxType.WEATHER_THUNDER -> thunderClap(0.75, 55.0, 0.85)
+            SfxType.WEATHER_BLOOD_MOON -> bloodMoonDrone(0.65, 0.70)
+            SfxType.WEATHER_ECLIPSE -> astralChime(0.55, 0.60)
+            SfxType.HERO_SPECIAL -> bladeClash(0.20, 0.65)
+            SfxType.REWARD_CHEST -> rewardChime(0.48, 0.65)
+            SfxType.STUN_ZAP -> electricStun(0.14, 0.55)
         }
     }
 
-    /** Frequency sweep (up or down chirp) */
-    private fun chirp(dur: Double, freqStart: Double, freqEnd: Double, vol: Double): ShortArray {
+    // ─── Sound Design Synthesis Engines ───
+
+    /** Bow release string snap with quick decaying air whoosh */
+    private fun bowShot(dur: Double, freq: Double, vol: Double): ShortArray {
+        val n = (SAMPLE_RATE * dur).toInt()
+        val out = ShortArray(n)
+        val rng = java.util.Random(101)
+        for (i in 0 until n) {
+            val t = i.toDouble() / SAMPLE_RATE
+            val frac = i.toDouble() / n
+            // Sharp initial string pluck then rapid decay
+            val pluckEnv = exp(-frac * 18.0)
+            val whooshEnv = sin(PI * frac).pow(2.0) * 0.4
+            val stringTone = sin(2.0 * PI * freq * t) + 0.4 * sin(4.0 * PI * freq * t)
+            val noise = (rng.nextDouble() * 2.0 - 1.0) * whooshEnv
+            val s = (stringTone * pluckEnv + noise) * vol
+            out[i] = (s * 32767).toInt().coerceIn(-32768, 32767).toShort()
+        }
+        applyDeclick(out)
+        return out
+    }
+
+    /** Warm mystical orb with shimmering upper octave */
+    private fun magicOrb(dur: Double, freq: Double, vol: Double): ShortArray {
         val n = (SAMPLE_RATE * dur).toInt()
         val out = ShortArray(n)
         for (i in 0 until n) {
             val t = i.toDouble() / SAMPLE_RATE
             val frac = i.toDouble() / n
-            val freq = freqStart + (freqEnd - freqStart) * frac
-            val env = (1.0 - frac) * vol
-            out[i] = (sin(2.0 * PI * freq * t) * env * 32767).toInt().coerceIn(-32768, 32767).toShort()
+            val env = sin(PI * frac) * exp(-frac * 2.5) * vol
+            val mod = sin(2.0 * PI * 18.0 * t) * 40.0
+            val s = sin(2.0 * PI * (freq + mod) * t) * 0.7 +
+                    sin(2.0 * PI * (freq * 2.01) * t) * 0.3
+            out[i] = (s * env * 32767).toInt().coerceIn(-32768, 32767).toShort()
         }
+        applyDeclick(out)
         return out
     }
 
-    /** Frequency sweep (explicit up-sweep for power sounds) */
-    private fun sweep(dur: Double, freqStart: Double, freqEnd: Double, vol: Double): ShortArray {
+    /** Punchy explosive kick with saturated sub-bass rumble */
+    private fun explosiveBlast(dur: Double, startFreq: Double, vol: Double): ShortArray {
+        val n = (SAMPLE_RATE * dur).toInt()
+        val out = ShortArray(n)
+        val rng = java.util.Random(202)
+        var lpNoise = 0.0
+        for (i in 0 until n) {
+            val frac = i.toDouble() / n
+            val t = i.toDouble() / SAMPLE_RATE
+            val env = (1.0 - frac).pow(2.2) * vol
+            // Pitch drops rapidly like a bass drum
+            val curFreq = startFreq * (1.0 - frac * 0.6)
+            val sub = sin(2.0 * PI * curFreq * t)
+            // Low-passed distorted blast noise
+            val raw = rng.nextDouble() * 2.0 - 1.0
+            lpNoise += 0.12 * (raw - lpNoise)
+            val s = (sub * 0.65 + lpNoise * 0.65).coerceIn(-1.0, 1.0) * env
+            out[i] = (s * 32767).toInt().coerceIn(-32768, 32767).toShort()
+        }
+        applyDeclick(out)
+        return out
+    }
+
+    /** Electric arc with jittered micro-discharges */
+    private fun electricArc(dur: Double, vol: Double): ShortArray {
+        val n = (SAMPLE_RATE * dur).toInt()
+        val out = ShortArray(n)
+        val rng = java.util.Random(303)
+        var phase = 0.0
+        for (i in 0 until n) {
+            val frac = i.toDouble() / n
+            val env = sin(PI * frac).pow(0.5) * vol
+            val buzzFreq = 120.0 + rng.nextDouble() * 1800.0
+            phase += 2.0 * PI * buzzFreq / SAMPLE_RATE
+            val square = if (sin(phase) > 0.1) 0.6 else -0.6
+            val crackle = (rng.nextDouble() * 2.0 - 1.0) * 0.4
+            val s = (square + crackle) * env
+            out[i] = (s * 32767).toInt().coerceIn(-32768, 32767).toShort()
+        }
+        applyDeclick(out)
+        return out
+    }
+
+    /** Crystal frost shimmer */
+    private fun crystalFrost(dur: Double, centerFreq: Double, vol: Double): ShortArray {
+        val n = (SAMPLE_RATE * dur).toInt()
+        val out = ShortArray(n)
+        val rng = java.util.Random(404)
+        for (i in 0 until n) {
+            val t = i.toDouble() / SAMPLE_RATE
+            val frac = i.toDouble() / n
+            val env = exp(-frac * 4.0) * vol
+            val mod = (rng.nextDouble() - 0.5) * 400.0
+            val s1 = sin(2.0 * PI * (centerFreq + mod) * t) * 0.5
+            val s2 = sin(2.0 * PI * (centerFreq * 1.5 + mod * 0.5) * t) * 0.35
+            val s3 = sin(2.0 * PI * (centerFreq * 2.0) * t) * 0.15
+            out[i] = ((s1 + s2 + s3) * env * 32767).toInt().coerceIn(-32768, 32767).toShort()
+        }
+        applyDeclick(out)
+        return out
+    }
+
+    /** Turbulent flame roar */
+    private fun flameBurst(dur: Double, freq: Double, vol: Double): ShortArray {
+        val n = (SAMPLE_RATE * dur).toInt()
+        val out = ShortArray(n)
+        val rng = java.util.Random(505)
+        var lp = 0.0
+        for (i in 0 until n) {
+            val frac = i.toDouble() / n
+            val env = sin(PI * frac) * vol
+            val raw = rng.nextDouble() * 2.0 - 1.0
+            lp += 0.18 * (raw - lp)
+            val rumble = sin(2.0 * PI * freq * (i.toDouble() / SAMPLE_RATE)) * 0.4
+            val s = (lp * 0.7 + rumble) * env
+            out[i] = (s * 32767).toInt().coerceIn(-32768, 32767).toShort()
+        }
+        applyDeclick(out)
+        return out
+    }
+
+    /** Dark nether pulse with descending formant */
+    private fun darkPulse(dur: Double, freq: Double, vol: Double): ShortArray {
+        val n = (SAMPLE_RATE * dur).toInt()
+        val out = ShortArray(n)
+        for (i in 0 until n) {
+            val t = i.toDouble() / SAMPLE_RATE
+            val frac = i.toDouble() / n
+            val env = (1.0 - frac).pow(1.5) * vol
+            val f = freq * (1.0 - frac * 0.4)
+            val sub = sin(2.0 * PI * f * t) * 0.7 + sin(2.0 * PI * f * 2.5 * t) * 0.3
+            out[i] = (sub * env * 32767).toInt().coerceIn(-32768, 32767).toShort()
+        }
+        applyDeclick(out)
+        return out
+    }
+
+    /** Acid droplet pop */
+    private fun acidSpit(dur: Double, baseFreq: Double, vol: Double): ShortArray {
+        val n = (SAMPLE_RATE * dur).toInt()
+        val out = ShortArray(n)
+        for (i in 0 until n) {
+            val t = i.toDouble() / SAMPLE_RATE
+            val frac = i.toDouble() / n
+            val env = sin(PI * frac) * vol
+            val curFreq = baseFreq + sin(PI * frac * 3.0) * 260.0
+            val s = sin(2.0 * PI * curFreq * t)
+            out[i] = (s * env * 32767).toInt().coerceIn(-32768, 32767).toShort()
+        }
+        applyDeclick(out)
+        return out
+    }
+
+    /** Ethereal vortex sweep */
+    private fun vortexSwirl(dur: Double, vol: Double): ShortArray {
         val n = (SAMPLE_RATE * dur).toInt()
         val out = ShortArray(n)
         var phase = 0.0
         for (i in 0 until n) {
             val frac = i.toDouble() / n
-            val freq = freqStart + (freqEnd - freqStart) * frac
-            val env = sin(PI * frac) * vol // bell envelope
-            phase += 2.0 * PI * freq / SAMPLE_RATE
-            out[i] = (sin(phase) * env * 32767).toInt().coerceIn(-32768, 32767).toShort()
-        }
-        return out
-    }
-
-    /** Deep boom (low frequency with fast decay) */
-    private fun boom(dur: Double, freq: Double, vol: Double): ShortArray {
-        val n = (SAMPLE_RATE * dur).toInt()
-        val out = ShortArray(n)
-        for (i in 0 until n) {
-            val t = i.toDouble() / SAMPLE_RATE
-            val frac = i.toDouble() / n
-            val env = (1.0 - frac).pow(2.0) * vol
-            val f = freq * (1.0 - frac * 0.5) // pitch drops
-            out[i] = (sin(2.0 * PI * f * t) * env * 32767).toInt().coerceIn(-32768, 32767).toShort()
-        }
-        return out
-    }
-
-    /** Electric zap (square wave + noise) */
-    private fun zap(dur: Double, vol: Double): ShortArray {
-        val n = (SAMPLE_RATE * dur).toInt()
-        val out = ShortArray(n)
-        val rng = java.util.Random(42)
-        for (i in 0 until n) {
-            val t = i.toDouble() / SAMPLE_RATE
-            val frac = i.toDouble() / n
-            val env = (1.0 - frac) * vol
-            val freq = 150.0 + 2000.0 * (1.0 - frac)
-            val square = if (sin(2.0 * PI * freq * t) > 0) 1.0 else -1.0
-            val noiseVal = (rng.nextDouble() * 2.0 - 1.0) * 0.3
-            out[i] = ((square * 0.7 + noiseVal) * env * 32767).toInt().coerceIn(-32768, 32767).toShort()
-        }
-        return out
-    }
-
-    /** Shimmer (high frequency with random modulation) */
-    private fun shimmer(dur: Double, centerFreq: Double, vol: Double): ShortArray {
-        val n = (SAMPLE_RATE * dur).toInt()
-        val out = ShortArray(n)
-        val rng = java.util.Random(7)
-        for (i in 0 until n) {
-            val t = i.toDouble() / SAMPLE_RATE
-            val frac = i.toDouble() / n
             val env = sin(PI * frac) * vol
-            val modFreq = centerFreq + (rng.nextDouble() - 0.5) * 600.0
-            out[i] = (sin(2.0 * PI * modFreq * t) * env * 32767).toInt().coerceIn(-32768, 32767).toShort()
-        }
-        return out
-    }
-
-    /** Chime (sequential notes for achievements/victory/game-over) */
-    private fun chime(dur: Double, freqs: DoubleArray, vol: Double): ShortArray {
-        val totalSamples = (SAMPLE_RATE * dur).toInt()
-        val noteLen = totalSamples / freqs.size
-        val out = ShortArray(totalSamples)
-        for ((idx, freq) in freqs.withIndex()) {
-            val start = idx * noteLen
-            for (i in 0 until noteLen) {
-                if (start + i >= totalSamples) break
-                val t = i.toDouble() / SAMPLE_RATE
-                val noteFrac = i.toDouble() / noteLen
-                val env = (1.0 - noteFrac).pow(0.5) * vol
-                out[start + i] = (sin(2.0 * PI * freq * t) * env * 32767).toInt().coerceIn(-32768, 32767).toShort()
-            }
-        }
-        return out
-    }
-
-    /** Sustained horn tone with attack */
-    private fun horn(dur: Double, freq: Double, vol: Double): ShortArray {
-        val n = (SAMPLE_RATE * dur).toInt()
-        val out = ShortArray(n)
-        for (i in 0 until n) {
-            val t = i.toDouble() / SAMPLE_RATE
-            val frac = i.toDouble() / n
-            val attack = (frac * 10.0).coerceAtMost(1.0)
-            val decay = (1.0 - frac).coerceAtMost(1.0)
-            val env = attack * decay * vol
-            val s = sin(2.0 * PI * freq * t) * 0.7 + sin(4.0 * PI * freq * t) * 0.3
+            val freq = 300.0 + sin(PI * frac) * 900.0
+            phase += 2.0 * PI * freq / SAMPLE_RATE
+            val s = sin(phase) * 0.8 + sin(phase * 1.5) * 0.2
             out[i] = (s * env * 32767).toInt().coerceIn(-32768, 32767).toShort()
         }
+        applyDeclick(out)
         return out
     }
 
-    /** Filtered noise burst */
-    private fun noise(dur: Double, centerFreq: Double, vol: Double): ShortArray {
+    /** Pure celestial harp arpeggio */
+    private fun harpChime(dur: Double, notes: DoubleArray, vol: Double): ShortArray {
         val n = (SAMPLE_RATE * dur).toInt()
         val out = ShortArray(n)
-        val rng = java.util.Random(99)
-        var prev = 0.0
-        val rc = 1.0 / (2.0 * PI * centerFreq)
-        val dtSample = 1.0 / SAMPLE_RATE
-        val alpha = dtSample / (rc + dtSample)
-        for (i in 0 until n) {
-            val frac = i.toDouble() / n
-            val env = (1.0 - frac) * vol
-            val raw = rng.nextDouble() * 2.0 - 1.0
-            prev += alpha * (raw - prev)
-            out[i] = (prev * env * 32767).toInt().coerceIn(-32768, 32767).toShort()
+        val noteDurSamples = n / notes.size
+        for ((idx, noteFreq) in notes.withIndex()) {
+            val start = idx * noteDurSamples
+            for (i in 0 until (n - start)) {
+                val t = i.toDouble() / SAMPLE_RATE
+                val frac = i.toDouble() / (n - start)
+                val env = exp(-frac * 5.0) * vol
+                val tone = sin(2.0 * PI * noteFreq * t) * 0.75 +
+                           sin(2.0 * PI * noteFreq * 2.0 * t) * 0.25
+                val curVal = out[start + i].toInt()
+                val addVal = (tone * env * 32767).toInt()
+                out[start + i] = (curVal + addVal).coerceIn(-32768, 32767).toShort()
+            }
         }
+        applyDeclick(out)
         return out
     }
 
-    /** Write ShortArray PCM data as a WAV file */
+    /** Tactile haptic micro-click (warm 450Hz drop, no harsh treble) */
+    private fun tactileClick(dur: Double, freq: Double, vol: Double): ShortArray {
+        val n = (SAMPLE_RATE * dur).toInt()
+        val out = ShortArray(n)
+        for (i in 0 until n) {
+            val t = i.toDouble() / SAMPLE_RATE
+            val frac = i.toDouble() / n
+            val env = (1.0 - frac).pow(3.0) * vol
+            val f = freq * (1.0 - frac * 0.6)
+            out[i] = (sin(2.0 * PI * f * t) * env * 32767).toInt().coerceIn(-32768, 32767).toShort()
+        }
+        applyDeclick(out)
+        return out
+    }
+
+    /** Satisfying enemy defeat pop */
+    private fun popCrunch(dur: Double, freq: Double, vol: Double): ShortArray {
+        val n = (SAMPLE_RATE * dur).toInt()
+        val out = ShortArray(n)
+        val rng = java.util.Random(606)
+        for (i in 0 until n) {
+            val t = i.toDouble() / SAMPLE_RATE
+            val frac = i.toDouble() / n
+            val env = exp(-frac * 14.0) * vol
+            val pitch = freq * (1.0 - frac * 0.7)
+            val tone = sin(2.0 * PI * pitch * t)
+            val crackle = (rng.nextDouble() * 2.0 - 1.0) * 0.3
+            val s = (tone * 0.8 + crackle) * env
+            out[i] = (s * 32767).toInt().coerceIn(-32768, 32767).toShort()
+        }
+        applyDeclick(out)
+        return out
+    }
+
+    /** Powerful battle horn */
+    private fun epicHorn(dur: Double, freq: Double, vol: Double): ShortArray {
+        val n = (SAMPLE_RATE * dur).toInt()
+        val out = ShortArray(n)
+        for (i in 0 until n) {
+            val t = i.toDouble() / SAMPLE_RATE
+            val frac = i.toDouble() / n
+            val attack = (frac * 12.0).coerceAtMost(1.0)
+            val decay = (1.0 - frac).coerceAtMost(1.0)
+            val env = attack * decay * vol
+            val brass = sin(2.0 * PI * freq * t) * 0.6 +
+                        sin(4.0 * PI * freq * t) * 0.25 +
+                        sin(6.0 * PI * freq * t) * 0.15
+            out[i] = (brass * env * 32767).toInt().coerceIn(-32768, 32767).toShort()
+        }
+        applyDeclick(out)
+        return out
+    }
+
+    /** Heavy ground impact thud */
+    private fun heavyImpact(dur: Double, freq: Double, vol: Double): ShortArray {
+        val n = (SAMPLE_RATE * dur).toInt()
+        val out = ShortArray(n)
+        for (i in 0 until n) {
+            val t = i.toDouble() / SAMPLE_RATE
+            val frac = i.toDouble() / n
+            val env = (1.0 - frac).pow(2.5) * vol
+            val f = freq * (1.0 - frac * 0.4)
+            out[i] = (sin(2.0 * PI * f * t) * env * 32767).toInt().coerceIn(-32768, 32767).toShort()
+        }
+        applyDeclick(out)
+        return out
+    }
+
+    /** Quick sword whoosh */
+    private fun swordSlash(dur: Double, vol: Double): ShortArray {
+        val n = (SAMPLE_RATE * dur).toInt()
+        val out = ShortArray(n)
+        val rng = java.util.Random(707)
+        var lp = 0.0
+        for (i in 0 until n) {
+            val frac = i.toDouble() / n
+            val env = sin(PI * frac) * vol
+            val raw = rng.nextDouble() * 2.0 - 1.0
+            lp += 0.25 * (raw - lp)
+            out[i] = (lp * env * 32767).toInt().coerceIn(-32768, 32767).toShort()
+        }
+        applyDeclick(out)
+        return out
+    }
+
+    /** Battle trumpet call */
+    private fun battleCall(dur: Double, freq: Double, vol: Double): ShortArray {
+        return epicHorn(dur, freq, vol)
+    }
+
+    /** Building construction thud */
+    private fun snapThud(dur: Double, freq: Double, vol: Double): ShortArray {
+        val n = (SAMPLE_RATE * dur).toInt()
+        val out = ShortArray(n)
+        for (i in 0 until n) {
+            val t = i.toDouble() / SAMPLE_RATE
+            val frac = i.toDouble() / n
+            val env = exp(-frac * 12.0) * vol
+            val s = sin(2.0 * PI * freq * t) * 0.8 + sin(4.0 * PI * freq * t) * 0.2
+            out[i] = (s * env * 32767).toInt().coerceIn(-32768, 32767).toShort()
+        }
+        applyDeclick(out)
+        return out
+    }
+
+    /** Ascending harmonic sweep for upgrade */
+    private fun powerAscend(dur: Double, startF: Double, endF: Double, vol: Double): ShortArray {
+        val n = (SAMPLE_RATE * dur).toInt()
+        val out = ShortArray(n)
+        var phase = 0.0
+        for (i in 0 until n) {
+            val frac = i.toDouble() / n
+            val env = sin(PI * frac) * vol
+            val f = startF + (endF - startF) * frac.pow(1.5)
+            phase += 2.0 * PI * f / SAMPLE_RATE
+            val s = sin(phase) * 0.75 + sin(phase * 2.0) * 0.25
+            out[i] = (s * env * 32767).toInt().coerceIn(-32768, 32767).toShort()
+        }
+        applyDeclick(out)
+        return out
+    }
+
+    /** Dual crystal coin jingle */
+    private fun coinJingle(dur: Double, vol: Double): ShortArray {
+        return harpChime(dur, doubleArrayOf(1567.98, 2093.00), vol)
+    }
+
+    /** Sparkling diamond / gem ring */
+    private fun gemRing(dur: Double, freq: Double, vol: Double): ShortArray {
+        val n = (SAMPLE_RATE * dur).toInt()
+        val out = ShortArray(n)
+        for (i in 0 until n) {
+            val t = i.toDouble() / SAMPLE_RATE
+            val frac = i.toDouble() / n
+            val env = exp(-frac * 4.5) * vol
+            val s = sin(2.0 * PI * freq * t) * 0.7 + sin(2.0 * PI * (freq * 2.5) * t) * 0.3
+            out[i] = (s * env * 32767).toInt().coerceIn(-32768, 32767).toShort()
+        }
+        applyDeclick(out)
+        return out
+    }
+
+    /** Powerful atmospheric thunderclap with sharp lightning snap and rolling sub-bass rumble */
+    private fun thunderClap(dur: Double, subFreq: Double, vol: Double): ShortArray {
+        val n = (SAMPLE_RATE * dur).toInt()
+        val out = ShortArray(n)
+        val rng = java.util.Random(404)
+        var lpNoise = 0.0
+        var lpRumble = 0.0
+        var phase1 = 0.0
+        var phase2 = 0.0
+        for (i in 0 until n) {
+            val t = i.toDouble() / SAMPLE_RATE
+            val frac = i.toDouble() / n
+
+            // Initial supersonic lightning strike snap (first 35ms)
+            val snapEnv = if (t < 0.035) {
+                (1.0 - t / 0.035).pow(2.0) * (rng.nextDouble() * 2.0 - 1.0)
+            } else 0.0
+
+            // Rolling thunder rumble envelope (swells slightly, then long decay)
+            val rumbleEnv = if (t < 0.05) (t / 0.05) else (1.0 - frac).pow(1.6)
+
+            // Multi-frequency low-pitched rolling bass
+            val f1 = subFreq * (1.0 + 0.25 * sin(2.0 * PI * 3.5 * t))
+            val f2 = subFreq * 1.5 * (1.0 - 0.2 * frac)
+            phase1 += 2.0 * PI * f1 / SAMPLE_RATE
+            phase2 += 2.0 * PI * f2 / SAMPLE_RATE
+            val sub = sin(phase1) * 0.5 + sin(phase2) * 0.35
+
+            // Low-pass filtered chaotic noise rumble
+            val rawNoise = rng.nextDouble() * 2.0 - 1.0
+            lpNoise += 0.06 * (rawNoise - lpNoise)
+            lpRumble += 0.04 * (lpNoise - lpRumble)
+
+            val s = (snapEnv * 0.6 + (sub * 0.55 + lpRumble * 0.45) * rumbleEnv).coerceIn(-1.0, 1.0) * vol
+            out[i] = (s * 32767).toInt().coerceIn(-32768, 32767).toShort()
+        }
+        applyDeclick(out)
+        return out
+    }
+
+    /** Ominous dark spectral choir drone with slow tremolo */
+    private fun bloodMoonDrone(dur: Double, vol: Double): ShortArray {
+        val n = (SAMPLE_RATE * dur).toInt()
+        val out = ShortArray(n)
+        val d2 = 73.42
+        val d3 = 146.83
+        val f3 = 174.61
+        val ab3 = 207.65 // Diminished fifth tension
+        var phaseBass = 0.0
+        var phaseD = 0.0
+        var phaseF = 0.0
+        var phaseAb = 0.0
+        for (i in 0 until n) {
+            val t = i.toDouble() / SAMPLE_RATE
+            val frac = i.toDouble() / n
+            val env = if (frac < 0.2) (frac / 0.2) else (1.0 - frac).pow(1.2)
+            val tremolo = 0.75 + 0.25 * sin(2.0 * PI * 4.2 * t)
+
+            phaseBass += 2.0 * PI * d2 / SAMPLE_RATE
+            phaseD += 2.0 * PI * d3 / SAMPLE_RATE
+            phaseF += 2.0 * PI * f3 / SAMPLE_RATE
+            phaseAb += 2.0 * PI * ab3 / SAMPLE_RATE
+
+            val s = (sin(phaseBass) * 0.4 +
+                     sin(phaseD) * 0.25 +
+                     sin(phaseF) * 0.22 +
+                     sin(phaseAb) * 0.18) * tremolo * env * vol
+            out[i] = (s.coerceIn(-1.0, 1.0) * 32767).toInt().coerceIn(-32768, 32767).toShort()
+        }
+        applyDeclick(out)
+        return out
+    }
+
+    /** Crystalline celestial chime cascade with ascending astral shimmer */
+    private fun astralChime(dur: Double, vol: Double): ShortArray {
+        val n = (SAMPLE_RATE * dur).toInt()
+        val out = ShortArray(n)
+        val freqs = doubleArrayOf(1046.50, 1318.51, 1567.98, 2093.00, 2637.02)
+        val delays = doubleArrayOf(0.0, 0.06, 0.12, 0.18, 0.24)
+        for (i in 0 until n) {
+            val t = i.toDouble() / SAMPLE_RATE
+            var s = 0.0
+            for (k in freqs.indices) {
+                val dt = t - delays[k]
+                if (dt > 0.0) {
+                    val chimeEnv = exp(-dt * 6.5) * (sin(PI * (dt * 18.0).coerceAtMost(0.5)))
+                    val chimeTone = sin(2.0 * PI * freqs[k] * dt) + 0.3 * sin(2.0 * PI * (freqs[k] * 2.02) * dt)
+                    s += chimeTone * chimeEnv * 0.32
+                }
+            }
+            val mixed = (s * vol).coerceIn(-1.0, 1.0)
+            out[i] = (mixed * 32767).toInt().coerceIn(-32768, 32767).toShort()
+        }
+        applyDeclick(out)
+        return out
+    }
+
+    /** Heavy metallic blade strike with ringing inharmonic steel resonance */
+    private fun bladeClash(dur: Double, vol: Double): ShortArray {
+        val n = (SAMPLE_RATE * dur).toInt()
+        val out = ShortArray(n)
+        val rng = java.util.Random(505)
+        for (i in 0 until n) {
+            val t = i.toDouble() / SAMPLE_RATE
+            val frac = i.toDouble() / n
+            val impactEnv = exp(-frac * 14.0)
+            val ringEnv = exp(-frac * 5.0)
+
+            val bassHit = sin(2.0 * PI * (120.0 * (1.0 - frac * 0.7)) * t) * impactEnv * 0.45
+            val ringTone = (sin(2.0 * PI * 1820.0 * t) * 0.35 +
+                            sin(2.0 * PI * 2740.0 * t) * 0.25 +
+                            sin(2.0 * PI * 4150.0 * t) * 0.15) * ringEnv
+            val slashNoise = (rng.nextDouble() * 2.0 - 1.0) * exp(-frac * 28.0) * 0.3
+
+            val s = (bassHit + ringTone + slashNoise) * vol
+            out[i] = (s.coerceIn(-1.0, 1.0) * 32767).toInt().coerceIn(-32768, 32767).toShort()
+        }
+        applyDeclick(out)
+        return out
+    }
+
+    /** Glorious upward arpeggiated victory/chest fanfare */
+    private fun rewardChime(dur: Double, vol: Double): ShortArray {
+        return harpChime(dur, doubleArrayOf(523.25, 659.25, 783.99, 1046.50, 1318.51), vol)
+    }
+
+    /** High-frequency rapid electrical zap and paralyzing discharge */
+    private fun electricStun(dur: Double, vol: Double): ShortArray {
+        val n = (SAMPLE_RATE * dur).toInt()
+        val out = ShortArray(n)
+        val rng = java.util.Random(606)
+        var phase = 0.0
+        for (i in 0 until n) {
+            val t = i.toDouble() / SAMPLE_RATE
+            val frac = i.toDouble() / n
+            val env = (1.0 - frac).pow(0.8) * vol
+            val f = 1000.0 + sin(2.0 * PI * 60.0 * t) * 600.0
+            phase += 2.0 * PI * f / SAMPLE_RATE
+            val pulse = if (sin(phase) > 0.0) 0.55 else -0.55
+            val zapCrack = (rng.nextDouble() * 2.0 - 1.0) * 0.35
+            val s = (pulse + zapCrack) * env
+            out[i] = (s.coerceIn(-1.0, 1.0) * 32767).toInt().coerceIn(-32768, 32767).toShort()
+        }
+        applyDeclick(out)
+        return out
+    }
+
+    /** Smooth linear fade in (32 samples) and fade out (64 samples) to prevent pops */
+    private fun applyDeclick(samples: ShortArray) {
+        val fadeIn = min(64, samples.size / 4)
+        for (i in 0 until fadeIn) {
+            val factor = i.toDouble() / fadeIn
+            samples[i] = (samples[i] * factor).toInt().toShort()
+        }
+        val fadeOut = min(128, samples.size / 4)
+        for (i in 0 until fadeOut) {
+            val factor = i.toDouble() / fadeOut
+            val idx = samples.size - 1 - i
+            samples[idx] = (samples[idx] * factor).toInt().toShort()
+        }
+    }
+
+    /** Write ShortArray PCM data as standard 16-bit 44.1kHz WAV */
     private fun writeWav(file: File, samples: ShortArray) {
         val dataSize = samples.size * 2
         val buf = ByteBuffer.allocate(44 + dataSize).order(ByteOrder.LITTLE_ENDIAN)
-        // RIFF header
         buf.put("RIFF".toByteArray())
         buf.putInt(36 + dataSize)
         buf.put("WAVE".toByteArray())
-        // fmt chunk
         buf.put("fmt ".toByteArray())
-        buf.putInt(16) // chunk size
+        buf.putInt(16)
         buf.putShort(1) // PCM
-        buf.putShort(1) // mono
+        buf.putShort(1) // Mono
         buf.putInt(SAMPLE_RATE)
-        buf.putInt(SAMPLE_RATE * 2) // byte rate
-        buf.putShort(2) // block align
-        buf.putShort(16) // bits per sample
-        // data chunk
+        buf.putInt(SAMPLE_RATE * 2)
+        buf.putShort(2)
+        buf.putShort(16)
         buf.put("data".toByteArray())
         buf.putInt(dataSize)
         for (s in samples) buf.putShort(s)

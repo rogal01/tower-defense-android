@@ -12,498 +12,762 @@
         android:layout_width="match_parent"
         android:layout_height="match_parent" />
 
-    <!-- Top HUD -->
+    <!-- Top HUD — Modern translucent game status bar -->
     <LinearLayout
+        android:id="@+id/top_hud"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:orientation="horizontal"
-        android:background="#FF1B2838"
-        android:padding="8dp"
-        android:gravity="center_vertical">
+        android:background="#D90E1824"
+        android:paddingHorizontal="8dp"
+        android:paddingVertical="6dp"
+        android:gravity="center_vertical"
+        android:elevation="6dp">
+
         <Button
             android:id="@+id/btn_tutorial"
-            android:layout_width="40dp"
-            android:layout_height="40dp"
+            android:layout_width="34dp"
+            android:layout_height="34dp"
             android:text="?"
-            android:textSize="18sp"
-            android:backgroundTint="#42A5F5"
-            android:textColor="#FFFFFF"
-            android:layout_marginEnd="8dp" />
-
-        <TextView
-            android:id="@+id/text_gold"
-            android:layout_width="0dp"
-            android:layout_height="wrap_content"
-            android:layout_weight="1"
-            android:text="\uD83D\uDCB0 50"
-            android:textColor="#FFD700"
-            android:textSize="20sp"
-            android:textStyle="bold" />
-
-        <TextView
-            android:id="@+id/text_wave"
-            android:layout_width="0dp"
-            android:layout_height="wrap_content"
-            android:layout_weight="1"
-            android:text="\u2694\uFE0F Wave 0"
-            android:textColor="#FFFFFF"
-            android:textSize="18sp"
-            android:gravity="center" />
-
-        <TextView
-            android:id="@+id/text_kills"
-            android:layout_width="0dp"
-            android:layout_height="wrap_content"
-            android:layout_weight="1"
-            android:text="\uD83D\uDC80 0"
-            android:textColor="#AAAACC"
             android:textSize="16sp"
-            android:gravity="end" />
+            android:textStyle="bold"
+            android:textColor="#FFFFFF"
+            android:background="@drawable/bg_btn_action"
+            android:padding="0dp"
+            android:minWidth="0dp"
+            android:minHeight="0dp"
+            android:layout_marginEnd="6dp" />
+
+        <LinearLayout
+            android:layout_width="wrap_content"
+            android:layout_height="34dp"
+            android:orientation="horizontal"
+            android:gravity="center_vertical"
+            android:background="@drawable/bg_hud_chip"
+            android:paddingHorizontal="8dp"
+            android:layout_marginEnd="6dp">
+            <TextView
+                android:id="@+id/text_gold"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="💰 50"
+                android:textColor="@color/gold"
+                android:textSize="14sp"
+                android:textStyle="bold" />
+        </LinearLayout>
+
+        <LinearLayout
+            android:layout_width="wrap_content"
+            android:layout_height="34dp"
+            android:orientation="horizontal"
+            android:gravity="center_vertical"
+            android:background="@drawable/bg_hud_chip"
+            android:paddingHorizontal="8dp"
+            android:layout_marginEnd="6dp">
+            <TextView
+                android:id="@+id/text_wave"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="⚔️ Wave 0"
+                android:textColor="#FFFFFF"
+                android:textSize="14sp"
+                android:textStyle="bold" />
+        </LinearLayout>
+
+        <LinearLayout
+            android:layout_width="0dp"
+            android:layout_height="34dp"
+            android:layout_weight="1"
+            android:orientation="horizontal"
+            android:gravity="center_vertical"
+            android:background="@drawable/bg_hud_chip"
+            android:paddingHorizontal="8dp">
+            <TextView
+                android:id="@+id/text_kills"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="💎 0"
+                android:textColor="#00E5FF"
+                android:textSize="14sp"
+                android:textStyle="bold"
+                android:maxLines="1"
+                android:ellipsize="end" />
+        </LinearLayout>
 
         <Button
             android:id="@+id/btn_speed"
             android:layout_width="wrap_content"
-            android:layout_height="36dp"
-            android:minWidth="52dp"
-            android:layout_marginStart="6dp"
-            android:text="\u25B6\uFE0F 2x"
-            android:textSize="11sp"
+            android:layout_height="34dp"
+            android:minWidth="46dp"
+            android:layout_marginStart="4dp"
+            android:text="1x"
+            android:textSize="12sp"
             android:textStyle="bold"
-            android:textAllCaps="false"
-            android:backgroundTint="#00897B"
-            android:textColor="#FFFFFF" />
+            android:background="@drawable/bg_btn_action"
+            android:textColor="@color/gold"
+            android:padding="0dp"
+            android:minHeight="0dp" />
 
         <Button
             android:id="@+id/btn_speed3"
-            android:layout_width="wrap_content"
-            android:layout_height="36dp"
-            android:minWidth="52dp"
-            android:layout_marginStart="2dp"
-            android:text="\u23E9 3x"
-            android:textSize="11sp"
-            android:textStyle="bold"
-            android:textAllCaps="false"
-            android:backgroundTint="#00695C"
-            android:textColor="#FFFFFF" />
+            android:layout_width="0dp"
+            android:layout_height="0dp"
+            android:visibility="gone" />
 
         <Button
             android:id="@+id/btn_auto_wave"
             android:layout_width="wrap_content"
-            android:layout_height="36dp"
-            android:minWidth="52dp"
-            android:layout_marginStart="2dp"
-            android:text="⏭ Auto"
-            android:textSize="11sp"
+            android:layout_height="34dp"
+            android:minWidth="50dp"
+            android:layout_marginStart="4dp"
+            android:text="Auto"
+            android:textSize="12sp"
             android:textStyle="bold"
-            android:backgroundTint="#455A64"
-            android:textColor="#FFFFFF" />
+            android:background="@drawable/bg_btn_action"
+            android:textColor="#B0BEC5"
+            android:padding="0dp"
+            android:minHeight="0dp" />
 
         <Button
             android:id="@+id/btn_pause"
-            android:layout_width="wrap_content"
-            android:layout_height="36dp"
-            android:minWidth="52dp"
-            android:layout_marginStart="2dp"
-            android:text="\u23F8\uFE0F"
-            android:textSize="11sp"
-            android:textStyle="bold"
-            android:backgroundTint="#D32F2F"
-            android:textColor="#FFFFFF" />
+            android:layout_width="34dp"
+            android:layout_height="34dp"
+            android:layout_marginStart="4dp"
+            android:text="⏸"
+            android:textSize="13sp"
+            android:background="@drawable/bg_btn_danger"
+            android:textColor="#FFFFFF"
+            android:padding="0dp"
+            android:minWidth="0dp"
+            android:minHeight="0dp" />
     </LinearLayout>
 
-    <!-- Bottom Controls — scrollable organized panels -->
-    <LinearLayout
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:layout_gravity="bottom"
-        android:orientation="vertical"
-        android:background="#FF1B2838">
-
-        <!-- Row 1: Towers — horizontally scrollable with readable names -->
-        <HorizontalScrollView
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:scrollbars="none"
-            android:fadingEdgeLength="16dp"
-            android:requiresFadingEdge="horizontal">
-            <LinearLayout
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:orientation="horizontal"
-                android:paddingHorizontal="4dp"
-                android:paddingVertical="3dp"
-                android:gravity="center">
-
-                <Button
-                    android:id="@+id/btn_tower_arrow"
-                    android:layout_width="wrap_content"
-                    android:layout_height="42dp"
-                    android:minWidth="90dp"
-                    android:layout_marginHorizontal="2dp"
-                    android:text="\uD83C\uDFF9 Arrow\n30g"
-                    android:textSize="11sp"
-                    android:textAllCaps="false"
-                    android:backgroundTint="#4CAF50"
-                    android:paddingHorizontal="8dp" />
-
-                <Button
-                    android:id="@+id/btn_tower_magic"
-                    android:layout_width="wrap_content"
-                    android:layout_height="42dp"
-                    android:minWidth="90dp"
-                    android:layout_marginHorizontal="2dp"
-                    android:text="\uD83E\uDDE8 Magic\n60g"
-                    android:textSize="11sp"
-                    android:textAllCaps="false"
-                    android:backgroundTint="#AB47BC"
-                    android:paddingHorizontal="8dp" />
-
-                <Button
-                    android:id="@+id/btn_tower_cannon"
-                    android:layout_width="wrap_content"
-                    android:layout_height="42dp"
-                    android:minWidth="90dp"
-                    android:layout_marginHorizontal="2dp"
-                    android:text="\uD83D\uDCA3 Cannon\n100g"
-                    android:textSize="11sp"
-                    android:textAllCaps="false"
-                    android:backgroundTint="#FF7043"
-                    android:paddingHorizontal="8dp" />
-
-                <Button
-                    android:id="@+id/btn_tower_poison"
-                    android:layout_width="wrap_content"
-                    android:layout_height="42dp"
-                    android:minWidth="90dp"
-                    android:layout_marginHorizontal="2dp"
-                    android:text="\u2620\uFE0F Poison\n80g"
-                    android:textSize="11sp"
-                    android:textAllCaps="false"
-                    android:backgroundTint="#66BB6A"
-                    android:paddingHorizontal="8dp" />
-
-                <Button
-                    android:id="@+id/btn_tower_tesla"
-                    android:layout_width="wrap_content"
-                    android:layout_height="42dp"
-                    android:minWidth="90dp"
-                    android:layout_marginHorizontal="2dp"
-                    android:text="\u26A1 Tesla\n120g"
-                    android:textSize="11sp"
-                    android:textAllCaps="false"
-                    android:textColor="#1B2838"
-                    android:backgroundTint="#29B6F6"
-                    android:paddingHorizontal="8dp" />
-
-                <Button
-                    android:id="@+id/btn_tower_ice"
-                    android:layout_width="wrap_content"
-                    android:layout_height="42dp"
-                    android:minWidth="90dp"
-                    android:layout_marginHorizontal="2dp"
-                    android:text="\u2744\uFE0F Ice\n70g"
-                    android:textSize="11sp"
-                    android:textAllCaps="false"
-                    android:backgroundTint="#81D4FA"
-                    android:textColor="#1B2838"
-                    android:paddingHorizontal="8dp" />
-
-                <Button
-                    android:id="@+id/btn_tower_flame"
-                    android:layout_width="wrap_content"
-                    android:layout_height="42dp"
-                    android:minWidth="90dp"
-                    android:layout_marginHorizontal="2dp"
-                    android:text="\uD83D\uDD25 Flame\n90g"
-                    android:textSize="11sp"
-                    android:textAllCaps="false"
-                    android:backgroundTint="#FF5722"
-                    android:paddingHorizontal="8dp" />
-
-                <Button
-                    android:id="@+id/btn_tower_necro"
-                    android:layout_width="wrap_content"
-                    android:layout_height="42dp"
-                    android:minWidth="90dp"
-                    android:layout_marginHorizontal="2dp"
-                    android:text="\uD83D\uDC80 Necro\n110g"
-                    android:textSize="11sp"
-                    android:textAllCaps="false"
-                    android:backgroundTint="#9C27B0"
-                    android:paddingHorizontal="8dp" />
-
-                <Button
-                    android:id="@+id/btn_tower_ballista"
-                    android:layout_width="wrap_content"
-                    android:layout_height="42dp"
-                    android:minWidth="90dp"
-                    android:layout_marginHorizontal="2dp"
-                    android:text="\uD83C\uDFAF Ballista\n140g"
-                    android:textSize="11sp"
-                    android:textAllCaps="false"
-                    android:backgroundTint="#FFD54F"
-                    android:textColor="#1B2838"
-                    android:paddingHorizontal="8dp" />
-
-                <Button
-                    android:id="@+id/btn_tower_vortex"
-                    android:layout_width="wrap_content"
-                    android:layout_height="42dp"
-                    android:minWidth="90dp"
-                    android:layout_marginHorizontal="2dp"
-                    android:text="\uD83C\uDF00 Vortex\n100g"
-                    android:textSize="11sp"
-                    android:textAllCaps="false"
-                    android:backgroundTint="#7E57C2"
-                    android:paddingHorizontal="8dp" />
-
-                <Button
-                    android:id="@+id/btn_tower_healer"
-                    android:layout_width="wrap_content"
-                    android:layout_height="42dp"
-                    android:minWidth="90dp"
-                    android:layout_marginHorizontal="2dp"
-                    android:text="\uD83D\uDC9A Healer\n80g"
-                    android:textSize="11sp"
-                    android:textAllCaps="false"
-                    android:backgroundTint="#66BB6A"
-                    android:paddingHorizontal="8dp" />
-
-                <Button
-                    android:id="@+id/btn_repair"
-                    android:layout_width="wrap_content"
-                    android:layout_height="42dp"
-                    android:minWidth="80dp"
-                    android:layout_marginHorizontal="2dp"
-                    android:text="\uD83D\uDD27 Repair\n20g"
-                    android:textSize="11sp"
-                    android:textAllCaps="false"
-                    android:backgroundTint="#26A69A"
-                    android:paddingHorizontal="8dp" />
-
-                <Button
-                    android:id="@+id/btn_blockade"
-                    android:layout_width="wrap_content"
-                    android:layout_height="42dp"
-                    android:minWidth="80dp"
-                    android:layout_marginHorizontal="2dp"
-                    android:text="\uD83E\uDEA8 Block\n50g"
-                    android:textSize="11sp"
-                    android:textAllCaps="false"
-                    android:backgroundTint="#8D6E63"
-                    android:paddingHorizontal="8dp" />
-
-                <Button
-                    android:id="@+id/btn_trap_spike"
-                    android:layout_width="wrap_content"
-                    android:layout_height="42dp"
-                    android:minWidth="80dp"
-                    android:layout_marginHorizontal="2dp"
-                    android:text="\uD83D\uDDE1\uFE0F Spike\n30g"
-                    android:textSize="11sp"
-                    android:textAllCaps="false"
-                    android:backgroundTint="#757575"
-                    android:paddingHorizontal="8dp" />
-
-                <Button
-                    android:id="@+id/btn_trap_tar"
-                    android:layout_width="wrap_content"
-                    android:layout_height="42dp"
-                    android:minWidth="80dp"
-                    android:layout_marginHorizontal="2dp"
-                    android:text="\uD83D\uDFE4 Tar\n40g"
-                    android:textSize="11sp"
-                    android:textAllCaps="false"
-                    android:backgroundTint="#5D4037"
-                    android:paddingHorizontal="8dp" />
-
-                <Button
-                    android:id="@+id/btn_trap_mine"
-                    android:layout_width="wrap_content"
-                    android:layout_height="42dp"
-                    android:minWidth="80dp"
-                    android:layout_marginHorizontal="2dp"
-                    android:text="\uD83D\uDCA3 Mine\n60g"
-                    android:textSize="11sp"
-                    android:textAllCaps="false"
-                    android:backgroundTint="#E53935"
-                    android:paddingHorizontal="8dp" />
-            </LinearLayout>
-        </HorizontalScrollView>
-
-        <!-- Row 2: Upgrades + Actions — scrollable -->
-        <HorizontalScrollView
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:scrollbars="none"
-            android:fadingEdgeLength="16dp"
-            android:requiresFadingEdge="horizontal">
-            <LinearLayout
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:orientation="horizontal"
-                android:paddingHorizontal="4dp"
-                android:paddingVertical="2dp"
-                android:gravity="center">
-
-                <Button
-                    android:id="@+id/btn_up_damage"
-                    android:layout_width="wrap_content"
-                    android:layout_height="46dp"
-                    android:minWidth="72dp"
-                    android:layout_marginHorizontal="2dp"
-                    android:text="\u2694\uFE0F ATK"
-                    android:textSize="10sp"
-                    android:textAllCaps="false"
-                    android:gravity="center"
-                    android:paddingHorizontal="6dp"
-                    android:backgroundTint="#42A5F5" />
-
-                <Button
-                    android:id="@+id/btn_up_speed"
-                    android:layout_width="wrap_content"
-                    android:layout_height="46dp"
-                    android:minWidth="72dp"
-                    android:layout_marginHorizontal="2dp"
-                    android:text="\uD83D\uDC5F SPD"
-                    android:textSize="10sp"
-                    android:textAllCaps="false"
-                    android:gravity="center"
-                    android:paddingHorizontal="6dp"
-                    android:backgroundTint="#42A5F5" />
-
-                <Button
-                    android:id="@+id/btn_up_hp"
-                    android:layout_width="wrap_content"
-                    android:layout_height="46dp"
-                    android:minWidth="72dp"
-                    android:layout_marginHorizontal="2dp"
-                    android:text="\u2764\uFE0F HP"
-                    android:textSize="10sp"
-                    android:textAllCaps="false"
-                    android:gravity="center"
-                    android:paddingHorizontal="6dp"
-                    android:backgroundTint="#42A5F5" />
-
-                <Button
-                    android:id="@+id/btn_up_base"
-                    android:layout_width="wrap_content"
-                    android:layout_height="46dp"
-                    android:minWidth="72dp"
-                    android:layout_marginHorizontal="2dp"
-                    android:text="\uD83C\uDFF0 BASE"
-                    android:textSize="10sp"
-                    android:textAllCaps="false"
-                    android:gravity="center"
-                    android:paddingHorizontal="6dp"
-                    android:backgroundTint="#42A5F5" />
-
-                <Button
-                    android:id="@+id/btn_up_tower"
-                    android:layout_width="wrap_content"
-                    android:layout_height="46dp"
-                    android:minWidth="80dp"
-                    android:layout_marginHorizontal="2dp"
-                    android:text="\u2B06\uFE0F TOWER"
-                    android:textSize="10sp"
-                    android:textAllCaps="false"
-                    android:gravity="center"
-                    android:paddingHorizontal="6dp"
-                    android:backgroundTint="#FFB300"
-                    android:textColor="#1B2838" />
-
-                <Button
-                    android:id="@+id/btn_target"
-                    android:layout_width="wrap_content"
-                    android:layout_height="38dp"
-                    android:minWidth="76dp"
-                    android:layout_marginHorizontal="2dp"
-                    android:text="\uD83C\uDFAF Close"
-                    android:textSize="11sp"
-                    android:textAllCaps="false"
-                    android:backgroundTint="#26A69A" />
-
-                <Button
-                    android:id="@+id/btn_sell"
-                    android:layout_width="wrap_content"
-                    android:layout_height="38dp"
-                    android:minWidth="72dp"
-                    android:layout_marginHorizontal="2dp"
-                    android:text="\uD83D\uDCB8 Sell"
-                    android:textSize="11sp"
-                    android:textAllCaps="false"
-                    android:backgroundTint="#EF5350" />
-
-                <Button
-                    android:id="@+id/btn_ability"
-                    android:layout_width="wrap_content"
-                    android:layout_height="38dp"
-                    android:minWidth="80dp"
-                    android:layout_marginHorizontal="2dp"
-                    android:text="\u2728 Ability"
-                    android:textSize="11sp"
-                    android:textAllCaps="false"
-                    android:backgroundTint="#FF8F00" />
-
-            </LinearLayout>
-        </HorizontalScrollView>
-    </LinearLayout>
-
-    <!-- Powers Bar — vertical on right side -->
+    <!-- Floating Powers Bar — Vertical on right side -->
     <LinearLayout
         android:id="@+id/powers_bar"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:layout_gravity="end|center_vertical"
         android:orientation="vertical"
-        android:padding="4dp"
-        android:background="#CC1B2838"
+        android:padding="6dp"
+        android:layout_marginEnd="6dp"
+        android:background="@drawable/bg_card_glass"
+        android:elevation="4dp"
         android:gravity="center">
+
         <Button
             android:id="@+id/btn_power_fireball"
-            android:layout_width="52dp"
+            android:layout_width="44dp"
             android:layout_height="44dp"
-            android:text="\uD83D\uDD25"
-            android:textSize="16sp"
+            android:text="🔥"
+            android:textSize="18sp"
             android:padding="0dp"
             android:minWidth="0dp"
             android:minHeight="0dp"
-            android:layout_marginBottom="4dp"
-            android:backgroundTint="#FF7043" />
+            android:layout_marginBottom="6dp"
+            android:background="@drawable/bg_circle_power" />
+
         <Button
             android:id="@+id/btn_power_freeze"
-            android:layout_width="52dp"
+            android:layout_width="44dp"
             android:layout_height="44dp"
-            android:text="\u2744\uFE0F"
-            android:textSize="16sp"
+            android:text="❄️"
+            android:textSize="18sp"
             android:padding="0dp"
             android:minWidth="0dp"
             android:minHeight="0dp"
-            android:layout_marginBottom="4dp"
-            android:backgroundTint="#42A5F5" />
+            android:layout_marginBottom="6dp"
+            android:background="@drawable/bg_circle_power" />
+
         <Button
             android:id="@+id/btn_power_lightning"
-            android:layout_width="52dp"
+            android:layout_width="44dp"
             android:layout_height="44dp"
-            android:text="\u26A1"
-            android:textSize="16sp"
+            android:text="⚡"
+            android:textSize="18sp"
             android:padding="0dp"
             android:minWidth="0dp"
             android:minHeight="0dp"
-            android:layout_marginBottom="4dp"
-            android:textColor="#1B2838"
-            android:backgroundTint="#FFD700" />
-        <Button
-            android:id="@+id/btn_dash"
-            android:layout_width="52dp"
-            android:layout_height="44dp"
-            android:text="\uD83D\uDCA8"
-            android:textSize="16sp"
-            android:padding="0dp"
-            android:minWidth="0dp"
-            android:minHeight="0dp"
-            android:textColor="#FFFFFF"
-            android:backgroundTint="#00BFA5" />
+            android:background="@drawable/bg_circle_power" />
     </LinearLayout>
+
+    <!-- Bottom Controls Area -->
+    <FrameLayout
+        android:id="@+id/bottom_container"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_gravity="bottom"
+        android:elevation="6dp">
+
+        <!-- 1. Active Placement Bar (Shown during placement mode) -->
+        <LinearLayout
+            android:id="@+id/layout_placement_bar"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:background="@drawable/bg_card_glass"
+            android:padding="10dp"
+            android:gravity="center_vertical"
+            android:visibility="gone">
+
+            <TextView
+                android:id="@+id/text_placement_info"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="Placing: Arrow Tower (30g)"
+                android:textColor="@color/gold"
+                android:textSize="14sp"
+                android:textStyle="bold"
+                android:paddingStart="6dp" />
+
+            <Button
+                android:id="@+id/btn_cancel_placement"
+                android:layout_width="wrap_content"
+                android:layout_height="38dp"
+                android:text="✕ Cancel"
+                android:textSize="13sp"
+                android:textStyle="bold"
+                android:textColor="#FFFFFF"
+                android:background="@drawable/bg_btn_danger"
+                android:paddingHorizontal="16dp" />
+        </LinearLayout>
+
+        <!-- 2. Selected Tower Inspector Card (Shown when a tower is selected) -->
+        <LinearLayout
+            android:id="@+id/layout_tower_inspector"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:background="@drawable/bg_card_glass"
+            android:padding="8dp"
+            android:visibility="gone">
+
+            <!-- Inspector Header -->
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:gravity="center_vertical"
+                android:paddingHorizontal="4dp"
+                android:paddingBottom="6dp">
+
+                <TextView
+                    android:id="@+id/inspector_tower_title"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:text="🏹 Arrow Tower (Lv. 1)"
+                    android:textColor="@color/gold"
+                    android:textSize="15sp"
+                    android:textStyle="bold" />
+
+                <TextView
+                    android:id="@+id/inspector_tower_stats"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Dmg: 20 · Rng: 140"
+                    android:textColor="#B0BEC5"
+                    android:textSize="12sp"
+                    android:layout_marginEnd="8dp" />
+
+                <Button
+                    android:id="@+id/btn_inspector_close"
+                    android:layout_width="28dp"
+                    android:layout_height="28dp"
+                    android:text="✕"
+                    android:textSize="12sp"
+                    android:textStyle="bold"
+                    android:textColor="#FFFFFF"
+                    android:background="@drawable/bg_btn_action"
+                    android:padding="0dp"
+                    android:minWidth="0dp"
+                    android:minHeight="0dp" />
+            </LinearLayout>
+
+            <!-- Inspector Action Buttons -->
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:gravity="center">
+
+                <Button
+                    android:id="@+id/btn_up_tower"
+                    android:layout_width="0dp"
+                    android:layout_height="44dp"
+                    android:layout_weight="1"
+                    android:layout_marginHorizontal="2dp"
+                    android:text="⚡ Upgrade\n50g"
+                    android:textSize="11sp"
+                    android:textStyle="bold"
+                    android:textAllCaps="false"
+                    android:background="@drawable/bg_btn_primary"
+                    android:textColor="#FFFFFF"
+                    android:padding="2dp" />
+
+                <Button
+                    android:id="@+id/btn_target"
+                    android:layout_width="0dp"
+                    android:layout_height="44dp"
+                    android:layout_weight="1"
+                    android:layout_marginHorizontal="2dp"
+                    android:text="🎯 Target\nClose"
+                    android:textSize="11sp"
+                    android:textStyle="bold"
+                    android:textAllCaps="false"
+                    android:background="@drawable/bg_btn_action"
+                    android:textColor="#FFFFFF"
+                    android:padding="2dp" />
+
+                <Button
+                    android:id="@+id/btn_ability"
+                    android:layout_width="0dp"
+                    android:layout_height="44dp"
+                    android:layout_weight="1"
+                    android:layout_marginHorizontal="2dp"
+                    android:text="✨ Ability"
+                    android:textSize="11sp"
+                    android:textStyle="bold"
+                    android:textAllCaps="false"
+                    android:background="@drawable/bg_btn_action"
+                    android:textColor="@color/gold"
+                    android:padding="2dp" />
+
+                <Button
+                    android:id="@+id/btn_sell"
+                    android:layout_width="0dp"
+                    android:layout_height="44dp"
+                    android:layout_weight="1"
+                    android:layout_marginHorizontal="2dp"
+                    android:text="💰 Sell\n+25g"
+                    android:textSize="11sp"
+                    android:textStyle="bold"
+                    android:textAllCaps="false"
+                    android:background="@drawable/bg_btn_danger"
+                    android:textColor="#FFFFFF"
+                    android:padding="2dp" />
+            </LinearLayout>
+
+            <!-- Specialization Row (Level 5+) -->
+            <LinearLayout
+                android:id="@+id/layout_tower_spec"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:gravity="center"
+                android:layout_marginTop="6dp"
+                android:visibility="gone">
+
+                <Button
+                    android:id="@+id/btn_specialize"
+                    android:layout_width="match_parent"
+                    android:layout_height="38dp"
+                    android:text="⚡ Choose Specialization!"
+                    android:textSize="12sp"
+                    android:textStyle="bold"
+                    android:textColor="#FFFFFF"
+                    android:background="@drawable/bg_btn_green"
+                    android:padding="0dp" />
+            </LinearLayout>
+        </LinearLayout>
+
+        <!-- 3. Categorized Build & Upgrade Dock (Default bottom view) -->
+        <LinearLayout
+            android:id="@+id/layout_build_dock"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:background="@drawable/bg_card_glass">
+
+            <!-- Category Tabs Row -->
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="32dp"
+                android:orientation="horizontal"
+                android:paddingHorizontal="6dp"
+                android:paddingTop="3dp"
+                android:gravity="center_vertical">
+
+                <Button
+                    android:id="@+id/tab_towers"
+                    android:layout_width="0dp"
+                    android:layout_height="match_parent"
+                    android:layout_weight="1"
+                    android:layout_marginHorizontal="2dp"
+                    android:text="🏹 Towers"
+                    android:textSize="12sp"
+                    android:textStyle="bold"
+                    android:textAllCaps="false"
+                    android:background="@drawable/bg_tab_active"
+                    android:textColor="#FFFFFF"
+                    android:padding="0dp"
+                    android:minHeight="0dp" />
+
+                <Button
+                    android:id="@+id/tab_traps"
+                    android:layout_width="0dp"
+                    android:layout_height="match_parent"
+                    android:layout_weight="1"
+                    android:layout_marginHorizontal="2dp"
+                    android:text="🛡️ Defenses"
+                    android:textSize="12sp"
+                    android:textStyle="bold"
+                    android:textAllCaps="false"
+                    android:background="@drawable/bg_tab_inactive"
+                    android:textColor="#B0BEC5"
+                    android:padding="0dp"
+                    android:minHeight="0dp" />
+
+                <Button
+                    android:id="@+id/tab_hero"
+                    android:layout_width="0dp"
+                    android:layout_height="match_parent"
+                    android:layout_weight="1"
+                    android:layout_marginHorizontal="2dp"
+                    android:text="⚡ Hero"
+                    android:textSize="12sp"
+                    android:textStyle="bold"
+                    android:textAllCaps="false"
+                    android:background="@drawable/bg_tab_inactive"
+                    android:textColor="#B0BEC5"
+                    android:padding="0dp"
+                    android:minHeight="0dp" />
+            </LinearLayout>
+
+            <!-- Container 1: Towers Carousel -->
+            <HorizontalScrollView
+                android:id="@+id/container_towers"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:scrollbars="none"
+                android:paddingHorizontal="4dp"
+                android:paddingVertical="4dp">
+
+                <LinearLayout
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:orientation="horizontal"
+                    android:gravity="center_vertical">
+
+                    <Button
+                        android:id="@+id/btn_tower_arrow"
+                        android:layout_width="wrap_content"
+                        android:layout_height="44dp"
+                        android:minWidth="80dp"
+                        android:layout_marginHorizontal="2dp"
+                        android:text="🏹 Arrow\n30g"
+                        android:textSize="11sp"
+                        android:textStyle="bold"
+                        android:textAllCaps="false"
+                        android:background="@drawable/bg_card_build"
+                        android:textColor="#FFFFFF"
+                        android:paddingHorizontal="8dp" />
+
+                    <Button
+                        android:id="@+id/btn_tower_magic"
+                        android:layout_width="wrap_content"
+                        android:layout_height="44dp"
+                        android:minWidth="80dp"
+                        android:layout_marginHorizontal="2dp"
+                        android:text="🧨 Magic\n60g"
+                        android:textSize="11sp"
+                        android:textStyle="bold"
+                        android:textAllCaps="false"
+                        android:background="@drawable/bg_card_build"
+                        android:textColor="#FFFFFF"
+                        android:paddingHorizontal="8dp" />
+
+                    <Button
+                        android:id="@+id/btn_tower_cannon"
+                        android:layout_width="wrap_content"
+                        android:layout_height="44dp"
+                        android:minWidth="80dp"
+                        android:layout_marginHorizontal="2dp"
+                        android:text="💣 Cannon\n100g"
+                        android:textSize="11sp"
+                        android:textStyle="bold"
+                        android:textAllCaps="false"
+                        android:background="@drawable/bg_card_build"
+                        android:textColor="#FFFFFF"
+                        android:paddingHorizontal="8dp" />
+
+                    <Button
+                        android:id="@+id/btn_tower_poison"
+                        android:layout_width="wrap_content"
+                        android:layout_height="44dp"
+                        android:minWidth="80dp"
+                        android:layout_marginHorizontal="2dp"
+                        android:text="☠️ Poison\n80g"
+                        android:textSize="11sp"
+                        android:textStyle="bold"
+                        android:textAllCaps="false"
+                        android:background="@drawable/bg_card_build"
+                        android:textColor="#FFFFFF"
+                        android:paddingHorizontal="8dp" />
+
+                    <Button
+                        android:id="@+id/btn_tower_tesla"
+                        android:layout_width="wrap_content"
+                        android:layout_height="44dp"
+                        android:minWidth="80dp"
+                        android:layout_marginHorizontal="2dp"
+                        android:text="⚡ Tesla\n120g"
+                        android:textSize="11sp"
+                        android:textStyle="bold"
+                        android:textAllCaps="false"
+                        android:background="@drawable/bg_card_build"
+                        android:textColor="#FFFFFF"
+                        android:paddingHorizontal="8dp" />
+
+                    <Button
+                        android:id="@+id/btn_tower_ice"
+                        android:layout_width="wrap_content"
+                        android:layout_height="44dp"
+                        android:minWidth="80dp"
+                        android:layout_marginHorizontal="2dp"
+                        android:text="❄️ Ice\n70g"
+                        android:textSize="11sp"
+                        android:textStyle="bold"
+                        android:textAllCaps="false"
+                        android:background="@drawable/bg_card_build"
+                        android:textColor="#FFFFFF"
+                        android:paddingHorizontal="8dp" />
+
+                    <Button
+                        android:id="@+id/btn_tower_flame"
+                        android:layout_width="wrap_content"
+                        android:layout_height="44dp"
+                        android:minWidth="80dp"
+                        android:layout_marginHorizontal="2dp"
+                        android:text="🔥 Flame\n90g"
+                        android:textSize="11sp"
+                        android:textStyle="bold"
+                        android:textAllCaps="false"
+                        android:background="@drawable/bg_card_build"
+                        android:textColor="#FFFFFF"
+                        android:paddingHorizontal="8dp" />
+
+                    <Button
+                        android:id="@+id/btn_tower_necro"
+                        android:layout_width="wrap_content"
+                        android:layout_height="44dp"
+                        android:minWidth="80dp"
+                        android:layout_marginHorizontal="2dp"
+                        android:text="💀 Necro\n110g"
+                        android:textSize="11sp"
+                        android:textStyle="bold"
+                        android:textAllCaps="false"
+                        android:background="@drawable/bg_card_build"
+                        android:textColor="#FFFFFF"
+                        android:paddingHorizontal="8dp" />
+
+                    <Button
+                        android:id="@+id/btn_tower_ballista"
+                        android:layout_width="wrap_content"
+                        android:layout_height="44dp"
+                        android:minWidth="80dp"
+                        android:layout_marginHorizontal="2dp"
+                        android:text="🎯 Ballista\n140g"
+                        android:textSize="11sp"
+                        android:textStyle="bold"
+                        android:textAllCaps="false"
+                        android:background="@drawable/bg_card_build"
+                        android:textColor="#FFFFFF"
+                        android:paddingHorizontal="8dp" />
+
+                    <Button
+                        android:id="@+id/btn_tower_vortex"
+                        android:layout_width="wrap_content"
+                        android:layout_height="44dp"
+                        android:minWidth="80dp"
+                        android:layout_marginHorizontal="2dp"
+                        android:text="🌀 Vortex\n100g"
+                        android:textSize="11sp"
+                        android:textStyle="bold"
+                        android:textAllCaps="false"
+                        android:background="@drawable/bg_card_build"
+                        android:textColor="#FFFFFF"
+                        android:paddingHorizontal="8dp" />
+
+                    <Button
+                        android:id="@+id/btn_tower_healer"
+                        android:layout_width="wrap_content"
+                        android:layout_height="44dp"
+                        android:minWidth="80dp"
+                        android:layout_marginHorizontal="2dp"
+                        android:text="💚 Healer\n80g"
+                        android:textSize="11sp"
+                        android:textStyle="bold"
+                        android:textAllCaps="false"
+                        android:background="@drawable/bg_card_build"
+                        android:textColor="#FFFFFF"
+                        android:paddingHorizontal="8dp" />
+                </LinearLayout>
+            </HorizontalScrollView>
+
+            <!-- Container 2: Traps & Defenses Carousel (Initially Gone) -->
+            <HorizontalScrollView
+                android:id="@+id/container_traps"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:scrollbars="none"
+                android:paddingHorizontal="4dp"
+                android:paddingVertical="4dp"
+                android:visibility="gone">
+
+                <LinearLayout
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:orientation="horizontal"
+                    android:gravity="center_vertical">
+
+                    <Button
+                        android:id="@+id/btn_repair"
+                        android:layout_width="wrap_content"
+                        android:layout_height="44dp"
+                        android:minWidth="84dp"
+                        android:layout_marginHorizontal="2dp"
+                        android:text="🔧 Repair\n20g"
+                        android:textSize="11sp"
+                        android:textStyle="bold"
+                        android:textAllCaps="false"
+                        android:background="@drawable/bg_card_build"
+                        android:textColor="#80CBC4"
+                        android:paddingHorizontal="8dp" />
+
+                    <Button
+                        android:id="@+id/btn_blockade"
+                        android:layout_width="wrap_content"
+                        android:layout_height="44dp"
+                        android:minWidth="84dp"
+                        android:layout_marginHorizontal="2dp"
+                        android:text="🧱 Blockade\n50g"
+                        android:textSize="11sp"
+                        android:textStyle="bold"
+                        android:textAllCaps="false"
+                        android:background="@drawable/bg_card_build"
+                        android:textColor="#FFFFFF"
+                        android:paddingHorizontal="8dp" />
+
+                    <Button
+                        android:id="@+id/btn_trap_spike"
+                        android:layout_width="wrap_content"
+                        android:layout_height="44dp"
+                        android:minWidth="84dp"
+                        android:layout_marginHorizontal="2dp"
+                        android:text="🗡️ Spike\n30g"
+                        android:textSize="11sp"
+                        android:textStyle="bold"
+                        android:textAllCaps="false"
+                        android:background="@drawable/bg_card_build"
+                        android:textColor="#FFFFFF"
+                        android:paddingHorizontal="8dp" />
+
+                    <Button
+                        android:id="@+id/btn_trap_tar"
+                        android:layout_width="wrap_content"
+                        android:layout_height="44dp"
+                        android:minWidth="84dp"
+                        android:layout_marginHorizontal="2dp"
+                        android:text="🟣 Tar\n40g"
+                        android:textSize="11sp"
+                        android:textStyle="bold"
+                        android:textAllCaps="false"
+                        android:background="@drawable/bg_card_build"
+                        android:textColor="#FFFFFF"
+                        android:paddingHorizontal="8dp" />
+
+                    <Button
+                        android:id="@+id/btn_trap_mine"
+                        android:layout_width="wrap_content"
+                        android:layout_height="44dp"
+                        android:minWidth="84dp"
+                        android:layout_marginHorizontal="2dp"
+                        android:text="💣 Mine\n60g"
+                        android:textSize="11sp"
+                        android:textStyle="bold"
+                        android:textAllCaps="false"
+                        android:background="@drawable/bg_card_build"
+                        android:textColor="#FFFFFF"
+                        android:paddingHorizontal="8dp" />
+                </LinearLayout>
+            </HorizontalScrollView>
+
+            <!-- Container 3: Hero Upgrades Carousel (Initially Gone) -->
+            <HorizontalScrollView
+                android:id="@+id/container_hero"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:scrollbars="none"
+                android:paddingHorizontal="4dp"
+                android:paddingVertical="4dp"
+                android:visibility="gone">
+
+                <LinearLayout
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:orientation="horizontal"
+                    android:gravity="center_vertical">
+
+                    <Button
+                        android:id="@+id/btn_up_damage"
+                        android:layout_width="wrap_content"
+                        android:layout_height="44dp"
+                        android:minWidth="84dp"
+                        android:layout_marginHorizontal="2dp"
+                        android:text="⚔️ ATK\n25g"
+                        android:textSize="11sp"
+                        android:textStyle="bold"
+                        android:textAllCaps="false"
+                        android:background="@drawable/bg_card_build"
+                        android:textColor="@color/gold"
+                        android:paddingHorizontal="8dp" />
+
+                    <Button
+                        android:id="@+id/btn_up_speed"
+                        android:layout_width="wrap_content"
+                        android:layout_height="44dp"
+                        android:minWidth="84dp"
+                        android:layout_marginHorizontal="2dp"
+                        android:text="👟 SPD\n20g"
+                        android:textSize="11sp"
+                        android:textStyle="bold"
+                        android:textAllCaps="false"
+                        android:background="@drawable/bg_card_build"
+                        android:textColor="@color/gold"
+                        android:paddingHorizontal="8dp" />
+
+                    <Button
+                        android:id="@+id/btn_up_hp"
+                        android:layout_width="wrap_content"
+                        android:layout_height="44dp"
+                        android:minWidth="84dp"
+                        android:layout_marginHorizontal="2dp"
+                        android:text="❤️ HP\n30g"
+                        android:textSize="11sp"
+                        android:textStyle="bold"
+                        android:textAllCaps="false"
+                        android:background="@drawable/bg_card_build"
+                        android:textColor="@color/gold"
+                        android:paddingHorizontal="8dp" />
+
+                    <Button
+                        android:id="@+id/btn_up_base"
+                        android:layout_width="wrap_content"
+                        android:layout_height="44dp"
+                        android:minWidth="84dp"
+                        android:layout_marginHorizontal="2dp"
+                        android:text="🏰 BASE\n40g"
+                        android:textSize="11sp"
+                        android:textStyle="bold"
+                        android:textAllCaps="false"
+                        android:background="@drawable/bg_card_build"
+                        android:textColor="@color/gold"
+                        android:paddingHorizontal="8dp" />
+                </LinearLayout>
+            </HorizontalScrollView>
+        </LinearLayout>
+    </FrameLayout>
 
 </FrameLayout>

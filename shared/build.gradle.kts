@@ -31,6 +31,9 @@ kotlin {
     sourceSets {
         commonMain.dependencies { }
         androidMain.dependencies { }
+        commonTest.dependencies {
+            implementation(kotlin("test"))
+        }
         // val iosMain by getting {
         //     kotlin.srcDir("../ios/shared/src/iosMain/kotlin")
         //     dependencies { }

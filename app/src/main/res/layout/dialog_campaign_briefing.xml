@@ -1,0 +1,342 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:background="@drawable/bg_card_glass"
+    android:padding="16dp">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical">
+
+        <!-- Top Header: Level Title & Close -->
+        <RelativeLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content">
+
+            <LinearLayout
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:layout_toStartOf="@id/btn_close">
+
+                <TextView
+                    android:id="@+id/briefing_title"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="🏹 Mission 1: The Basics"
+                    android:textColor="@color/gold"
+                    android:textSize="20sp"
+                    android:textStyle="bold" />
+
+                <TextView
+                    android:id="@+id/briefing_status"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="⭐⭐⭐ MASTERED"
+                    android:textColor="#00E5FF"
+                    android:textSize="13sp"
+                    android:textStyle="bold"
+                    android:layout_marginTop="2dp" />
+            </LinearLayout>
+
+            <TextView
+                android:id="@+id/btn_close"
+                android:layout_width="36dp"
+                android:layout_height="36dp"
+                android:layout_alignParentEnd="true"
+                android:background="@drawable/bg_hud_chip"
+                android:gravity="center"
+                android:text="✕"
+                android:textColor="@color/white"
+                android:textSize="18sp"
+                android:textStyle="bold" />
+        </RelativeLayout>
+
+        <!-- Metadata Chips Row -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:layout_marginTop="12dp">
+
+            <TextView
+                android:id="@+id/chip_map"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:background="@drawable/bg_hud_chip"
+                android:paddingVertical="6dp"
+                android:paddingHorizontal="8dp"
+                android:gravity="center"
+                android:text="🌲 Classic"
+                android:textColor="#CFD8DC"
+                android:textSize="12sp"
+                android:textStyle="bold" />
+
+            <TextView
+                android:id="@+id/chip_waves"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:layout_marginStart="6dp"
+                android:background="@drawable/bg_hud_chip"
+                android:paddingVertical="6dp"
+                android:paddingHorizontal="8dp"
+                android:gravity="center"
+                android:text="⚔️ 3 Waves"
+                android:textColor="#CFD8DC"
+                android:textSize="12sp"
+                android:textStyle="bold" />
+
+            <TextView
+                android:id="@+id/chip_gold"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:layout_marginStart="6dp"
+                android:background="@drawable/bg_hud_chip"
+                android:paddingVertical="6dp"
+                android:paddingHorizontal="8dp"
+                android:gravity="center"
+                android:text="💰 100g"
+                android:textColor="@color/gold"
+                android:textSize="12sp"
+                android:textStyle="bold" />
+        </LinearLayout>
+
+        <!-- Tactical Minimap Preview -->
+        <com.example.myapp.game.MapPreviewView
+            android:id="@+id/briefing_map_preview"
+            android:layout_width="match_parent"
+            android:layout_height="160dp"
+            android:layout_marginTop="10dp" />
+
+        <!-- Briefing Description & Hint -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:background="#201E2E42"
+            android:padding="12dp"
+            android:layout_marginTop="12dp">
+
+            <TextView
+                android:id="@+id/briefing_desc"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="Place Arrow towers to stop the goblins from reaching your sanctuary!"
+                android:textColor="#ECEFF1"
+                android:textSize="14sp"
+                android:lineSpacingExtra="2dp" />
+
+            <TextView
+                android:id="@+id/briefing_hint"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="💡 Tactical Hint: Tap a tower button, then tap the field to build."
+                android:textColor="#FFD54F"
+                android:textSize="13sp"
+                android:textStyle="italic"
+                android:layout_marginTop="8dp" />
+        </LinearLayout>
+
+        <!-- Permitted Arsenal -->
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="🛡️ PERMITTED ARSENAL"
+            android:textColor="#90A4AE"
+            android:textSize="11sp"
+            android:textStyle="bold"
+            android:layout_marginTop="14dp" />
+
+        <LinearLayout
+            android:id="@+id/briefing_towers_container"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:background="@drawable/bg_hud_chip"
+            android:padding="10dp"
+            android:layout_marginTop="6dp">
+
+            <TextView
+                android:id="@+id/briefing_allowed_towers"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="🏹 Arrow Tower"
+                android:textColor="@color/white"
+                android:textSize="13sp" />
+
+            <TextView
+                android:id="@+id/briefing_powers_and_upgrades"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="🔒 Spells Locked  •  ⬆ Upgrades Disabled"
+                android:textColor="#B0BEC5"
+                android:textSize="12sp"
+                android:layout_marginTop="4dp" />
+        </LinearLayout>
+
+        <!-- Star Objectives -->
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="⭐ STAR OBJECTIVES"
+            android:textColor="#90A4AE"
+            android:textSize="11sp"
+            android:textStyle="bold"
+            android:layout_marginTop="14dp" />
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:background="@drawable/bg_hud_chip"
+            android:padding="10dp"
+            android:layout_marginTop="6dp">
+
+            <TextView
+                android:id="@+id/goal_star_1"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="⭐ 1 Star: Clear all 3 waves"
+                android:textColor="#ECEFF1"
+                android:textSize="13sp" />
+
+            <TextView
+                android:id="@+id/goal_star_2"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="⭐⭐ 2 Stars: Achieve score of 50+"
+                android:textColor="#ECEFF1"
+                android:textSize="13sp"
+                android:layout_marginTop="3dp" />
+
+            <TextView
+                android:id="@+id/goal_star_3"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="⭐⭐⭐ 3 Stars: Achieve score of 100+"
+                android:textColor="#ECEFF1"
+                android:textSize="13sp"
+                android:layout_marginTop="3dp" />
+        </LinearLayout>
+
+        <!-- Potential Rewards -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:gravity="center_vertical"
+            android:background="#2E2034"
+            android:padding="10dp"
+            android:layout_marginTop="12dp">
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="💎 Potential Rewards:"
+                android:textColor="#BA68C8"
+                android:textSize="13sp"
+                android:textStyle="bold" />
+
+            <TextView
+                android:id="@+id/briefing_reward_text"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text=" 2-6 Diamonds (based on stars)"
+                android:textColor="@color/gold"
+                android:textSize="13sp"
+                android:textStyle="bold"
+                android:layout_marginStart="4dp" />
+        </LinearLayout>
+
+        <!-- Difficulty Selection -->
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="⚔️ MISSION DIFFICULTY"
+            android:textColor="#90A4AE"
+            android:textSize="11sp"
+            android:textStyle="bold"
+            android:layout_marginTop="14dp" />
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:layout_marginTop="6dp">
+
+            <Button
+                android:id="@+id/btn_diff_easy"
+                android:layout_width="0dp"
+                android:layout_height="40dp"
+                android:layout_weight="1"
+                android:background="@drawable/bg_tab_inactive"
+                android:text="Easy"
+                android:textColor="#B0BEC5"
+                android:textSize="13sp"
+                android:textAllCaps="false" />
+
+            <Button
+                android:id="@+id/btn_diff_normal"
+                android:layout_width="0dp"
+                android:layout_height="40dp"
+                android:layout_weight="1"
+                android:layout_marginStart="6dp"
+                android:background="@drawable/bg_tab_active"
+                android:text="Normal"
+                android:textColor="@color/white"
+                android:textSize="13sp"
+                android:textStyle="bold"
+                android:textAllCaps="false" />
+
+            <Button
+                android:id="@+id/btn_diff_hard"
+                android:layout_width="0dp"
+                android:layout_height="40dp"
+                android:layout_weight="1"
+                android:layout_marginStart="6dp"
+                android:background="@drawable/bg_tab_inactive"
+                android:text="Hard"
+                android:textColor="#B0BEC5"
+                android:textSize="13sp"
+                android:textAllCaps="false" />
+        </LinearLayout>
+
+        <!-- Action Buttons -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:layout_marginTop="18dp">
+
+            <Button
+                android:id="@+id/btn_cancel"
+                android:layout_width="0dp"
+                android:layout_height="50dp"
+                android:layout_weight="1"
+                android:background="@drawable/bg_btn_action"
+                android:text="Cancel"
+                android:textColor="#CFD8DC"
+                android:textSize="15sp"
+                android:textAllCaps="false" />
+
+            <Button
+                android:id="@+id/btn_deploy"
+                android:layout_width="0dp"
+                android:layout_height="50dp"
+                android:layout_weight="2"
+                android:layout_marginStart="10dp"
+                android:background="@drawable/bg_btn_green"
+                android:text="⚔️ DEPLOY TO BATTLE"
+                android:textColor="@color/white"
+                android:textSize="15sp"
+                android:textStyle="bold"
+                android:textAllCaps="false" />
+        </LinearLayout>
+
+    </LinearLayout>
+</ScrollView>

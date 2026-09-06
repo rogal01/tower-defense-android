@@ -131,7 +131,7 @@ Place towers by tapping a tower button, then tapping an open area on the field.
 • Use 🎯 to change targeting: Close → First → Last → Strong.
 • Same-type towers near each other get a synergy bonus (+10% damage per neighbor, max 30%).
 """,
-            "⚡ POWERS & DASH" to """
+            "⚡ POWERS & CONTROLS" to """
 Powers cost gold and have cooldowns.
 
 🔥 Fireball (40g, 8s CD) — Damages ALL enemies on screen.
@@ -139,7 +139,7 @@ Powers cost gold and have cooldowns.
 💚 Heal (25g, 15s CD) — Restores 50 HP to your base.
 ⚡ Lightning (50g, 10s CD) — Chain lightning hits the 5 closest enemies for 80 damage each.
 
-💨 Dash (free, 8s CD) — Teleport toward your target, dealing AoE damage along the path.
+🕹️ Virtual Joystick — Touch and steer on the left side of the screen for fluid 360° hero movement.
 """,
             "⬆️ UPGRADES" to """
 Hero upgrades (costs scale with level):
@@ -246,7 +246,7 @@ Stawiaj wieże dotykając przycisku wieży, a potem wolnego pola.
 • Użyj 🎯 by zmienić cel: Bliski → Pierwszy → Ostatni → Silny.
 • Wieże tego samego typu blisko siebie dostają bonus synergii (+10% obrażeń, max 30%).
 """,
-            "⚡ MOCE I DASH" to """
+            "⚡ MOCE I STEROWANIE" to """
 Moce kosztują złoto i mają czas odnowienia.
 
 🔥 Kula ognia (40g, 8s CD) — Zadaje obrażenia WSZYSTKIM wrogom na ekranie.
@@ -254,7 +254,7 @@ Moce kosztują złoto i mają czas odnowienia.
 💚 Leczenie (25g, 15s CD) — Przywraca 50 HP bazy.
 ⚡ Błyskawica (50g, 10s CD) — Łańcuchowa błyskawica trafia 5 najbliższych wrogów po 80 obrażeń.
 
-💨 Dash (darmowy, 8s CD) — Teleportuj się w kierunku celu, zadając obrażenia obszarowe po drodze.
+🕹️ Wirtualny Joystick — Dotknij i steruj w lewej połowie ekranu, by płynnie poruszać bohaterem w 360°.
 """,
             "⬆️ ULEPSZENIA" to """
 Ulepszenia bohatera (koszt rośnie z poziomem):
@@ -355,112 +355,163 @@ Każda wieża zadaje określony typ obrażeń. Wrogowie mają odporności i sła
     fun achievementProgress(unlocked: Int, total: Int) =
         if (isPl) "$unlocked / $total Odblokowane" else "$unlocked / $total Unlocked"
 
-    data class AchDef(val id: String, val title: String, val description: String, val emoji: String)
+    val tabPassiveSkills get() = if (isPl) "\uD83D\uDC8E Umiejętności" else "\uD83D\uDC8E Passive Skills"
+    val tabRelicVault get() = if (isPl) "\uD83C\uDFFA Skarbiec Relikwii" else "\uD83C\uDFFA Relic Vault"
+    val relicVaultSubtitle get() = if (isPl) "Potężne, stałe artefakty zmieniające mechaniki gry" else "Powerful permanent artifacts with game-changing powers"
+    val relicActive get() = if (isPl) "AKTYWNY ✓" else "ACTIVE ✓"
+    fun relicUnlockBtn(cost: Int) = if (isPl) "ODBLOKUJ \uD83D\uDC8E $cost" else "UNLOCK \uD83D\uDC8E $cost"
+    val claimAllBtn get() = if (isPl) "\uD83C\uDF81 Odbierz wszystko" else "\uD83C\uDF81 Claim All"
+    fun claimBtn(reward: Int) = if (isPl) "ODBIERZ \uD83D\uDC8E $reward" else "CLAIM \uD83D\uDC8E $reward"
+    val claimedBtn get() = if (isPl) "ODEBRANO ✓" else "CLAIMED ✓"
+    fun claimedAllToast(count: Int, diamonds: Int) =
+        if (isPl) "Odebrano $count nagród! +$diamonds \uD83D\uDC8E" else "Claimed $count rewards! +$diamonds \uD83D\uDC8E"
+
+    data class AchDef(val id: String, val title: String, val description: String, val emoji: String, val diamondReward: Int = 10)
 
     fun achievements(): List<AchDef> {
         if (!isPl) return listOf(
-            AchDef("first_kill", "First Blood", "Kill your first enemy", "🗡️"),
-            AchDef("wave_5", "Survivor", "Reach wave 5", "🌊"),
-            AchDef("wave_10", "Veteran", "Reach wave 10", "⭐"),
-            AchDef("wave_20", "Legend", "Reach wave 20", "🏆"),
-            AchDef("wave_30", "Immortal", "Reach wave 30", "💀"),
-            AchDef("wave_50", "Mythic", "Reach wave 50", "🔥"),
-            AchDef("kills_50", "Slayer", "Kill 50 enemies", "⚔️"),
-            AchDef("kills_200", "Destroyer", "Kill 200 enemies", "💣"),
-            AchDef("kills_500", "Annihilator", "Kill 500 enemies", "☠️"),
-            AchDef("combo_10", "Combo King", "Get a 10x combo", "🔗"),
-            AchDef("combo_20", "Combo God", "Get a 20x combo", "⛓️"),
-            AchDef("boss_kill", "Boss Slayer", "Kill your first boss", "👹"),
-            AchDef("5_bosses", "Boss Hunter", "Kill 5 bosses in one run", "🐉"),
-            AchDef("5_towers", "Architect", "Place 5 towers", "🏗️"),
-            AchDef("10_towers", "Fortress", "Place 10 towers", "🏰"),
-            AchDef("all_tower_types", "Arsenal", "Place all tower types", "🎯"),
-            AchDef("use_power", "Sorcerer", "Use a power for the first time", "🧙"),
-            AchDef("max_tower", "Master Builder", "Upgrade a tower to level 5", "⬆️"),
-            AchDef("rich", "Rich", "Have 500 gold at once", "💰"),
-            AchDef("rich_1000", "Millionaire", "Have 1000 gold at once", "💎"),
-            AchDef("score_1000", "Score Chaser", "Reach 1000 score", "🎯"),
-            AchDef("diamond_10", "Diamond Hoarder", "Earn 10 diamonds in a run", "💎"),
-            AchDef("repaired_3", "Mechanic", "Repair the base 3 times in a run", "🔧"),
-            AchDef("upgrade_all", "Well Rounded", "Buy all 4 player upgrades", "🌟"),
-            AchDef("endless_10", "Endurance", "Reach wave 10 in endless mode", "♾️"),
-            AchDef("kills_1000", "Genocide", "Kill 1000 enemies in one run", "💀"),
-            AchDef("wave_100", "Centurion", "Reach wave 100", "💯"),
-            AchDef("no_damage", "Untouchable", "Complete a wave without base taking damage", "🛡️"),
-            AchDef("speed_demon", "Speed Demon", "Beat wave 10 on 3x speed", "⚡"),
-            AchDef("10_bosses", "Boss Legend", "Kill 10 bosses in one run", "👑"),
-            AchDef("diamond_50", "Diamond Mine", "Earn 50 diamonds in one run", "⛏️"),
-            AchDef("gold_hoarder", "Gold Hoarder", "Have 2000 gold at once", "🏦"),
-            AchDef("all_powers", "Elementalist", "Use all 4 powers in one run", "🌈"),
-            AchDef("survivor_1hp", "Last Stand", "Win a wave with base at 1 HP", "❤️‍🔥"),
-            AchDef("trap_first", "Trapper", "Place your first trap", "🪤"),
-            AchDef("trap_10", "Minefield", "Place 10 traps in one run", "💣"),
-            AchDef("mine_triple", "Triple Threat", "Kill 3 enemies with one mine", "💥"),
-            AchDef("bounty_first", "Bounty Hunter", "Complete your first bounty", "🎯"),
-            AchDef("bounty_all", "Bounty King", "Complete all 3 bounties in one run", "👑"),
-            AchDef("volcano_win", "Volcanic Victory", "Reach wave 15 on Volcano map", "🌋"),
-            AchDef("combo_30", "Unstoppable", "Get a 30x combo", "🔥"),
-            AchDef("combo_50", "Godlike", "Get a 50x combo", "⚡"),
-            AchDef("streak_no_tower", "Lone Wolf", "Reach wave 5 with no towers", "🐺"),
-            AchDef("all_maps", "Cartographer", "Play on all 8 maps", "🌍"),
-            AchDef("boss_rush_5", "Gauntlet", "Defeat 5 bosses in Boss Rush", "🗡️"),
-            AchDef("randomizer_win", "Chaos Master", "Reach wave 15 in Randomizer", "🎲"),
-            AchDef("ability_all", "Tactician", "Use abilities on 5 tower types in one run", "✨"),
-            AchDef("prestige_first", "Reborn", "Prestige for the first time", "👑"),
-            AchDef("score_5000", "High Roller", "Reach 5000 score", "🏅"),
-            AchDef("score_10000", "Legendary Score", "Reach 10000 score", "🥇")
+            AchDef("first_kill", "First Blood", "Kill your first enemy", "🗡️", 5),
+            AchDef("wave_5", "Survivor", "Reach wave 5", "🌊", 10),
+            AchDef("wave_10", "Veteran", "Reach wave 10", "⭐", 15),
+            AchDef("wave_20", "Legend", "Reach wave 20", "🏆", 25),
+            AchDef("wave_30", "Immortal", "Reach wave 30", "💀", 35),
+            AchDef("wave_50", "Mythic", "Reach wave 50", "🔥", 50),
+            AchDef("kills_50", "Slayer", "Kill 50 enemies", "⚔️", 10),
+            AchDef("kills_200", "Destroyer", "Kill 200 enemies", "💣", 20),
+            AchDef("kills_500", "Annihilator", "Kill 500 enemies", "☠️", 30),
+            AchDef("combo_10", "Combo King", "Get a 10x combo", "🔗", 10),
+            AchDef("combo_20", "Combo God", "Get a 20x combo", "⛓️", 20),
+            AchDef("boss_kill", "Boss Slayer", "Kill your first boss", "👹", 15),
+            AchDef("5_bosses", "Boss Hunter", "Kill 5 bosses in one run", "🐉", 30),
+            AchDef("5_towers", "Architect", "Place 5 towers", "🏗️", 10),
+            AchDef("10_towers", "Fortress", "Place 10 towers", "🏰", 20),
+            AchDef("all_tower_types", "Arsenal", "Place all tower types", "🎯", 25),
+            AchDef("use_power", "Sorcerer", "Use a power for the first time", "🧙", 5),
+            AchDef("max_tower", "Master Builder", "Upgrade a tower to level 5", "⬆️", 15),
+            AchDef("rich", "Rich", "Have 500 gold at once", "💰", 15),
+            AchDef("rich_1000", "Millionaire", "Have 1000 gold at once", "💎", 25),
+            AchDef("score_1000", "Score Chaser", "Reach 1000 score", "🎯", 15),
+            AchDef("diamond_10", "Diamond Hoarder", "Earn 10 diamonds in a run", "💎", 20),
+            AchDef("repaired_3", "Mechanic", "Repair the base 3 times in a run", "🔧", 10),
+            AchDef("upgrade_all", "Well Rounded", "Buy all 4 player upgrades", "🌟", 20),
+            AchDef("endless_10", "Endurance", "Reach wave 10 in endless mode", "♾️", 15),
+            AchDef("kills_1000", "Genocide", "Kill 1000 enemies in one run", "💀", 40),
+            AchDef("wave_100", "Centurion", "Reach wave 100", "💯", 100),
+            AchDef("no_damage", "Untouchable", "Complete a wave without base taking damage", "🛡️", 20),
+            AchDef("speed_demon", "Speed Demon", "Beat wave 10 on 3x speed", "⚡", 25),
+            AchDef("10_bosses", "Boss Legend", "Kill 10 bosses in one run", "👑", 50),
+            AchDef("diamond_50", "Diamond Mine", "Earn 50 diamonds in one run", "⛏️", 40),
+            AchDef("gold_hoarder", "Gold Hoarder", "Have 2000 gold at once", "🏦", 35),
+            AchDef("all_powers", "Elementalist", "Use all 4 powers in one run", "🌈", 20),
+            AchDef("survivor_1hp", "Last Stand", "Win a wave with base at 1 HP", "❤️‍🔥", 35),
+            AchDef("campaign_5", "Campaigner", "Complete 5 campaign levels", "🗺️", 25),
+            AchDef("campaign_10", "Strategist", "Complete 10 campaign levels", "🏅", 35),
+            AchDef("campaign_all", "Conqueror", "Complete all campaign levels", "👑", 75),
+            AchDef("campaign_no_damage", "Flawless", "Beat a campaign level without base damage", "🛡️", 25),
+            AchDef("campaign_3star", "Perfectionist", "Get 3 stars on 5 campaign levels", "⭐", 30),
+            AchDef("trap_first", "Trapper", "Place your first trap", "🪤", 10),
+            AchDef("trap_10", "Minefield", "Place 10 traps in one run", "💣", 20),
+            AchDef("mine_triple", "Triple Threat", "Kill 3 enemies with one mine", "💥", 25),
+            AchDef("bounty_first", "Bounty Hunter", "Complete your first bounty", "🎯", 15),
+            AchDef("bounty_all", "Bounty King", "Complete all 3 bounties in one run", "👑", 30),
+            AchDef("volcano_win", "Volcanic Victory", "Reach wave 15 on Volcano map", "🌋", 25),
+            AchDef("combo_30", "Unstoppable", "Get a 30x combo", "🔥", 30),
+            AchDef("combo_50", "Godlike", "Get a 50x combo", "⚡", 50),
+            AchDef("streak_no_tower", "Lone Wolf", "Reach wave 5 with no towers", "🐺", 35),
+            AchDef("all_maps", "Cartographer", "Play on all 8 maps", "🌍", 30),
+            AchDef("boss_rush_5", "Gauntlet", "Defeat 5 bosses in Boss Rush", "🗡️", 30),
+            AchDef("randomizer_win", "Chaos Master", "Reach wave 15 in Randomizer", "🎲", 30),
+            AchDef("ability_all", "Tactician", "Use abilities on 5 tower types in one run", "✨", 25),
+            AchDef("prestige_first", "Reborn", "Prestige for the first time", "👑", 50),
+            AchDef("score_5000", "High Roller", "Reach 5000 score", "🏅", 30),
+            AchDef("score_10000", "Legendary Score", "Reach 10000 score", "🥇", 60),
+            AchDef("boss_leviathan", "Storm Tamer", "Defeat the Storm Leviathan", "⚡", 25),
+            AchDef("boss_phoenix", "Phoenix Reborn", "Defeat the Void Phoenix in both forms", "🪶", 25),
+            AchDef("boss_spore", "Mycology Expert", "Defeat the Spore Overlord", "🍄", 25),
+            AchDef("boss_chrono", "Time Warden", "Defeat the Chrono Lich", "⏳", 25),
+            AchDef("boss_dreadnought", "Siege Breaker", "Destroy the Iron Dreadnought", "🤖", 25),
+            AchDef("spec_first", "Master Artisan", "Specialize your first Level 5 tower", "⚡", 15),
+            AchDef("spec_trio", "Grand Architect", "Specialize 3 towers in a single run", "🏛️", 30),
+            AchDef("milestone_first", "Destiny's Boon", "Select your first Endless Milestone Buff", "🌟", 15),
+            AchDef("milestone_trio", "Ascended Champion", "Pick 3 Milestone Buffs in one run", "✨", 30),
+            AchDef("relic_first", "Ancient Reliquary", "Unlock your first Legendary Relic", "🏺", 20),
+            AchDef("relic_3", "Treasury of Ancients", "Unlock 3 Legendary Relics", "👑", 50),
+            AchDef("campaign_3star_10", "Grand Strategist", "Earn 3 stars on 10 campaign levels", "⭐", 50),
+            AchDef("endless_25", "Abyssal Challenger", "Reach wave 25 in Endless mode", "🌊", 30),
+            AchDef("endless_50", "Titan of the Endless", "Reach wave 50 in Endless mode", "🔥", 60),
+            AchDef("boss_rush_10", "Colosseum God", "Defeat 10 bosses in Boss Rush", "⚔️", 50)
         )
         return listOf(
-            AchDef("first_kill", "Pierwsze trafienie", "Zabij pierwszego wroga", "🗡️"),
-            AchDef("wave_5", "Ocalały", "Dotrzyj do fali 5", "🌊"),
-            AchDef("wave_10", "Weteran", "Dotrzyj do fali 10", "⭐"),
-            AchDef("wave_20", "Legenda", "Dotrzyj do fali 20", "🏆"),
-            AchDef("wave_30", "Nieśmiertelny", "Dotrzyj do fali 30", "💀"),
-            AchDef("wave_50", "Mityczny", "Dotrzyj do fali 50", "🔥"),
-            AchDef("kills_50", "Zabójca", "Zabij 50 wrogów", "⚔️"),
-            AchDef("kills_200", "Niszczyciel", "Zabij 200 wrogów", "💣"),
-            AchDef("kills_500", "Anihilator", "Zabij 500 wrogów", "☠️"),
-            AchDef("combo_10", "Król combo", "Zdobądź 10× combo", "🔗"),
-            AchDef("combo_20", "Bóg combo", "Zdobądź 20× combo", "⛓️"),
-            AchDef("boss_kill", "Pogromca bossów", "Zabij swojego pierwszego bossa", "👹"),
-            AchDef("5_bosses", "Łowca bossów", "Zabij 5 bossów w jednym podejściu", "🐉"),
-            AchDef("5_towers", "Architekt", "Postaw 5 wież", "🏗️"),
-            AchDef("10_towers", "Forteca", "Postaw 10 wież", "🏰"),
-            AchDef("all_tower_types", "Arsenał", "Postaw wszystkie typy wież", "🎯"),
-            AchDef("use_power", "Czarodziej", "Użyj mocy po raz pierwszy", "🧙"),
-            AchDef("max_tower", "Mistrz budowniczy", "Ulepsz wieżę do poziomu 5", "⬆️"),
-            AchDef("rich", "Bogacz", "Miej 500 złota naraz", "💰"),
-            AchDef("rich_1000", "Milioner", "Miej 1000 złota naraz", "💎"),
-            AchDef("score_1000", "Łowca punktów", "Zdobądź 1000 punktów", "🎯"),
-            AchDef("diamond_10", "Kolekcjoner", "Zdobądź 10 diamentów w jednym podejściu", "💎"),
-            AchDef("repaired_3", "Mechanik", "Napraw bazę 3 razy w jednym podejściu", "🔧"),
-            AchDef("upgrade_all", "Wszechstronny", "Kup wszystkie 4 ulepszenia", "🌟"),
-            AchDef("endless_10", "Wytrzymałość", "Dotrzyj do fali 10 w trybie nieskończonym", "♾️"),
-            AchDef("kills_1000", "Ludobójca", "Zabij 1000 wrogów w jednym podejściu", "💀"),
-            AchDef("wave_100", "Centurion", "Dotrzyj do fali 100", "💯"),
-            AchDef("no_damage", "Nietknięty", "Ukończ falę bez obrażeń bazy", "🛡️"),
-            AchDef("speed_demon", "Demon prędkości", "Wygraj falę 10 na prędkości 3×", "⚡"),
-            AchDef("10_bosses", "Legenda bossów", "Zabij 10 bossów w jednym podejściu", "👑"),
-            AchDef("diamond_50", "Kopalnia diamentów", "Zdobądź 50 diamentów w jednym podejściu", "⛏️"),
-            AchDef("gold_hoarder", "Skarbiec", "Miej 2000 złota naraz", "🏦"),
-            AchDef("all_powers", "Elementalista", "Użyj wszystkich 4 mocy w jednym podejściu", "🌈"),
-            AchDef("survivor_1hp", "Ostatnia szansa", "Wygraj falę z bazą na 1 HP", "❤️‍🔥"),
-            AchDef("trap_first", "Łowca", "Postaw swoją pierwszą pułapkę", "🪤"),
-            AchDef("trap_10", "Pole minowe", "Postaw 10 pułapek w jednym podejściu", "💣"),
-            AchDef("mine_triple", "Potrójne zagrożenie", "Zabij 3 wrogów jedną miną", "💥"),
-            AchDef("bounty_first", "Łowca nagród", "Wykonaj swoje pierwsze zlecenie", "🎯"),
-            AchDef("bounty_all", "Król zleceń", "Wykonaj wszystkie 3 zlecenia w jednym podejściu", "👑"),
-            AchDef("volcano_win", "Wulkaniczna wiktoria", "Dotrzyj do fali 15 na mapie Wulkan", "🌋"),
-            AchDef("combo_30", "Nie do zatrzymania", "Zdobądź 30× combo", "🔥"),
-            AchDef("combo_50", "Boski", "Zdobądź 50× combo", "⚡"),
-            AchDef("streak_no_tower", "Samotny wilk", "Dotrzyj do fali 5 bez wież", "🐺"),
-            AchDef("all_maps", "Kartograf", "Zagraj na wszystkich 8 mapach", "🌍"),
-            AchDef("boss_rush_5", "Rękawica", "Pokonaj 5 bossów w Rajdzie Bossów", "🗡️"),
-            AchDef("randomizer_win", "Mistrz chaosu", "Dotrzyj do fali 15 w trybie Losowym", "🎲"),
-            AchDef("ability_all", "Taktyk", "Użyj umiejętności 5 typów wież w jednym podejściu", "✨"),
-            AchDef("prestige_first", "Odrodzony", "Zdobądź prestiż po raz pierwszy", "👑"),
-            AchDef("score_5000", "Gracz wysokich stawek", "Zdobądź 5000 punktów", "🏅"),
-            AchDef("score_10000", "Legendarny wynik", "Zdobądź 10000 punktów", "🥇")
+            AchDef("first_kill", "Pierwsze trafienie", "Zabij pierwszego wroga", "🗡️", 5),
+            AchDef("wave_5", "Ocalały", "Dotrzyj do fali 5", "🌊", 10),
+            AchDef("wave_10", "Weteran", "Dotrzyj do fali 10", "⭐", 15),
+            AchDef("wave_20", "Legenda", "Dotrzyj do fali 20", "🏆", 25),
+            AchDef("wave_30", "Nieśmiertelny", "Dotrzyj do fali 30", "💀", 35),
+            AchDef("wave_50", "Mityczny", "Dotrzyj do fali 50", "🔥", 50),
+            AchDef("kills_50", "Zabójca", "Zabij 50 wrogów", "⚔️", 10),
+            AchDef("kills_200", "Niszczyciel", "Zabij 200 wrogów", "💣", 20),
+            AchDef("kills_500", "Anihilator", "Zabij 500 wrogów", "☠️", 30),
+            AchDef("combo_10", "Król combo", "Zdobądź 10× combo", "🔗", 10),
+            AchDef("combo_20", "Bóg combo", "Zdobądź 20× combo", "⛓️", 20),
+            AchDef("boss_kill", "Pogromca bossów", "Zabij swojego pierwszego bossa", "👹", 15),
+            AchDef("5_bosses", "Łowca bossów", "Zabij 5 bossów w jednym podejściu", "🐉", 30),
+            AchDef("5_towers", "Architekt", "Postaw 5 wież", "🏗️", 10),
+            AchDef("10_towers", "Forteca", "Postaw 10 wież", "🏰", 20),
+            AchDef("all_tower_types", "Arsenał", "Postaw wszystkie typy wież", "🎯", 25),
+            AchDef("use_power", "Czarodziej", "Użyj mocy po raz pierwszy", "🧙", 5),
+            AchDef("max_tower", "Mistrz budowniczy", "Ulepsz wieżę do poziomu 5", "⬆️", 15),
+            AchDef("rich", "Bogacz", "Miej 500 złota naraz", "💰", 15),
+            AchDef("rich_1000", "Milioner", "Miej 1000 złota naraz", "💎", 25),
+            AchDef("score_1000", "Łowca punktów", "Zdobądź 1000 punktów", "🎯", 15),
+            AchDef("diamond_10", "Kolekcjoner", "Zdobądź 10 diamentów w jednym podejściu", "💎", 20),
+            AchDef("repaired_3", "Mechanik", "Napraw bazę 3 razy w jednym podejściu", "🔧", 10),
+            AchDef("upgrade_all", "Wszechstronny", "Kup wszystkie 4 ulepszenia", "🌟", 20),
+            AchDef("endless_10", "Wytrzymałość", "Dotrzyj do fali 10 w trybie nieskończonym", "♾️", 15),
+            AchDef("kills_1000", "Ludobójca", "Zabij 1000 wrogów w jednym podejściu", "💀", 40),
+            AchDef("wave_100", "Centurion", "Dotrzyj do fali 100", "💯", 100),
+            AchDef("no_damage", "Nietknięty", "Ukończ falę bez obrażeń bazy", "🛡️", 20),
+            AchDef("speed_demon", "Demon prędkości", "Wygraj falę 10 na prędkości 3×", "⚡", 25),
+            AchDef("10_bosses", "Legenda bossów", "Zabij 10 bossów w jednym podejściu", "👑", 50),
+            AchDef("diamond_50", "Kopalnia diamentów", "Zdobądź 50 diamentów w jednym podejściu", "⛏️", 40),
+            AchDef("gold_hoarder", "Skarbiec", "Miej 2000 złota naraz", "🏦", 35),
+            AchDef("all_powers", "Elementalista", "Użyj wszystkich 4 mocy w jednym podejściu", "🌈", 20),
+            AchDef("survivor_1hp", "Ostatnia szansa", "Wygraj falę z bazą na 1 HP", "❤️‍🔥", 35),
+            AchDef("campaign_5", "Kampanijczyk", "Ukończ 5 poziomów kampanii", "🗺️", 25),
+            AchDef("campaign_10", "Strateg", "Ukończ 10 poziomów kampanii", "🏅", 35),
+            AchDef("campaign_all", "Zdobywca", "Ukończ wszystkie poziomy kampanii", "👑", 75),
+            AchDef("campaign_no_damage", "Bezbłędny", "Ukończ poziom kampanii bez obrażeń bazy", "🛡️", 25),
+            AchDef("campaign_3star", "Perfekcjonista", "Zdobądź 3 gwiazdki na 5 poziomach kampanii", "⭐", 30),
+            AchDef("trap_first", "Łowca", "Postaw swoją pierwszą pułapkę", "🪤", 10),
+            AchDef("trap_10", "Pole minowe", "Postaw 10 pułapek w jednym podejściu", "💣", 20),
+            AchDef("mine_triple", "Potrójne zagrożenie", "Zabij 3 wrogów jedną miną", "💥", 25),
+            AchDef("bounty_first", "Łowca nagród", "Wykonaj swoje pierwsze zlecenie", "🎯", 15),
+            AchDef("bounty_all", "Król zleceń", "Wykonaj wszystkie 3 zlecenia w jednym podejściu", "👑", 30),
+            AchDef("volcano_win", "Wulkaniczna wiktoria", "Dotrzyj do fali 15 na mapie Wulkan", "🌋", 25),
+            AchDef("combo_30", "Nie do zatrzymania", "Zdobądź 30× combo", "🔥", 30),
+            AchDef("combo_50", "Boski", "Zdobądź 50× combo", "⚡", 50),
+            AchDef("streak_no_tower", "Samotny wilk", "Dotrzyj do fali 5 bez wież", "🐺", 35),
+            AchDef("all_maps", "Kartograf", "Zagraj na wszystkich 8 mapach", "🌍", 30),
+            AchDef("boss_rush_5", "Rękawica", "Pokonaj 5 bossów w Rajdzie Bossów", "🗡️", 30),
+            AchDef("randomizer_win", "Mistrz chaosu", "Dotrzyj do fali 15 w trybie Losowym", "🎲", 30),
+            AchDef("ability_all", "Taktyk", "Użyj umiejętności 5 typów wież w jednym podejściu", "✨", 25),
+            AchDef("prestige_first", "Odrodzony", "Zdobądź prestiż po raz pierwszy", "👑", 50),
+            AchDef("score_5000", "Gracz wysokich stawek", "Zdobądź 5000 punktów", "🏅", 30),
+            AchDef("score_10000", "Legendarny wynik", "Zdobądź 10000 punktów", "🥇", 60),
+            AchDef("boss_leviathan", "Poskromiciel Burz", "Pokonaj Burzowego Lewiatana", "⚡", 25),
+            AchDef("boss_phoenix", "Odrodzony Feniks", "Pokonaj Feniksa Pustki w obu formach", "🪶", 25),
+            AchDef("boss_spore", "Mistrz Mykologii", "Pokonaj Władcę Zarodników", "🍄", 25),
+            AchDef("boss_chrono", "Strażnik Czasu", "Pokonaj Chrono Licza", "⏳", 25),
+            AchDef("boss_dreadnought", "Pogromca Żelaza", "Zniszcz Żelaznego Pancernika", "🤖", 25),
+            AchDef("spec_first", "Mistrz Rzemiosła", "Wyspecjalizuj swoją pierwszą wieżę poziomu 5", "⚡", 15),
+            AchDef("spec_trio", "Wielki Architekt", "Wyspecjalizuj 3 wieże w jednym podejściu", "🏛️", 30),
+            AchDef("milestone_first", "Dar Przeznaczenia", "Wybierz swój pierwszy Kamień Milowy w Nieskończoności", "🌟", 15),
+            AchDef("milestone_trio", "Wzniesiony Czempion", "Wybierz 3 Kamienie Milowe w jednym podejściu", "✨", 30),
+            AchDef("relic_first", "Starożytny Relikwiarz", "Odblokuj swoją pierwszą Legendarną Relikwię", "🏺", 20),
+            AchDef("relic_3", "Skarbiec Przodków", "Odblokuj 3 Legendarne Relikwie", "👑", 50),
+            AchDef("campaign_3star_10", "Wielki Strateg", "Zdobądź 3 gwiazdki na 10 poziomach kampanii", "⭐", 50),
+            AchDef("endless_25", "Otchłanny Rywal", "Dotrzyj do fali 25 w trybie nieskończonym", "🌊", 30),
+            AchDef("endless_50", "Tytan Nieskończoności", "Dotrzyj do fali 50 w trybie nieskończonym", "🔥", 60),
+            AchDef("boss_rush_10", "Bóg Koloseum", "Pokonaj 10 bossów w Rajdzie Bossów", "⚔️", 50)
         )
     }
 
@@ -499,9 +550,7 @@ Każda wieża zadaje określony typ obrażeń. Wrogowie mają odporności i sła
     fun healNeedGold(cost: Int) = if (isPl) "Potrzeba ${cost}g!" else "Need ${cost}g!"
     val lightningUsed get() = if (isPl) "⚡ Błyskawica! Łańcuchowe obrażenia!" else "⚡ Lightning! Chain damage!"
     fun lightningNeedGold(cost: Int) = if (isPl) "Potrzeba ${cost}g!" else "Need ${cost}g!"
-    fun dashCooldownFmt(cd: Int) = if (isPl) "Dash: ${cd}s odnowienia" else "Dash cooldown: ${cd}s"
-    val dashUsed get() = if (isPl) "💨 Dash! Obrażenia obszarowe!" else "💨 Dash! AoE damage!"
-    val cantDash get() = if (isPl) "Nie możesz teraz dashować!" else "Can't dash right now!"
+    val joystickHint get() = if (isPl) "🕹️ Steruj joystickiem po lewej stronie" else "🕹️ Use the left joystick to move"
     val baseRepaired get() = if (isPl) "🔧 Baza naprawiona!" else "🔧 Base repaired!"
     val baseFullHp get() = if (isPl) "Baza ma pełne HP!" else "Base is full HP!"
     fun blockadePlacement(cost: Int) = if (isPl) "Dotknij ścieżkę, aby postawić 🪨 Barykadę (${cost}g)" else "Tap a path to place 🪨 Blockade (${cost}g)"
@@ -542,7 +591,60 @@ Każda wieża zadaje określony typ obrażeń. Wrogowie mają odporności i sła
             "Snow" -> "Śnieg"
             "Lava" -> "Lawa"
             "Enchanted" -> "Zaczarowana"
+            "Volcano" -> "Wulkan"
             else -> name
+        }
+    }
+
+    val mapSelectionTitle get() = if (isPl) "🗺️ WYBIERZ POLE BITWY" else "🗺️ SELECT BATTLEFIELD"
+    val deployToEndless get() = if (isPl) "⚔️ ROZPOCZNIJ BIEG" else "⚔️ START RUN"
+    fun mapLanesFmt(lanes: Int): String = if (isPl) "$lanes Linie marszu" else "$lanes Marching Lanes"
+
+    fun mapTacticalTag(mapType: com.example.myapp.game.MapType): String = if (isPl) {
+        when (mapType) {
+            com.example.myapp.game.MapType.CLASSIC -> "Zrównoważone 3 linie"
+            com.example.myapp.game.MapType.VALLEY -> "Wąskie gardła canyonu"
+            com.example.myapp.game.MapType.CROSSROADS -> "4-kierunkowy krzyżowy ogień"
+            com.example.myapp.game.MapType.DESERT -> "Szybkie wydmy pustynne"
+            com.example.myapp.game.MapType.SNOW -> "Lodowe górskie przełęcze"
+            com.example.myapp.game.MapType.LAVA -> "Pola wrzącej magmy"
+            com.example.myapp.game.MapType.ENCHANTED -> "Mistyczna spirala 4 linii"
+            com.example.myapp.game.MapType.VOLCANO -> "Aktywny krater i erupcje"
+        }
+    } else {
+        when (mapType) {
+            com.example.myapp.game.MapType.CLASSIC -> "Balanced 3-Lane Front"
+            com.example.myapp.game.MapType.VALLEY -> "Tight Canyon Chokepoints"
+            com.example.myapp.game.MapType.CROSSROADS -> "4-Way Crossfire Nexus"
+            com.example.myapp.game.MapType.DESERT -> "Sweeping Sand Dunes"
+            com.example.myapp.game.MapType.SNOW -> "Glacial Mountain Passes"
+            com.example.myapp.game.MapType.LAVA -> "Scorched Magma Fields"
+            com.example.myapp.game.MapType.ENCHANTED -> "Mystic 4-Lane Spiral"
+            com.example.myapp.game.MapType.VOLCANO -> "Active Caldera & Eruptions"
+        }
+    }
+
+    fun mapDescription(mapType: com.example.myapp.game.MapType): String = if (isPl) {
+        when (mapType) {
+            com.example.myapp.game.MapType.CLASSIC -> "Żyzne łąki królestwa o zrównoważonym rozkładzie 3 dróg. Idealne pole do budowy klasycznego bastionu."
+            com.example.myapp.game.MapType.VALLEY -> "Głęboki skalisty wąwóz z krętymi serpentynami. Wieże obszarowe sieją spustoszenie w wąskich gardłach!"
+            com.example.myapp.game.MapType.CROSSROADS -> "Starożytny imperialny trakt krzyżujący się w centrum. Wrogowie atakują ze wszystkich 4 stron świata!"
+            com.example.myapp.game.MapType.DESERT -> "Gorące wydmy pustynne. Wrogowie poruszają się szybko szerokimi łukami; wieże spowalniające są kluczem."
+            com.example.myapp.game.MapType.SNOW -> "Zmarznięta tundra otoczona lodowymi szczytami. Trzy wąskie przełęcze zbiegające się ku sanktuarium."
+            com.example.myapp.game.MapType.LAVA -> "Spalona bazaltowa ziemia pocięta płonącą lawą. Trudny teren o wysokiej gęstości wrogich fal."
+            com.example.myapp.game.MapType.ENCHANTED -> "Czarodziejski gaj z 4 spiralnymi ścieżkami wróżek. Nieprzewidywalne natarcia wymagają elastycznej obrony."
+            com.example.myapp.game.MapType.VOLCANO -> "Piekielny superwulkan! Wrogowie obchodzą centralny krater, który okresowo wyrzuca strumienie wrzącej magmy!"
+        }
+    } else {
+        when (mapType) {
+            com.example.myapp.game.MapType.CLASSIC -> "Lush kingdom meadows with 3 balanced approach lanes. Ideal proving ground for well-rounded defensive layouts."
+            com.example.myapp.game.MapType.VALLEY -> "Deep rocky canyon gorge with winding switchbacks. Splashing splash and bomb towers dominate tight chokepoints."
+            com.example.myapp.game.MapType.CROSSROADS -> "Ancient highway intersection with enemies converging from 4 directions into a grand central battleground."
+            com.example.myapp.game.MapType.DESERT -> "Sun-bleached dunes with long sweeping curves. Enemies advance quickly; Frost and Tar traps are vital."
+            com.example.myapp.game.MapType.SNOW -> "Frozen glacial tundra where three narrow icy mountain passes funnel attackers directly toward your base."
+            com.example.myapp.game.MapType.LAVA -> "Scorched volcanic crust winding through hazardous magma fissures. Fierce, relentless enemy pressure."
+            com.example.myapp.game.MapType.ENCHANTED -> "Mystical twilight fairy grove with 4 spiraling approach vectors. Demands versatile multi-angle defense."
+            com.example.myapp.game.MapType.VOLCANO -> "Supervolcano caldera! Three trails loop around an active magma cone that periodically erupts with burning fury!"
         }
     }
 
@@ -552,11 +654,8 @@ Każda wieża zadaje określony typ obrażeń. Wrogowie mają odporności i sła
 🏰 BASE
 Your base is at the bottom of the map. Enemies follow paths toward it. If an enemy reaches the base, it deals damage. Game over when base HP reaches 0. Upgrade your base HP with the 🏰 BASE button.
 
-🗡️ PLAYER
-Your hero auto-attacks the nearest enemy in range. Tap anywhere on the map to move. Upgrade ATK (damage) and SPD (movement speed) using the bottom bar buttons.
-
-💨 DASH
-Tap the Dash button, then tap a location to teleport there instantly. Deals AoE damage along the dash path. 8-second cooldown.
+🗡️ HERO & JOYSTICK
+Your hero auto-attacks the nearest enemy in range. Use the dynamic floating joystick on the left side of the screen for smooth 360° movement. Screen taps on the right place towers, inspect defenses, and trigger powers. Upgrade ATK and SPD using the bottom bar buttons.
 
 🏹 TOWERS
 Tap a tower button then tap the map to place it. Towers auto-fire at enemies in range.
@@ -605,11 +704,8 @@ Use the 2× and 3× buttons to speed up. Tap Pause to pause.
 🏰 BAZA
 Twoja baza jest na dole mapy. Wrogowie podążają ścieżkami w jej kierunku. Koniec gry, gdy HP bazy spadnie do 0. Ulepsz HP bazy przyciskiem 🏰 BAZA.
 
-🗡️ GRACZ
-Twój bohater automatycznie atakuje najbliższego wroga. Dotknij mapę, by się poruszyć. Ulepszaj ATK (obrażenia) i SPD (prędkość) w dolnym pasku.
-
-💨 DASH
-Dotknij Dash, potem lokalizację, by się teleportować. Zadaje obrażenia po drodze. 8s odnowienia.
+🗡️ BOHATER I JOYSTICK
+Twój bohater automatycznie atakuje najbliższego wroga w zasięgu. Użyj dynamicznego joysticka w lewej części ekranu do płynnego poruszania się. Dotknięcia prawej strony ekranu stawiają wieże, ulepszają obronę i aktywują moce. Ulepszaj ATK i SPD w dolnym pasku.
 
 🏹 WIEŻE
 Dotknij przycisk wieży, potem mapę, by ją postawić. Wieże strzelają automatycznie.
@@ -669,4 +765,25 @@ Użyj 2× i 3× by przyspieszyć. Dotknij Pauza, by wstrzymać.
     val runHistoryEmpty get() = if (isPl) "Brak historii gier" else "No run history yet"
     fun runHistoryEntry(mode: String, wave: Int, score: Int) =
         if (isPl) "$mode — Fala $wave — $score pkt" else "$mode — Wave $wave — $score pts"
+
+    // ─── Weather Events ───
+    fun weatherName(event: com.example.myapp.game.WeatherEvent): String = when (event) {
+        com.example.myapp.game.WeatherEvent.CLEAR -> if (isPl) "Czyste Niebo" else "Clear Skies"
+        com.example.myapp.game.WeatherEvent.BLOOD_MOON -> if (isPl) "Krwawy Księżyc" else "Blood Moon"
+        com.example.myapp.game.WeatherEvent.THUNDERSTORM -> if (isPl) "Burza z Piorunami" else "Thunderstorm"
+        com.example.myapp.game.WeatherEvent.SOLAR_ECLIPSE -> if (isPl) "Zaćmienie Słońca" else "Solar Eclipse"
+    }
+
+    fun weatherBanner(event: com.example.myapp.game.WeatherEvent): String = when (event) {
+        com.example.myapp.game.WeatherEvent.CLEAR -> ""
+        com.example.myapp.game.WeatherEvent.BLOOD_MOON ->
+            if (isPl) "🩸 KRWAWY KSIĘŻYC WSCHODZI! Wrogowie w szale (+15% Spd) • 2× Złoto i Diamenty!"
+            else "🩸 BLOOD MOON RISES! Enraged Creeps (+15% Spd) • 2× Gold & Bonus Diamonds!"
+        com.example.myapp.game.WeatherEvent.THUNDERSTORM ->
+            if (isPl) "⚡ BURZA ROZPĘTANA! Niebiańskie gromy rażą roje potworów!"
+            else "⚡ THUNDERSTORM UNLEASHED! Heavenly Lightning Strikes Enemy Swarms!"
+        com.example.myapp.game.WeatherEvent.SOLAR_ECLIPSE ->
+            if (isPl) "☀️ ZAĆMIENIE SŁOŃCA! Magiczne odnowienie -35% i zwinność Bohatera +30%!"
+            else "☀️ SOLAR ECLIPSE ASCENDS! Spell Cooldowns -35% & Hero Swiftness +30%!"
+    }
 }

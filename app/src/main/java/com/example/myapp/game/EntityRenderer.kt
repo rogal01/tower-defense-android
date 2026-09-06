@@ -21,6 +21,14 @@ object EntityRenderer {
     // ========== PLAYER ==========
 
     fun drawPlayer(canvas: Canvas, x: Float, y: Float, size: Float, hpRatio: Float) {
+        val now = System.currentTimeMillis()
+        val sprite = SpriteManager.getPlayerBitmap(now, isMoving = false, isAttacking = false)
+        if (sprite != null) {
+            val destRect = RectF(x - size * 1.0f, y - size * 1.2f, x + size * 1.0f, y + size * 1.0f)
+            canvas.drawBitmap(sprite, null, destRect, SpriteManager.pixelPaint)
+            return
+        }
+
         // Body — shield-shaped torso
         paint.color = 0xFF42A5F5.toInt()
         path.reset()
@@ -75,6 +83,22 @@ object EntityRenderer {
             return
         }
 
+        val animTime = System.currentTimeMillis()
+        val sprite = SpriteManager.getEnemyBitmap(enemy.type, animTime)
+        if (sprite != null) {
+            val destRect = RectF(x - s * 1.1f, y - s * 1.1f, x + s * 1.1f, y + s * 1.1f)
+            val p = when {
+                flash -> SpriteManager.hitFlashPaint
+                frozen -> SpriteManager.freezePaint
+                else -> SpriteManager.pixelPaint
+            }
+            if (enemy.isPhased) p.alpha = 110
+            canvas.drawBitmap(sprite, null, destRect, p)
+            if (enemy.isPhased) p.alpha = 255
+            drawStatusIcons(canvas, enemy, frozen)
+            return
+        }
+
         when (enemy.type) {
             EnemyType.GOBLIN -> drawGoblin(canvas, x, y, s, flash, frozen)
             EnemyType.SKELETON -> drawSkeleton(canvas, x, y, s, flash, frozen)
@@ -96,6 +120,11 @@ object EntityRenderer {
             EnemyType.BERSERKER -> drawBerserker(canvas, x, y, s, flash, frozen, enemy.berserkerRage)
             EnemyType.COMMANDER -> drawCommander(canvas, x, y, s, flash, frozen)
             EnemyType.SHAPESHIFTER -> drawShapeshifter(canvas, x, y, s, flash, frozen, enemy.shapeshiftPhase)
+            EnemyType.NECROMANCER -> drawNecromancer(canvas, x, y, s, flash, frozen)
+            EnemyType.GHOST -> drawGhost(canvas, x, y, s, flash, frozen, enemy.isPhased)
+            EnemyType.MAGMA_CRAB -> drawMagmaCrab(canvas, x, y, s, flash, frozen)
+            EnemyType.HARPY -> drawHarpy(canvas, x, y, s, flash, frozen)
+            EnemyType.TREANT -> drawTreant(canvas, x, y, s, flash, frozen)
             else -> drawDefaultCircle(canvas, x, y, s, enemy.displayColor, flash, frozen)
         }
         drawStatusIcons(canvas, enemy, frozen)
@@ -619,6 +648,11 @@ object EntityRenderer {
             BossType.SPIDER_QUEEN -> drawBossSpiderQueen(canvas, x, y, s, flash, frozen)
             BossType.FROST_TITAN -> drawBossFrostTitan(canvas, x, y, s, flash, frozen)
             BossType.STONE_GOLEM -> drawBossStoneGolem(canvas, x, y, s, flash, frozen)
+            BossType.STORM_LEVIATHAN -> drawBossStormLeviathan(canvas, x, y, s, flash, frozen)
+            BossType.VOID_PHOENIX -> drawBossVoidPhoenix(canvas, x, y, s, flash, frozen)
+            BossType.SPORE_OVERLORD -> drawBossSporeOverlord(canvas, x, y, s, flash, frozen)
+            BossType.CHRONO_LICH -> drawBossChronoLich(canvas, x, y, s, flash, frozen)
+            BossType.IRON_DREADNOUGHT -> drawBossIronDreadnought(canvas, x, y, s, flash, frozen)
         }
     }
 
@@ -985,12 +1019,187 @@ object EntityRenderer {
         c.drawLine(x + s * 0.4f, y - s * 0.1f, x + s * 0.6f, y + s * 0.4f, strokePaint)
     }
 
+    private fun drawBossStormLeviathan(c: Canvas, x: Float, y: Float, s: Float, flash: Boolean, frozen: Boolean) {
+        val col = color(0xFF006064.toInt(), flash, frozen)
+        val bright = color(0xFF00E5FF.toInt(), flash, frozen)
+        // Serpent body segments
+        paint.color = col
+        c.drawCircle(x, y + s * 0.4f, s * 0.6f, paint)
+        c.drawCircle(x - s * 0.3f, y + s * 0.1f, s * 0.55f, paint)
+        c.drawCircle(x + s * 0.1f, y - s * 0.2f, s * 0.65f, paint)
+        // Head
+        paint.color = bright
+        c.drawCircle(x, y - s * 0.4f, s * 0.5f, paint)
+        // Electric horns
+        paint.color = color(0xFF84FFFF.toInt(), flash, frozen)
+        path.reset()
+        path.moveTo(x - s * 0.3f, y - s * 0.5f)
+        path.lineTo(x - s * 0.7f, y - s * 1.0f)
+        path.lineTo(x - s * 0.15f, y - s * 0.7f)
+        path.close()
+        c.drawPath(path, paint)
+        path.reset()
+        path.moveTo(x + s * 0.3f, y - s * 0.5f)
+        path.lineTo(x + s * 0.7f, y - s * 1.0f)
+        path.lineTo(x + s * 0.15f, y - s * 0.7f)
+        path.close()
+        c.drawPath(path, paint)
+        // Electric arcs
+        strokePaint.color = color(0xFF00E5FF.toInt(), flash, frozen)
+        strokePaint.strokeWidth = 3f
+        c.drawLine(x - s * 0.5f, y - s * 0.2f, x - s * 0.2f, y - s * 0.1f, strokePaint)
+        c.drawLine(x - s * 0.2f, y - s * 0.1f, x - s * 0.4f, y + s * 0.2f, strokePaint)
+        c.drawLine(x + s * 0.5f, y - s * 0.2f, x + s * 0.2f, y - s * 0.1f, strokePaint)
+        c.drawLine(x + s * 0.2f, y - s * 0.1f, x + s * 0.4f, y + s * 0.2f, strokePaint)
+        // Glowing cyan eyes
+        paint.color = Color.WHITE
+        c.drawCircle(x - s * 0.15f, y - s * 0.45f, s * 0.1f, paint)
+        c.drawCircle(x + s * 0.15f, y - s * 0.45f, s * 0.1f, paint)
+    }
+
+    private fun drawBossVoidPhoenix(c: Canvas, x: Float, y: Float, s: Float, flash: Boolean, frozen: Boolean) {
+        val col = color(0xFFD50000.toInt(), flash, frozen)
+        val flame = color(0xFFFF9100.toInt(), flash, frozen)
+        // Wings
+        paint.color = flame
+        path.reset()
+        path.moveTo(x, y)
+        path.lineTo(x - s * 1.1f, y - s * 0.6f)
+        path.lineTo(x - s * 0.8f, y + s * 0.3f)
+        path.close()
+        c.drawPath(path, paint)
+        path.reset()
+        path.moveTo(x, y)
+        path.lineTo(x + s * 1.1f, y - s * 0.6f)
+        path.lineTo(x + s * 0.8f, y + s * 0.3f)
+        path.close()
+        c.drawPath(path, paint)
+        // Body & Head
+        paint.color = col
+        c.drawCircle(x, y, s * 0.5f, paint)
+        c.drawCircle(x, y - s * 0.4f, s * 0.35f, paint)
+        // Beak
+        paint.color = color(0xFFFFD700.toInt(), flash, frozen)
+        path.reset()
+        path.moveTo(x - s * 0.1f, y - s * 0.35f)
+        path.lineTo(x + s * 0.1f, y - s * 0.35f)
+        path.lineTo(x, y - s * 0.15f)
+        path.close()
+        c.drawPath(path, paint)
+        // Flame crest
+        paint.color = color(0xFFFFEA00.toInt(), flash, frozen)
+        path.reset()
+        path.moveTo(x - s * 0.15f, y - s * 0.6f)
+        path.lineTo(x, y - s * 1.0f)
+        path.lineTo(x + s * 0.15f, y - s * 0.6f)
+        path.close()
+        c.drawPath(path, paint)
+        // Radiant Core
+        paint.color = Color.WHITE
+        c.drawCircle(x, y + s * 0.05f, s * 0.18f, paint)
+    }
+
+    private fun drawBossSporeOverlord(c: Canvas, x: Float, y: Float, s: Float, flash: Boolean, frozen: Boolean) {
+        val capCol = color(0xFF1B5E20.toInt(), flash, frozen)
+        val stalkCol = color(0xFF2E7D32.toInt(), flash, frozen)
+        // Thick fungal stem
+        paint.color = stalkCol
+        c.drawRect(x - s * 0.35f, y - s * 0.1f, x + s * 0.35f, y + s * 0.85f, paint)
+        // Spore Gills
+        paint.color = color(0xFF69F0AE.toInt(), flash, frozen)
+        c.drawRect(x - s * 0.7f, y - s * 0.15f, x + s * 0.7f, y, paint)
+        // Giant mushroom cap
+        paint.color = capCol
+        path.reset()
+        path.moveTo(x - s * 0.9f, y - s * 0.1f)
+        path.cubicTo(x - s * 0.8f, y - s * 0.9f, x + s * 0.8f, y - s * 0.9f, x + s * 0.9f, y - s * 0.1f)
+        path.close()
+        c.drawPath(path, paint)
+        // Bioluminescent spots
+        paint.color = color(0xFFAA00FF.toInt(), flash, frozen)
+        c.drawCircle(x - s * 0.4f, y - s * 0.5f, s * 0.15f, paint)
+        c.drawCircle(x + s * 0.3f, y - s * 0.55f, s * 0.18f, paint)
+        c.drawCircle(x, y - s * 0.7f, s * 0.12f, paint)
+        // Floating spores
+        paint.color = color(0xFF00E676.toInt(), flash, frozen)
+        c.drawCircle(x - s * 0.75f, y - s * 0.7f, s * 0.08f, paint)
+        c.drawCircle(x + s * 0.8f, y - s * 0.6f, s * 0.08f, paint)
+    }
+
+    private fun drawBossChronoLich(c: Canvas, x: Float, y: Float, s: Float, flash: Boolean, frozen: Boolean) {
+        val robeCol = color(0xFF4A148C.toInt(), flash, frozen)
+        // Floating amethyst mantle
+        paint.color = robeCol
+        path.reset()
+        path.moveTo(x - s * 0.7f, y + s * 0.85f)
+        path.lineTo(x - s * 0.4f, y - s * 0.3f)
+        path.lineTo(x + s * 0.4f, y - s * 0.3f)
+        path.lineTo(x + s * 0.7f, y + s * 0.85f)
+        path.close()
+        c.drawPath(path, paint)
+        // Golden Chrono Halo behind head
+        strokePaint.color = color(0xFFFFD700.toInt(), flash, frozen)
+        strokePaint.strokeWidth = 3.5f
+        c.drawCircle(x, y - s * 0.45f, s * 0.45f, strokePaint)
+        // Skull
+        paint.color = color(0xFFEDE7F6.toInt(), flash, frozen)
+        c.drawCircle(x, y - s * 0.45f, s * 0.3f, paint)
+        // Cyan ocular flames
+        paint.color = color(0xFF80DEEA.toInt(), flash, frozen)
+        c.drawCircle(x - s * 0.1f, y - s * 0.45f, s * 0.08f, paint)
+        c.drawCircle(x + s * 0.1f, y - s * 0.45f, s * 0.08f, paint)
+        // Hourglass Pendant on chest
+        paint.color = color(0xFFFFC107.toInt(), flash, frozen)
+        path.reset()
+        path.moveTo(x - s * 0.15f, y + s * 0.05f)
+        path.lineTo(x + s * 0.15f, y + s * 0.05f)
+        path.lineTo(x, y + s * 0.2f)
+        path.lineTo(x - s * 0.15f, y + s * 0.35f)
+        path.lineTo(x + s * 0.15f, y + s * 0.35f)
+        path.close()
+        c.drawPath(path, paint)
+    }
+
+    private fun drawBossIronDreadnought(c: Canvas, x: Float, y: Float, s: Float, flash: Boolean, frozen: Boolean) {
+        val ironCol = color(0xFF37474F.toInt(), flash, frozen)
+        val metalTrim = color(0xFF546E7A.toInt(), flash, frozen)
+        // Smokestacks
+        paint.color = color(0xFF263238.toInt(), flash, frozen)
+        c.drawRect(x - s * 0.6f, y - s * 0.95f, x - s * 0.35f, y - s * 0.5f, paint)
+        c.drawRect(x + s * 0.35f, y - s * 0.95f, x + s * 0.6f, y - s * 0.5f, paint)
+        // Main armored chassis
+        paint.color = ironCol
+        c.drawRect(x - s * 0.75f, y - s * 0.5f, x + s * 0.75f, y + s * 0.75f, paint)
+        // Shoulder armor plates
+        paint.color = metalTrim
+        c.drawRect(x - s * 0.95f, y - s * 0.35f, x - s * 0.65f, y + s * 0.35f, paint)
+        c.drawRect(x + s * 0.65f, y - s * 0.35f, x + s * 0.95f, y + s * 0.35f, paint)
+        // Molten furnace grate in chest
+        paint.color = color(0xFFFF6D00.toInt(), flash, frozen)
+        c.drawRect(x - s * 0.35f, y - s * 0.05f, x + s * 0.35f, y + s * 0.45f, paint)
+        strokePaint.color = 0xFF212121.toInt()
+        strokePaint.strokeWidth = 2.5f
+        c.drawLine(x - s * 0.15f, y - s * 0.05f, x - s * 0.15f, y + s * 0.45f, strokePaint)
+        c.drawLine(x + s * 0.15f, y - s * 0.05f, x + s * 0.15f, y + s * 0.45f, strokePaint)
+        // Red missile tips on shoulders
+        paint.color = color(0xFFFF1744.toInt(), flash, frozen)
+        c.drawCircle(x - s * 0.8f, y - s * 0.25f, s * 0.09f, paint)
+        c.drawCircle(x + s * 0.8f, y - s * 0.25f, s * 0.09f, paint)
+    }
+
     // ========== TOWERS ==========
 
     fun drawTower(canvas: Canvas, tower: Tower, selected: Boolean) {
         val x = tower.x
         val y = tower.y
         val s = tower.size
+
+        val sprite = SpriteManager.getTowerBitmap(tower.type, tower.level)
+        if (sprite != null) {
+            val destRect = RectF(x - s * 1.1f, y - s * 1.3f, x + s * 1.1f, y + s * 0.9f)
+            canvas.drawBitmap(sprite, null, destRect, SpriteManager.pixelPaint)
+            return
+        }
 
         when (tower.type) {
             TowerType.ARROW -> drawTowerArrow(canvas, x, y, s)
@@ -1452,6 +1661,95 @@ object EntityRenderer {
         c.drawCircle(x, y, s * 0.5f, strokePaint)
     }
 
+    private fun drawNecromancer(c: Canvas, x: Float, y: Float, s: Float, flash: Boolean, frozen: Boolean) {
+        // Deep purple robes
+        paint.color = color(0xFF4A148C.toInt(), flash, frozen)
+        c.drawCircle(x, y + s * 0.1f, s * 0.35f, paint)
+        // Hood
+        paint.color = color(0xFF7B1FA2.toInt(), flash, frozen)
+        c.drawCircle(x, y - s * 0.15f, s * 0.28f, paint)
+        // Skull mask
+        paint.color = color(0xFFEEEEEE.toInt(), flash, frozen)
+        c.drawCircle(x, y - s * 0.12f, s * 0.16f, paint)
+        // Glowing green eyes
+        paint.color = color(0xFF00E676.toInt(), flash, frozen)
+        c.drawCircle(x - s * 0.06f, y - s * 0.12f, s * 0.04f, paint)
+        c.drawCircle(x + s * 0.06f, y - s * 0.12f, s * 0.04f, paint)
+        // Staff with orb
+        strokePaint.color = color(0xFF5D4037.toInt(), flash, frozen)
+        strokePaint.strokeWidth = 2.5f
+        c.drawLine(x + s * 0.28f, y + s * 0.4f, x + s * 0.28f, y - s * 0.35f, strokePaint)
+        paint.color = color(0xFFBA68C8.toInt(), flash, frozen)
+        c.drawCircle(x + s * 0.28f, y - s * 0.38f, s * 0.1f, paint)
+    }
+
+    private fun drawGhost(c: Canvas, x: Float, y: Float, s: Float, flash: Boolean, frozen: Boolean, isPhased: Boolean) {
+        val originalAlpha = paint.alpha
+        if (isPhased) paint.alpha = 110
+        // Ethereal flowing cyan body
+        paint.color = color(0xFF80DEEA.toInt(), flash, frozen)
+        if (isPhased) paint.alpha = 110
+        c.drawCircle(x, y - s * 0.1f, s * 0.34f, paint)
+        // Trailing wisps
+        c.drawCircle(x - s * 0.12f, y + s * 0.2f, s * 0.18f, paint)
+        c.drawCircle(x + s * 0.12f, y + s * 0.2f, s * 0.18f, paint)
+        // Hollow spirit eyes
+        paint.color = color(0xFF006064.toInt(), flash, frozen)
+        if (isPhased) paint.alpha = 130
+        c.drawCircle(x - s * 0.08f, y - s * 0.1f, s * 0.05f, paint)
+        c.drawCircle(x + s * 0.08f, y - s * 0.1f, s * 0.05f, paint)
+        paint.alpha = originalAlpha
+    }
+
+    private fun drawMagmaCrab(c: Canvas, x: Float, y: Float, s: Float, flash: Boolean, frozen: Boolean) {
+        // Volcanic carapace
+        paint.color = color(0xFFD50000.toInt(), flash, frozen)
+        c.drawCircle(x, y, s * 0.38f, paint)
+        // Molten glowing veins
+        paint.color = color(0xFFFFD600.toInt(), flash, frozen)
+        c.drawCircle(x, y, s * 0.22f, paint)
+        // Claws
+        paint.color = color(0xFFFF3D00.toInt(), flash, frozen)
+        c.drawCircle(x - s * 0.35f, y - s * 0.15f, s * 0.14f, paint)
+        c.drawCircle(x + s * 0.35f, y - s * 0.15f, s * 0.14f, paint)
+        // Eyes
+        paint.color = color(0xFFFFFF00.toInt(), flash, frozen)
+        c.drawCircle(x - s * 0.1f, y - s * 0.12f, s * 0.04f, paint)
+        c.drawCircle(x + s * 0.1f, y - s * 0.12f, s * 0.04f, paint)
+    }
+
+    private fun drawHarpy(c: Canvas, x: Float, y: Float, s: Float, flash: Boolean, frozen: Boolean) {
+        // Wings
+        paint.color = color(0xFF7E57C2.toInt(), flash, frozen)
+        c.drawCircle(x - s * 0.28f, y, s * 0.22f, paint)
+        c.drawCircle(x + s * 0.28f, y, s * 0.22f, paint)
+        // Body & head
+        paint.color = color(0xFFFFCC80.toInt(), flash, frozen)
+        c.drawCircle(x, y - s * 0.12f, s * 0.18f, paint)
+        // Dark cowl / feathers
+        paint.color = color(0xFF512DA8.toInt(), flash, frozen)
+        c.drawCircle(x, y + s * 0.15f, s * 0.2f, paint)
+        // Sharp beak
+        paint.color = color(0xFFFFB300.toInt(), flash, frozen)
+        c.drawCircle(x, y - s * 0.06f, s * 0.06f, paint)
+    }
+
+    private fun drawTreant(c: Canvas, x: Float, y: Float, s: Float, flash: Boolean, frozen: Boolean) {
+        // Ancient oak trunk
+        paint.color = color(0xFF4E342E.toInt(), flash, frozen)
+        c.drawCircle(x, y + s * 0.1f, s * 0.42f, paint)
+        // Foliage crown
+        paint.color = color(0xFF2E7D32.toInt(), flash, frozen)
+        c.drawCircle(x, y - s * 0.2f, s * 0.32f, paint)
+        paint.color = color(0xFF66BB6A.toInt(), flash, frozen)
+        c.drawCircle(x - s * 0.15f, y - s * 0.22f, s * 0.2f, paint)
+        c.drawCircle(x + s * 0.15f, y - s * 0.22f, s * 0.2f, paint)
+        // Amber eyes
+        paint.color = color(0xFFFFEB3B.toInt(), flash, frozen)
+        c.drawCircle(x - s * 0.1f, y + s * 0.05f, s * 0.05f, paint)
+        c.drawCircle(x + s * 0.1f, y + s * 0.05f, s * 0.05f, paint)
+    }
+
     // ========== HEALER TOWER ==========
 
     private fun drawTowerHealer(c: Canvas, x: Float, y: Float, s: Float) {
@@ -1486,6 +1784,14 @@ object EntityRenderer {
         canvas.drawCircle(x, y, 68f, paint)
         paint.color = glowColor and 0x11FFFFFF.toInt()
         canvas.drawCircle(x, y, 80f, paint)
+
+        val baseSprite = SpriteManager.getBaseBitmap(hpRatio)
+        if (baseSprite != null) {
+            val destRect = RectF(x - 55f, y - 55f, x + 55f, y + 55f)
+            canvas.drawBitmap(baseSprite, null, destRect, SpriteManager.pixelPaint)
+            return
+        }
+
         // Foundation ring
         paint.color = 0xFF424242.toInt()
         canvas.drawCircle(x, y, 55f, paint)

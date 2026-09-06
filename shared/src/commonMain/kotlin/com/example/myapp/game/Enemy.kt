@@ -19,6 +19,7 @@ data class Enemy(
     var isCharging: Boolean = false,
     var chargeTimer: Float = 0f,
     var hasSplit: Boolean = false,
+    var hasReborn: Boolean = false,
     var roarSpeedBoost: Float = 1f,
     var roarBoostTimer: Float = 0f
 ) {
@@ -33,6 +34,7 @@ data class Enemy(
     }
 
     fun isDead(): Boolean = hp <= 0
+    val isBoss: Boolean get() = bossType != null
 
     /** Slow from ice towers — multiplier applied to speed (0.0 to 1.0) */
     var iceSlowFactor: Float = 1f
@@ -54,6 +56,10 @@ data class Enemy(
     var burnTimer: Float = 0f
     /** Burn DPS from Flame tower */
     var burnDps: Float = 0f
+    /** Poison timer — when > 0, enemy takes poison DoT */
+    var poisonTimer: Float = 0f
+    /** Poison DPS */
+    var poisonDps: Float = 0f
     /** Tar slow timer — when > 0, enemy is slowed by tar trap */
     var tarSlowTimer: Float = 0f
     /** Last tower that hit this enemy — used for kill attribution */
@@ -65,6 +71,11 @@ data class Enemy(
     /** Shapeshifter — current resistance profile cycles every 5s */
     var shapeshiftTimer: Float = 5f
     var shapeshiftPhase: Int = 0
+    /** Ability cooldown timer for special monsters (Necromancer summon, Harpy screech) */
+    var abilityCooldownTimer: Float = 0f
+    /** Ghost phasing (ethereal mode) */
+    var isPhased: Boolean = false
+    var phaseTimer: Float = 0f
     /** Death animation timer — when > 0, enemy is in death animation (shrink+fade) */
     var deathAnimTimer: Float = 0f
     /** True when death rewards have been processed */
@@ -165,6 +176,42 @@ object EnemyResistances {
             else -> 1f
         }
         EnemyType.SHAPESHIFTER -> 1f  // handled dynamically via shapeshiftPhase
+        EnemyType.NECROMANCER -> when (damageType) {
+            DamageType.EXPLOSIVE -> 1.4f  // vulnerable to artillery bursts
+            DamageType.PHYSICAL -> 1.2f   // fragile physical robe
+            DamageType.DARK -> 0.4f       // deep affinity with necromantic dark
+            DamageType.MAGIC -> 0.7f      // wards off arcane attacks
+            else -> 1f
+        }
+        EnemyType.GHOST -> when (damageType) {
+            DamageType.MAGIC -> 1.6f      // highly vulnerable to magical disruption
+            DamageType.ELECTRIC -> 1.5f   // energy shocks disrupt ectoplasm
+            DamageType.PHYSICAL -> 0.25f  // physical attacks phase straight through
+            DamageType.EXPLOSIVE -> 0.4f  // concussion passes through mist
+            DamageType.DARK -> 0.3f       // entity of darkness
+            else -> 1f
+        }
+        EnemyType.MAGMA_CRAB -> when (damageType) {
+            DamageType.ICE -> 1.8f        // thermal shock shatters basalt carapace
+            DamageType.FIRE -> 0.1f       // born in molten lava — near immune to flame
+            DamageType.PHYSICAL -> 0.6f   // thick volcanic shell
+            DamageType.POISON -> 0.3f     // mineral body resists toxins
+            else -> 1f
+        }
+        EnemyType.HARPY -> when (damageType) {
+            DamageType.PHYSICAL -> 1.3f   // fragile hollow bones
+            DamageType.ELECTRIC -> 1.4f   // storms ground the flyer
+            DamageType.EXPLOSIVE -> 0.4f  // aerial flight evades ground blast shockwaves
+            else -> 1f
+        }
+        EnemyType.TREANT -> when (damageType) {
+            DamageType.FIRE -> 1.8f       // dry ancient timber burns violently
+            DamageType.PHYSICAL -> 0.7f   // dense thick bark absorbs blunt force
+            DamageType.ELECTRIC -> 0.6f   // grounded rooted wood absorbs charges
+            DamageType.EXPLOSIVE -> 0.7f
+            DamageType.POISON -> 0.4f     // plant biology immune to biological venoms
+            else -> 1f
+        }
         else -> 1f
     }
 
@@ -200,7 +247,12 @@ enum class EnemyType(val emoji: String, val color: Int) {
     ARMORED_GOLEM("\uD83E\uDEA8", 0xFF6D4C41.toInt()),
     BERSERKER("\uD83E\uDDBE", 0xFFD32F2F.toInt()),
     COMMANDER("\uD83D\uDC51", 0xFFFF6F00.toInt()),
-    SHAPESHIFTER("\uD83C\uDF00", 0xFF7C4DFF.toInt())
+    SHAPESHIFTER("\uD83C\uDF00", 0xFF7C4DFF.toInt()),
+    NECROMANCER("\uD83E\uDDD9\u200D\u2642\uFE0F", 0xFF7B1FA2.toInt()),
+    GHOST("\uD83D\uDC7B", 0xFF80DEEA.toInt()),
+    MAGMA_CRAB("\uD83E\uDD80", 0xFFFF3D00.toInt()),
+    HARPY("\uD83E\uDDA5", 0xFF9575CD.toInt()),
+    TREANT("\uD83C\uDF33", 0xFF2E7D32.toInt())
 }
 
 /** Elite enemy special abilities — randomly assigned to crowned enemies */
@@ -223,10 +275,15 @@ enum class BossAbility {
     TELEPORT,     // Jump ahead on path
     DRAIN,        // Steal gold from player
     QUAKE,        // Screen shake + slow towers
-    SPLIT         // Spawn clones when low HP
+    SPLIT,        // Spawn clones when low HP
+    EMP_BLAST,    // Jams towers and accelerates aerial minions
+    REBIRTH,      // Reincarnates once in a fiery supernova
+    SPORE_CLOUD,  // Choking pollen cloud impairs tower range and poisons Hero
+    TIME_WARP,    // Reverses enemy waypoints and restores HP
+    BARRAGE       // Launches missile salvos at defenses and player hero
 }
 
-/** 10 unique bosses — each with themed minion type, stats, and special ability */
+/** 15 unique bosses — each with themed minion type, stats, and special ability */
 enum class BossType(
     val displayName: String,
     val emoji: String,
@@ -288,5 +345,30 @@ enum class BossType(
         "Stone Golem", "\uD83E\uDEA8", 0xFF5D4037.toInt(),
         EnemyType.GOLEM_SHARD, 5, 1400f, 15f, 220f, 65f,
         BossAbility.SHIELD
+    ),
+    STORM_LEVIATHAN(
+        "Storm Leviathan", "\u26A1", 0xFF00E5FF.toInt(),
+        EnemyType.HARPY, 4, 1300f, 28f, 240f, 65f,
+        BossAbility.EMP_BLAST
+    ),
+    VOID_PHOENIX(
+        "Void Phoenix", "\uD83E\uDEB6", 0xFFFF1744.toInt(),
+        EnemyType.MAGMA_CRAB, 5, 850f, 45f, 250f, 50f,
+        BossAbility.REBIRTH
+    ),
+    SPORE_OVERLORD(
+        "Spore Overlord", "\uD83C\uDF44", 0xFF00E676.toInt(),
+        EnemyType.TREANT, 3, 1500f, 18f, 260f, 60f,
+        BossAbility.SPORE_CLOUD
+    ),
+    CHRONO_LICH(
+        "Chrono Lich", "\u23F3", 0xFFB388FF.toInt(),
+        EnemyType.GHOST, 6, 950f, 35f, 230f, 45f,
+        BossAbility.TIME_WARP
+    ),
+    IRON_DREADNOUGHT(
+        "Iron Dreadnought", "\uD83E\uDD16", 0xFFFF9100.toInt(),
+        EnemyType.ARMORED_GOLEM, 4, 1650f, 16f, 300f, 70f,
+        BossAbility.BARRAGE
     )
 }
