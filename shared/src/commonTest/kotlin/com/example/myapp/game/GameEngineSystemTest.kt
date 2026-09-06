@@ -737,4 +737,73 @@ class GameEngineSystemTest {
         // level.diamondReward + 4 (for 3 stars) + 5 (heroic bounty)
         assertEquals(level.diamondReward + 4 + 5, earnedDiamonds)
     }
+
+    @Test
+    fun testExpandedCampaignLevelsIntegrityAndMechanics() {
+        val prefs = FakeGamePreferences()
+        val engine = GameEngine(prefs = prefs, audio = SilentAudio)
+
+        // 1. Verify exact count is 80 levels
+        assertEquals(80, CampaignData.levels.size, "Campaign should feature 80 total handcrafted levels")
+
+        // 2. Verify sequential ordering and non-blank fields
+        for ((index, level) in CampaignData.levels.withIndex()) {
+            assertEquals(index + 1, level.id)
+            assertTrue(level.title.isNotBlank())
+            assertTrue(level.description.isNotBlank())
+            assertTrue(level.emoji.isNotBlank())
+            assertTrue(level.targetWave >= 3)
+            assertTrue(level.startingGold >= 20)
+            assertTrue(level.diamondReward > 0)
+            assertNotNull(level.mapType)
+            assertNotNull(level.objective1)
+            assertNotNull(level.objective2)
+            assertNotNull(level.objective3)
+        }
+
+        // 3. Test Level 43: Glass Citadel (10 max base HP)
+        val lvl43 = CampaignData.levels[42]
+        engine.applyCampaign(lvl43)
+        assertEquals(10f, engine.baseHp)
+        assertEquals(10f, engine.maxBaseHp)
+
+        // 4. Test Level 53: Tempest Wing (Thunderstorm)
+        val lvl53 = CampaignData.levels[52]
+        engine.applyCampaign(lvl53)
+        assertEquals(WeatherEvent.THUNDERSTORM, engine.currentWeather)
+
+        // 5. Test Level 62: Solar Eclipse
+        val lvl62 = CampaignData.levels[61]
+        engine.applyCampaign(lvl62)
+        assertEquals(WeatherEvent.SOLAR_ECLIPSE, engine.currentWeather)
+
+        // 6. Test Level 63: Lone Champion Hero buff
+        val lvl63 = CampaignData.levels[62]
+        val heroDamageBefore = engine.player.attackDamage
+        engine.applyCampaign(lvl63)
+        assertTrue(engine.player.attackDamage > heroDamageBefore * 2f)
+
+        // 7. Test Level 64: Blood Moon Rampage
+        val lvl64 = CampaignData.levels[63]
+        engine.applyCampaign(lvl64)
+        assertEquals(WeatherEvent.BLOOD_MOON, engine.currentWeather)
+
+        // 8. Test Level 69: Boss Gauntlet (bossInterval == 1)
+        val lvl69 = CampaignData.levels[68]
+        engine.applyCampaign(lvl69)
+        assertEquals(1, engine.bossInterval)
+
+        // 9. Test Level 78: Glacial Perma-Death (no repairs, 0g sell refund)
+        val lvl78 = CampaignData.levels[77]
+        engine.applyCampaign(lvl78)
+        engine.baseHp = 80f
+        engine.gold = 500
+        assertFalse(engine.repairBase(), "Base repairs must be forbidden on Level 78 Perma-Death")
+
+        val tower = Tower(x = 100f, y = 100f, type = TowerType.ARROW)
+        engine.towers.add(tower)
+        val goldBeforeSell = engine.gold
+        engine.sellTower(tower)
+        assertEquals(goldBeforeSell, engine.gold, "Tower selling on Level 78 must yield 0 gold refund")
+    }
 }

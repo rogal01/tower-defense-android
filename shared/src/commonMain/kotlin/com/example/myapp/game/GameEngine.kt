@@ -439,7 +439,7 @@ class GameEngine(val prefs: GamePreferences, val audio: GameAudio = SilentAudio)
     var bossRushHighWave: Int = 0
     var isNewBossRushRecord: Boolean = false
     var bossIntervalOverride: Int = -1
-    val bossInterval: Int get() = if (bossIntervalOverride > 0) bossIntervalOverride else if (isBossRush) 1 else if (campaignLevel?.id == 13 || campaignLevel?.id == 26) 3 else 5
+    val bossInterval: Int get() = if (bossIntervalOverride > 0) bossIntervalOverride else if (isBossRush || campaignLevel?.id == 69) 1 else if (campaignLevel?.id == 13 || campaignLevel?.id == 26) 3 else 5
     var nextWavePreview: WavePreview? = null
     var diamondsEarnedThisRun: Int = 0
     var bossesKilledThisRun: Int = 0
@@ -683,6 +683,21 @@ class GameEngine(val prefs: GamePreferences, val audio: GameAudio = SilentAudio)
         mapType = level.mapType
         // Glass cannon: reduced base HP
         if (level.id == 28) { maxBaseHp = 50f; baseHp = 50f }
+        if (level.id == 43) { maxBaseHp = 10f; baseHp = 10f }
+
+        // Level-specific weather events
+        when (level.id) {
+            53 -> currentWeather = WeatherEvent.THUNDERSTORM
+            62 -> currentWeather = WeatherEvent.SOLAR_ECLIPSE
+            64 -> currentWeather = WeatherEvent.BLOOD_MOON
+            else -> currentWeather = WeatherEvent.CLEAR
+        }
+
+        // Level 63: Lone Champion hero buff
+        if (level.id == 63) {
+            player.attackDamage *= 2.5f
+            player.speed *= 1.3f
+        }
     }
 
     fun isTowerAllowed(type: TowerType): Boolean {
@@ -3209,7 +3224,7 @@ class GameEngine(val prefs: GamePreferences, val audio: GameAudio = SilentAudio)
     } }
 
     fun sellTower(tower: Tower): Boolean { synchronized(lock) {
-        val refund = (tower.sellValue() * (1f + skillTree.sellValueBonus())).toInt()
+        val refund = if (campaignLevel?.id == 78) 0 else (tower.sellValue() * (1f + skillTree.sellValueBonus())).toInt()
         towers.remove(tower)
         towersSoldThisRun++
         gold += refund
@@ -3551,6 +3566,7 @@ class GameEngine(val prefs: GamePreferences, val audio: GameAudio = SilentAudio)
     } }
 
     fun repairBase(): Boolean { synchronized(lock) {
+        if (campaignLevel?.id == 78) return false
         val cost = repairCost
         if (gold < cost) return false
         if (baseHp >= maxBaseHp) return false
