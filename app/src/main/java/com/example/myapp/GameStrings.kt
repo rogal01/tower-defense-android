@@ -439,7 +439,23 @@ Każda wieża zadaje określony typ obrażeń. Wrogowie mają odporności i sła
             AchDef("campaign_3star_10", "Grand Strategist", "Earn 3 stars on 10 campaign levels", "⭐", 50),
             AchDef("endless_25", "Abyssal Challenger", "Reach wave 25 in Endless mode", "🌊", 30),
             AchDef("endless_50", "Titan of the Endless", "Reach wave 50 in Endless mode", "🔥", 60),
-            AchDef("boss_rush_10", "Colosseum God", "Defeat 10 bosses in Boss Rush", "⚔️", 50)
+            AchDef("boss_rush_10", "Colosseum God", "Defeat 10 bosses in Boss Rush", "⚔️", 50),
+            AchDef("merchant_first", "First Barter", "Draft your first item from the Wandering Merchant", "🛒", 15),
+            AchDef("merchant_trio", "Bazaar Master", "Draft 3 items from the Wandering Merchant in one run", "⚖️", 30),
+            AchDef("booster_alchemist", "Elixir Draught", "Draft any 3-wave booster potion", "🧪", 15),
+            AchDef("synergy_proc", "Elemental Fusion", "Trigger an Elemental Synergy in combat", "💥", 25),
+            AchDef("pact_survivor", "Devil's Bargain", "Survive 5 waves while bound to a High-Stakes Pact", "📜", 30),
+            AchDef("greed_curse_diamonds", "Avarice Reward", "Earn bonus diamonds through the Curse of Greed", "😈", 25),
+            AchDef("weather_thunder", "Lightning Rod", "Clear a Thunderstorm wave without losing Base HP", "🌩️", 25),
+            AchDef("weather_bloodmoon", "Blood Moon Vanguard", "Survive an enraged wave during a Blood Moon", "🌕", 25),
+            AchDef("weather_eclipse", "Solar Aegis", "Clear a Solar Eclipse wave", "🌑", 25),
+            AchDef("hero_slayer_50", "Frontline Champion", "Slay 50 enemies directly with your hero in one run", "🗡️", 20),
+            AchDef("hero_crits", "Lethal Strikes", "Land 15 critical strikes with the hero in one run", "🎯", 20),
+            AchDef("iron_wall_5", "Iron Bastion", "Clear 5 consecutive waves without taking base damage", "🏰", 30),
+            AchDef("combo_75", "Combo Overlord", "Reach a 75x kill combo", "🔥", 40),
+            AchDef("combo_100", "Transcendent Combo", "Reach a 100x kill combo", "⚡", 60),
+            AchDef("wave_75", "Abyssal Conqueror", "Reach wave 75 in any mode", "🔱", 50),
+            AchDef("kills_2500", "Harbinger of Ruin", "Eliminate 2500 enemies in a single run", "💀", 50)
         )
         return listOf(
             AchDef("first_kill", "Pierwsze trafienie", "Zabij pierwszego wroga", "🗡️", 5),
@@ -511,7 +527,23 @@ Każda wieża zadaje określony typ obrażeń. Wrogowie mają odporności i sła
             AchDef("campaign_3star_10", "Wielki Strateg", "Zdobądź 3 gwiazdki na 10 poziomach kampanii", "⭐", 50),
             AchDef("endless_25", "Otchłanny Rywal", "Dotrzyj do fali 25 w trybie nieskończonym", "🌊", 30),
             AchDef("endless_50", "Tytan Nieskończoności", "Dotrzyj do fali 50 w trybie nieskończonym", "🔥", 60),
-            AchDef("boss_rush_10", "Bóg Koloseum", "Pokonaj 10 bossów w Rajdzie Bossów", "⚔️", 50)
+            AchDef("boss_rush_10", "Bóg Koloseum", "Pokonaj 10 bossów w Rajdzie Bossów", "⚔️", 50),
+            AchDef("merchant_first", "Pierwszy handel", "Wybierz swój pierwszy przedmiot od Wędrownego Kupca", "🛒", 15),
+            AchDef("merchant_trio", "Mistrz bazaru", "Wybierz 3 przedmioty od Wędrownego Kupca w jednym podejściu", "⚖️", 30),
+            AchDef("booster_alchemist", "Eliksir alchemika", "Wypij dowolną 3-falową miksturę wzmacniającą", "🧪", 15),
+            AchDef("synergy_proc", "Elementarna fuzja", "Aktywuj elementarną synergię podczas walki", "💥", 25),
+            AchDef("pact_survivor", "Cyrograf", "Przetrwaj 5 fal będąc związanym Ryzykownym Paktem", "📜", 30),
+            AchDef("greed_curse_diamonds", "Nagroda chciwości", "Zdobądź dodatkowe diamenty dzięki Klątwie Chciwości", "😈", 25),
+            AchDef("weather_thunder", "Piorunochron", "Ukończ falę Burzy z piorunami bez utraty punktów bazy", "🌩️", 25),
+            AchDef("weather_bloodmoon", "Strażnik Krwawego Księżyca", "Przetrwaj wściekłą falę podczas Krwawego Księżyca", "🌕", 25),
+            AchDef("weather_eclipse", "Słoneczny aegis", "Przetrwaj falę podczas Zaćmienia Słońca", "🌑", 25),
+            AchDef("hero_slayer_50", "Czempion frontu", "Pokonaj 50 wrogów bezpośrednio swoim bohaterem w jednym podejściu", "🗡️", 20),
+            AchDef("hero_crits", "Zabójcze ciosy", "Wykonaj 15 ciosów krytycznych bohaterem w jednym podejściu", "🎯", 20),
+            AchDef("iron_wall_5", "Żelazny bastion", "Ukończ 5 kolejnych fal bez utraty zdrowia bazy", "🏰", 30),
+            AchDef("combo_75", "Władca kombosów", "Osiągnij combo 75x", "🔥", 40),
+            AchDef("combo_100", "Transcendencja", "Osiągnij mityczne combo 100x", "⚡", 60),
+            AchDef("wave_75", "Zdobywca otchłani", "Dotrzyj do fali 75 w dowolnym trybie", "🔱", 50),
+            AchDef("kills_2500", "Zwiastun zguby", "Wyeliminuj 2500 wrogów w jednym podejściu", "💀", 50)
         )
     }
 

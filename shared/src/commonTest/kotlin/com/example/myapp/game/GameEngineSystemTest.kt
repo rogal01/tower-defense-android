@@ -567,4 +567,97 @@ class GameEngineSystemTest {
         assertTrue(enemy2.poisonTimer > 0f, "Neurotoxin chain should spread poison to nearby target")
         assertTrue(engine.floatingTexts.any { it.text.contains("TOXIN BURST") })
     }
+
+    @Test
+    fun testMerchantAndSynergyAchievements() {
+        val prefs = FakeGamePreferences()
+        val engine = GameEngine(prefs = prefs, audio = SilentAudio)
+        engine.gold = 500
+
+        val card1 = MerchantCatalog.allCards.first { it.id == MerchantItemId.ALCHEMIST_ELIXIR }
+        val card2 = MerchantCatalog.allCards.first { it.id == MerchantItemId.MIDAS_TONIC }
+        val card3 = MerchantCatalog.allCards.first { it.id == MerchantItemId.FORTRESS_AEGIS }
+
+        engine.draftMerchantCard(card1)
+        assertTrue(prefs.getBoolean("ach_merchant_first", false), "Drafting first item should unlock merchant_first")
+        assertTrue(prefs.getBoolean("ach_booster_alchemist", false), "Drafting booster should unlock booster_alchemist")
+        assertFalse(prefs.getBoolean("ach_merchant_trio", false), "1 purchase should not unlock merchant_trio")
+
+        engine.draftMerchantCard(card2)
+        engine.draftMerchantCard(card3)
+        assertTrue(prefs.getBoolean("ach_merchant_trio", false), "3 purchases should unlock merchant_trio")
+    }
+
+    @Test
+    fun testWeatherAndIronWallAchievements() {
+        val prefs = FakeGamePreferences()
+        val engine = GameEngine(prefs = prefs, audio = SilentAudio)
+
+        // Simulate 5 flawless waves
+        for (i in 1..5) {
+            engine.isPaused = false
+            engine.merchantShopPending = false
+            engine.wave = i
+            engine.baseHp = 100f
+            engine.baseHpBeforeWave = 100f
+            engine.waveInProgress = true
+            engine.enemies.clear()
+            engine.enemiesRemaining = 0
+            engine.update(0.1f)
+        }
+        assertTrue(prefs.getBoolean("ach_iron_wall_5", false), "5 consecutive flawless waves should unlock iron_wall_5")
+
+        // Test Thunderstorm clear
+        engine.isPaused = false
+        engine.merchantShopPending = false
+        engine.wave = 6
+        engine.currentWeather = WeatherEvent.THUNDERSTORM
+        engine.baseHp = 100f
+        engine.baseHpBeforeWave = 100f
+        engine.waveInProgress = true
+        engine.enemies.clear()
+        engine.enemiesRemaining = 0
+        engine.update(0.1f)
+        assertTrue(prefs.getBoolean("ach_weather_thunder", false), "Flawless thunderstorm should unlock weather_thunder")
+
+        // Test Blood Moon clear
+        engine.isPaused = false
+        engine.merchantShopPending = false
+        engine.wave = 7
+        engine.currentWeather = WeatherEvent.BLOOD_MOON
+        engine.waveInProgress = true
+        engine.enemies.clear()
+        engine.enemiesRemaining = 0
+        engine.update(0.1f)
+        assertTrue(prefs.getBoolean("ach_weather_bloodmoon", false), "Blood moon clear should unlock weather_bloodmoon")
+    }
+
+    @Test
+    fun testHeroAndComboAchievements() {
+        val prefs = FakeGamePreferences()
+        val engine = GameEngine(prefs = prefs, audio = SilentAudio)
+
+        // Hero crits
+        engine.playerCritsThisRun = 14
+        val dummyEnemy = Enemy(
+            x = 100f, y = 100f, speed = 0f,
+            hp = 100f, maxHp = 100f, goldReward = 5, damage = 10f,
+            type = EnemyType.GOBLIN
+        )
+        engine.player.x = 100f
+        engine.player.y = 110f
+        engine.player.attackTimer = 0f
+        engine.endlessBuffCritChance = 1.0f // guaranteed crit
+        engine.enemies.add(dummyEnemy)
+        engine.update(0.1f)
+        assertTrue(prefs.getBoolean("ach_hero_crits", false), "15 crits should unlock hero_crits")
+
+        // Wave 75
+        engine.wave = 74
+        val startNextWaveMethod = engine.javaClass.getDeclaredMethod("startNextWave")
+        startNextWaveMethod.isAccessible = true
+        startNextWaveMethod.invoke(engine)
+        assertEquals(75, engine.wave)
+        assertTrue(prefs.getBoolean("ach_wave_75", false), "Reaching wave 75 should unlock wave_75")
+    }
 }

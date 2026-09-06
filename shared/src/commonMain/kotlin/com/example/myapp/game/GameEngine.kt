@@ -344,7 +344,25 @@ class GameEngine(val prefs: GamePreferences, val audio: GameAudio = SilentAudio)
         Achievement("campaign_3star_10", "Grand Strategist", "Earn 3 stars on 10 campaign levels", "⭐", false, 50),
         Achievement("endless_25", "Abyssal Challenger", "Reach wave 25 in Endless mode", "🌊", false, 30),
         Achievement("endless_50", "Titan of the Endless", "Reach wave 50 in Endless mode", "🔥", false, 60),
-        Achievement("boss_rush_10", "Colosseum God", "Defeat 10 bosses in Boss Rush", "⚔️", false, 50)
+        Achievement("boss_rush_10", "Colosseum God", "Defeat 10 bosses in Boss Rush", "⚔️", false, 50),
+
+        // --- 16 Merchant, Synergy, Weather & Combat Mastery Achievements ---
+        Achievement("merchant_first", "First Barter", "Draft your first item from the Wandering Merchant", "🛒", false, 15),
+        Achievement("merchant_trio", "Bazaar Master", "Draft 3 items from the Wandering Merchant in one run", "⚖️", false, 30),
+        Achievement("booster_alchemist", "Elixir Draught", "Draft any 3-wave booster potion", "🧪", false, 15),
+        Achievement("synergy_proc", "Elemental Fusion", "Trigger an Elemental Synergy in combat", "💥", false, 25),
+        Achievement("pact_survivor", "Devil's Bargain", "Survive 5 waves while bound to a High-Stakes Pact", "📜", false, 30),
+        Achievement("greed_curse_diamonds", "Avarice Reward", "Earn bonus diamonds through the Curse of Greed", "😈", false, 25),
+        Achievement("weather_thunder", "Lightning Rod", "Clear a Thunderstorm wave without losing Base HP", "🌩️", false, 25),
+        Achievement("weather_bloodmoon", "Blood Moon Vanguard", "Survive an enraged wave during a Blood Moon", "🌕", false, 25),
+        Achievement("weather_eclipse", "Solar Aegis", "Clear a Solar Eclipse wave", "🌑", false, 25),
+        Achievement("hero_slayer_50", "Frontline Champion", "Slay 50 enemies directly with your hero in one run", "🗡️", false, 20),
+        Achievement("hero_crits", "Lethal Strikes", "Land 15 critical strikes with the hero in one run", "🎯", false, 20),
+        Achievement("iron_wall_5", "Iron Bastion", "Clear 5 consecutive waves without taking base damage", "🏰", false, 30),
+        Achievement("combo_75", "Combo Overlord", "Reach a 75x kill combo", "🔥", false, 40),
+        Achievement("combo_100", "Transcendent Combo", "Reach a 100x kill combo", "⚡", false, 60),
+        Achievement("wave_75", "Abyssal Conqueror", "Reach wave 75 in any mode", "🔱", false, 50),
+        Achievement("kills_2500", "Harbinger of Ruin", "Eliminate 2500 enemies in a single run", "💀", false, 50)
     )
     // Track which powers were used this run for achievement
     val powersUsedThisRun = mutableSetOf<PowerType>()
@@ -353,6 +371,12 @@ class GameEngine(val prefs: GamePreferences, val audio: GameAudio = SilentAudio)
     var baseHpBeforeWave: Float = 100f
     var newAchievement: Achievement? = null
     var achievementBannerTimer: Float = 0f
+
+    var merchantPurchasesThisRun: Int = 0
+    var wavesSurvivedWithPact: Int = 0
+    var playerKillsThisRun: Int = 0
+    var playerCritsThisRun: Int = 0
+    var consecutiveFlawlessWaves: Int = 0
 
     // --- Tower mastery (persistent per-type kill tracking) ---
     val towerMasteryKills = mutableMapOf<TowerType, Int>()
@@ -511,6 +535,10 @@ class GameEngine(val prefs: GamePreferences, val audio: GameAudio = SilentAudio)
                 }
             }
         }
+        checkAchievement("merchant_first")
+        merchantPurchasesThisRun++
+        if (merchantPurchasesThisRun >= 3) checkAchievement("merchant_trio")
+        if (card.tier == MerchantTier.TEMPORARY_BOOSTER) checkAchievement("booster_alchemist")
         audio.play(SfxType.REWARD_CHEST)
         merchantShopPending = false
         isPaused = false
@@ -961,6 +989,26 @@ class GameEngine(val prefs: GamePreferences, val audio: GameAudio = SilentAudio)
             if (baseHp >= baseHpBeforeWave) {
                 checkAchievement("no_damage")
                 trackBountyNoDamage()
+                consecutiveFlawlessWaves++
+                if (consecutiveFlawlessWaves >= 5) checkAchievement("iron_wall_5")
+            } else {
+                consecutiveFlawlessWaves = 0
+            }
+            when (currentWeather) {
+                WeatherEvent.THUNDERSTORM -> {
+                    if (baseHp >= baseHpBeforeWave) checkAchievement("weather_thunder")
+                }
+                WeatherEvent.BLOOD_MOON -> {
+                    checkAchievement("weather_bloodmoon")
+                }
+                WeatherEvent.SOLAR_ECLIPSE -> {
+                    checkAchievement("weather_eclipse")
+                }
+                else -> {}
+            }
+            if (hasMerchantItem(MerchantItemId.GLASS_CANNON) || hasMerchantItem(MerchantItemId.GREED_CURSE)) {
+                wavesSurvivedWithPact++
+                if (wavesSurvivedWithPact >= 5) checkAchievement("pact_survivor")
             }
             trackBountyWave()
             if (baseHp == 1f) checkAchievement("survivor_1hp")
@@ -1136,12 +1184,19 @@ class GameEngine(val prefs: GamePreferences, val audio: GameAudio = SilentAudio)
                     if (isCrit) {
                         actualPlayerDmg *= critMultiplier
                         audio.play(SfxType.HERO_SPECIAL)
+                        playerCritsThisRun++
+                        if (playerCritsThisRun >= 15) checkAchievement("hero_crits")
                         if (hasChrono) {
                             freezeTimer = 2.0f
                             floatingTexts.add(FloatingText(target.x, target.y - target.size - 20f, "⏳ CHRONO FREEZE!", 0xFF00E5FF.toInt(), 1f, 22f))
                         }
                     }
+                    val prevHp = target.hp
                     target.hp -= actualPlayerDmg
+                    if (prevHp > 0 && target.hp <= 0) {
+                        playerKillsThisRun++
+                        if (playerKillsThisRun >= 50) checkAchievement("hero_slayer_50")
+                    }
                     target.hitFlash = 0.15f
                     projectiles.add(Projectile(player.x, player.y, target.x, target.y,
                         damage = 0f, color = if (isCrit) 0xFFFFD700.toInt() else 0xFF42A5F5.toInt()))
@@ -1168,6 +1223,7 @@ class GameEngine(val prefs: GamePreferences, val audio: GameAudio = SilentAudio)
                 if (enemy.distanceTo(tower.x, tower.y) < iceRange) {
                     if (hasMerchantItem(MerchantItemId.THERMAL_SHOCK) && enemy.burnTimer > 0f && enemy.iceSlowFactor > 0.95f) {
                         enemy.burnTimer = 0f
+                        checkAchievement("synergy_proc")
                         val shatterDmg = 140f
                         enemy.hp -= shatterDmg
                         enemy.hitFlash = 0.2f
@@ -1492,6 +1548,7 @@ class GameEngine(val prefs: GamePreferences, val audio: GameAudio = SilentAudio)
                     val currentDiamonds = prefs.getInt("diamonds", 0) + 1
                     prefs.edit().putInt("diamonds", currentDiamonds).apply()
                     diamondsEarnedThisRun += 1
+                    checkAchievement("greed_curse_diamonds")
                     floatingTexts.add(FloatingText(enemy.x, enemy.y - 30f, "+1 💎 Greed Bonus!", 0xFF00E5FF.toInt(), 1.5f, 26f))
                 }
             }
@@ -1500,6 +1557,7 @@ class GameEngine(val prefs: GamePreferences, val audio: GameAudio = SilentAudio)
             if (hasMerchantItem(MerchantItemId.SOUL_CONDUIT)) {
                 val nearVortex = towers.find { it.type == TowerType.VORTEX && it.distanceTo(enemy.x, enemy.y) <= 200f }
                 if (nearVortex != null) {
+                    checkAchievement("synergy_proc")
                     val soulPulseDmg = 120f
                     val pulseRadius = 160f
                     val caught = enemies.filter { it.hp > 0 && it != enemy && it.distanceTo(enemy.x, enemy.y) <= pulseRadius }
@@ -1804,10 +1862,13 @@ class GameEngine(val prefs: GamePreferences, val audio: GameAudio = SilentAudio)
             if (totalKills >= 200) checkAchievement("kills_200")
             if (totalKills >= 500) checkAchievement("kills_500")
             if (totalKills >= 1000) checkAchievement("kills_1000")
+            if (totalKills >= 2500) checkAchievement("kills_2500")
             if (comboCount >= 10) checkAchievement("combo_10")
             if (comboCount >= 20) checkAchievement("combo_20")
             if (comboCount >= 30) checkAchievement("combo_30")
             if (comboCount >= 50) checkAchievement("combo_50")
+            if (comboCount >= 75) checkAchievement("combo_75")
+            if (comboCount >= 100) checkAchievement("combo_100")
             if (score >= 1000) checkAchievement("score_1000")
             if (score >= 5000) checkAchievement("score_5000")
             if (score >= 10000) checkAchievement("score_10000")
@@ -2083,6 +2144,7 @@ class GameEngine(val prefs: GamePreferences, val audio: GameAudio = SilentAudio)
                         target.burnTimer = 3f
                         target.burnDps = tower.damage * towerDmgMult * 0.3f  // 30% of damage as DPS for 3s
                         if (hasMerchantItem(MerchantItemId.THERMAL_SHOCK) && (target.iceSlowFactor < 0.95f || target.deepFreezeTimer > 0f)) {
+                            checkAchievement("synergy_proc")
                             val shatterDmg = 140f
                             val aoeRadius = 120f
                             val aoeEnemies = enemies.filter { it.hp > 0 && it.distanceTo(target.x, target.y) <= aoeRadius }
@@ -2111,6 +2173,7 @@ class GameEngine(val prefs: GamePreferences, val audio: GameAudio = SilentAudio)
 
                     if (tower.type == TowerType.TESLA) {
                         if (hasMerchantItem(MerchantItemId.NEUROTOXIN_CHAIN) && target.poisonTimer > 0f) {
+                            checkAchievement("synergy_proc")
                             val burstRadius = 140f
                             val nearby = enemies.filter { it.hp > 0 && it != target && it.distanceTo(target.x, target.y) <= burstRadius }
                             for (ne in nearby) {
@@ -2309,6 +2372,7 @@ class GameEngine(val prefs: GamePreferences, val audio: GameAudio = SilentAudio)
         if (wave >= 20) checkAchievement("wave_20")
         if (wave >= 30) checkAchievement("wave_30")
         if (wave >= 50) checkAchievement("wave_50")
+        if (wave >= 75) checkAchievement("wave_75")
         if (wave >= 100) checkAchievement("wave_100")
         if (isEndlessMode && wave >= 10) checkAchievement("endless_10")
         if (isEndlessMode && wave >= 25) checkAchievement("endless_25")
@@ -3686,6 +3750,11 @@ class GameEngine(val prefs: GamePreferences, val audio: GameAudio = SilentAudio)
         val tempMerchantStr = activeTemporaryMerchantItems.entries.joinToString(";") { "${it.key.name},${it.value}" }
         ed.putString("save_tempMerchant", tempMerchantStr)
         ed.putInt("save_greedKills", greedCurseKillCount)
+        ed.putInt("save_merchantPurchases", merchantPurchasesThisRun)
+        ed.putInt("save_wavesPact", wavesSurvivedWithPact)
+        ed.putInt("save_playerKills", playerKillsThisRun)
+        ed.putInt("save_playerCrits", playerCritsThisRun)
+        ed.putInt("save_consecutiveFlawless", consecutiveFlawlessWaves)
 
         ed.putBoolean("has_save", true)
         ed.apply()
@@ -3757,6 +3826,11 @@ class GameEngine(val prefs: GamePreferences, val audio: GameAudio = SilentAudio)
             }
         }
         greedCurseKillCount = prefs.getInt("save_greedKills", 0)
+        merchantPurchasesThisRun = prefs.getInt("save_merchantPurchases", 0)
+        wavesSurvivedWithPact = prefs.getInt("save_wavesPact", 0)
+        playerKillsThisRun = prefs.getInt("save_playerKills", 0)
+        playerCritsThisRun = prefs.getInt("save_playerCrits", 0)
+        consecutiveFlawlessWaves = prefs.getInt("save_consecutiveFlawless", 0)
 
         // Restore endless buffs
         endlessBuffs.clear()
@@ -3887,6 +3961,11 @@ class GameEngine(val prefs: GamePreferences, val audio: GameAudio = SilentAudio)
         merchantShopChoices = emptyList()
         merchantShopPending = false
         greedCurseKillCount = 0
+        merchantPurchasesThisRun = 0
+        wavesSurvivedWithPact = 0
+        playerKillsThisRun = 0
+        playerCritsThisRun = 0
+        consecutiveFlawlessWaves = 0
         campaignStars = 0
         applyDifficulty(difficulty)
         wave = 0
