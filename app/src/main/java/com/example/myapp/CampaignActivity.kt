@@ -399,9 +399,6 @@ class CampaignActivity : ImmersiveActivity() {
         val star2View = dialogView.findViewById<TextView>(R.id.goal_star_2)
         val star3View = dialogView.findViewById<TextView>(R.id.goal_star_3)
         val rewardView = dialogView.findViewById<TextView>(R.id.briefing_reward_text)
-        val btnEasy = dialogView.findViewById<Button>(R.id.btn_diff_easy)
-        val btnNormal = dialogView.findViewById<Button>(R.id.btn_diff_normal)
-        val btnHard = dialogView.findViewById<Button>(R.id.btn_diff_hard)
         val btnCancel = dialogView.findViewById<Button>(R.id.btn_cancel)
         val btnDeploy = dialogView.findViewById<Button>(R.id.btn_deploy)
 
@@ -504,35 +501,6 @@ class CampaignActivity : ImmersiveActivity() {
         val earnedText = if (isCompleted) "Claimed (Re-run for highscore)" else "💎 ${level.diamondReward}-${level.diamondReward + 4} Diamonds"
         rewardView.text = earnedText
 
-        var selectedDifficulty = MainMenuActivity.DIFFICULTY_NORMAL
-
-        fun updateDifficultyUI() {
-            btnEasy.setBackgroundResource(if (selectedDifficulty == MainMenuActivity.DIFFICULTY_EASY) R.drawable.bg_tab_active else R.drawable.bg_tab_inactive)
-            btnEasy.setTextColor(if (selectedDifficulty == MainMenuActivity.DIFFICULTY_EASY) Color.WHITE else Color.parseColor("#B0BEC5"))
-
-            btnNormal.setBackgroundResource(if (selectedDifficulty == MainMenuActivity.DIFFICULTY_NORMAL) R.drawable.bg_tab_active else R.drawable.bg_tab_inactive)
-            btnNormal.setTextColor(if (selectedDifficulty == MainMenuActivity.DIFFICULTY_NORMAL) Color.WHITE else Color.parseColor("#B0BEC5"))
-
-            btnHard.setBackgroundResource(if (selectedDifficulty == MainMenuActivity.DIFFICULTY_HARD) R.drawable.bg_tab_active else R.drawable.bg_tab_inactive)
-            btnHard.setTextColor(if (selectedDifficulty == MainMenuActivity.DIFFICULTY_HARD) Color.WHITE else Color.parseColor("#B0BEC5"))
-        }
-
-        btnEasy.setOnClickListener {
-            selectedDifficulty = MainMenuActivity.DIFFICULTY_EASY
-            updateDifficultyUI()
-            SoundManager.play(SfxType.UI_CLICK)
-        }
-        btnNormal.setOnClickListener {
-            selectedDifficulty = MainMenuActivity.DIFFICULTY_NORMAL
-            updateDifficultyUI()
-            SoundManager.play(SfxType.UI_CLICK)
-        }
-        btnHard.setOnClickListener {
-            selectedDifficulty = MainMenuActivity.DIFFICULTY_HARD
-            updateDifficultyUI()
-            SoundManager.play(SfxType.UI_CLICK)
-        }
-
         closeBtn.setOnClickListener { dialog.dismiss() }
         btnCancel.setOnClickListener { dialog.dismiss() }
 
@@ -540,7 +508,7 @@ class CampaignActivity : ImmersiveActivity() {
             SoundManager.play(SfxType.UI_CLICK)
             dialog.dismiss()
             val intent = Intent(this@CampaignActivity, MainActivity::class.java).apply {
-                putExtra("difficulty", selectedDifficulty)
+                putExtra("difficulty", MainMenuActivity.DIFFICULTY_NORMAL)
                 putExtra("campaign_level", level.id)
                 putExtra("campaign_heroic", switchHeroic?.isChecked == true)
             }
