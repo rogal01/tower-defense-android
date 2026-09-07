@@ -117,6 +117,61 @@
             </LinearLayout>
         </HorizontalScrollView>
 
+        <!-- Path Topology Selector -->
+        <TextView
+            android:id="@+id/tv_topology_label"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="🛣️ PATH TOPOLOGY"
+            android:textColor="#90A4AE"
+            android:textSize="11sp"
+            android:textStyle="bold"
+            android:layout_marginTop="12dp" />
+
+        <HorizontalScrollView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:scrollbars="none"
+            android:layout_marginTop="6dp">
+
+            <LinearLayout
+                android:id="@+id/container_topology_tabs"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal" />
+        </HorizontalScrollView>
+
+        <!-- Topology Description & Reroll Button -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:gravity="center_vertical"
+            android:layout_marginTop="6dp">
+
+            <TextView
+                android:id="@+id/tv_topology_desc"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="Traditional tactical layout tailored to the specific biome environment."
+                android:textColor="#B0BEC5"
+                android:textSize="11sp" />
+
+            <Button
+                android:id="@+id/btn_reroll_seed"
+                android:layout_width="wrap_content"
+                android:layout_height="32dp"
+                android:layout_marginStart="8dp"
+                android:background="@drawable/bg_hud_chip"
+                android:text="🎲 Reroll"
+                android:textColor="#FFD54F"
+                android:textSize="11sp"
+                android:textStyle="bold"
+                android:paddingHorizontal="10dp"
+                android:textAllCaps="false" />
+        </LinearLayout>
+
         <!-- Live Minimap Preview -->
         <com.example.myapp.game.MapPreviewView
             android:id="@+id/map_preview_view"

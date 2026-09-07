@@ -18,10 +18,13 @@ class MapPreviewView @JvmOverloads constructor(
 
     private var currentMapType: MapType = MapType.CLASSIC
     private var theme: MapTheme = MapTheme.forType(currentMapType)
+    var currentTopology: PathTopology = PathTopology.DEFAULT
+    var currentSeed: Long = 42L
 
     // Cached paths & geometries
     private val cachedPaths = mutableListOf<Path>()
     private val cachedObstacles = mutableListOf<ObstacleZone>()
+    private val cachedBridges = mutableListOf<BridgeZone>()
     private val spawnPoints = mutableListOf<PointF>()
     private var basePoint = PointF(0f, 0f)
     private val cardClipPath = Path()
@@ -29,6 +32,7 @@ class MapPreviewView @JvmOverloads constructor(
 
     // Pre-allocated Paints
     private val bgPaint = Paint().apply { isAntiAlias = true }
+    private val bridgePaint = Paint().apply { isAntiAlias = true }
     private val pathBorderPaint = Paint().apply {
         isAntiAlias = true; style = Paint.Style.STROKE; strokeCap = Paint.Cap.ROUND; strokeJoin = Paint.Join.ROUND
     }
@@ -56,13 +60,20 @@ class MapPreviewView @JvmOverloads constructor(
         setWillNotDraw(false)
     }
 
-    fun setMapType(type: MapType) {
-        if (currentMapType != type || cachedPaths.isEmpty()) {
-            currentMapType = type
-            theme = MapTheme.forType(type)
-            rebuildPaths()
-            invalidate()
-        }
+    fun setMapType(type: MapType, topology: PathTopology = currentTopology, seed: Long = currentSeed) {
+        currentMapType = type
+        currentTopology = topology
+        currentSeed = seed
+        theme = MapTheme.forType(type)
+        rebuildPaths()
+        invalidate()
+    }
+
+    fun setTopology(topology: PathTopology, seed: Long = currentSeed) {
+        currentTopology = topology
+        currentSeed = seed
+        rebuildPaths()
+        invalidate()
     }
 
     fun getMapType(): MapType = currentMapType
@@ -92,10 +103,12 @@ class MapPreviewView @JvmOverloads constructor(
         val by = h * 0.88f
         basePoint.set(bx, by)
 
-        // Generate deterministic canonical waypoints and obstacles for this map preview (seed 42)
-        val layout = MapPathGenerator.generateLayout(currentMapType, w, h, bx, by, Random(42L))
+        // Generate deterministic waypoints, obstacles, and bridges for this preview
+        val rng = java.util.Random(currentSeed)
+        val layout = MapPathGenerator.generateLayout(currentMapType, w, h, bx, by, rng, currentTopology)
         val gamePaths = layout.paths
         cachedObstacles.addAll(layout.obstacles)
+        cachedBridges.addAll(layout.bridges)
         for (gp in gamePaths) {
             val p = Path()
             val wps = gp.waypoints
@@ -264,6 +277,19 @@ class MapPreviewView @JvmOverloads constructor(
         pathCenterPaint.strokeWidth = 3f
         pathCenterPaint.alpha = 150
         for (p in cachedPaths) canvas.drawPath(p, pathCenterPaint)
+
+        // 4.5 Draw Bridges
+        for (b in cachedBridges) {
+            bridgePaint.style = Paint.Style.FILL
+            bridgePaint.color = 0x66000000
+            canvas.drawRect(b.x - b.width / 2f + 2f, b.y - b.height / 2f + 3f, b.x + b.width / 2f + 2f, b.y + b.height / 2f + 3f, bridgePaint)
+            bridgePaint.color = if (b.isStone) 0xFF546E7A.toInt() else 0xFF6D4C41.toInt()
+            canvas.drawRect(b.x - b.width / 2f, b.y - b.height / 2f, b.x + b.width / 2f, b.y + b.height / 2f, bridgePaint)
+            bridgePaint.style = Paint.Style.STROKE
+            bridgePaint.strokeWidth = 2.5f
+            bridgePaint.color = if (b.isStone) 0xFF37474F.toInt() else 0xFF3E2723.toInt()
+            canvas.drawRect(b.x - b.width / 2f, b.y - b.height / 2f, b.x + b.width / 2f, b.y + b.height / 2f, bridgePaint)
+        }
 
         // 5. Spawn Portals (red glowing nodes at path heads)
         for (sp in spawnPoints) {

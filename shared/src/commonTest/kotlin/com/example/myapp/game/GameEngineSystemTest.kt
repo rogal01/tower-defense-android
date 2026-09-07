@@ -1647,4 +1647,107 @@ class GameEngineSystemTest {
         assertTrue(engine.dailyChallengeModifiers.isNotEmpty(), "Engine must receive daily challenge modifiers")
         assertEquals(1, engine.difficulty, "Daily challenge difficulty is fixed to Normal (1)")
     }
+
+    @Test
+    fun testPathTopologyGeneratorsAllTopologies() {
+        val w = 1080f
+        val h = 1920f
+        val bx = 540f
+        val by = 1632f
+
+        for (topo in PathTopology.entries) {
+            val layout = MapPathGenerator.generateLayout(
+                MapType.CLASSIC, w, h, bx, by,
+                rng = java.util.Random(12345L),
+                topology = topo
+            )
+
+            assertTrue(layout.paths.isNotEmpty(), "Topology $topo must generate at least one path")
+            val expectedLanes = MapPathGenerator.getLaneCount(MapType.CLASSIC, topo)
+            assertEquals(expectedLanes, layout.paths.size, "Topology $topo lane count mismatch")
+
+            for (path in layout.paths) {
+                assertTrue(path.waypoints.size >= 2, "Topology $topo path must have at least 2 waypoints")
+                val first = path.waypoints.first()
+                val last = path.waypoints.last()
+
+                // Spawn point starts near the top of the map
+                assertTrue(first.y <= h * 0.25f, "Spawn point y=${first.y} should be near map top for $topo")
+                // Final point targets the base sanctuary
+                assertEquals(bx, last.x, 20f, "Path destination x should end near base for $topo")
+                assertEquals(by, last.y, 20f, "Path destination y should end near base for $topo")
+
+                // All waypoints within map bounds
+                for (wp in path.waypoints) {
+                    assertTrue(wp.x in -50f..(w + 50f), "Waypoint X out of bounds in $topo: ${wp.x}")
+                    assertTrue(wp.y in -50f..(h + 50f), "Waypoint Y out of bounds in $topo: ${wp.y}")
+                }
+            }
+        }
+    }
+
+    @Test
+    fun testDualForkTopologyAndBridges() {
+        val w = 1080f
+        val h = 1920f
+        val bx = 540f
+        val by = 1632f
+
+        val layout = MapPathGenerator.generateLayout(
+            MapType.VALLEY, w, h, bx, by,
+            rng = java.util.Random(9999L),
+            topology = PathTopology.DUAL_FORK
+        )
+
+        assertEquals(2, layout.paths.size, "DUAL_FORK should produce 2 convergeable branches")
+        assertTrue(layout.bridges.isNotEmpty(), "DUAL_FORK must place a BridgeZone at the convergence point")
+
+        val bridge = layout.bridges.first()
+        assertTrue(bridge.width > 0f && bridge.height > 0f, "Bridge dimensions must be positive")
+        assertTrue(bridge.x in 0f..w, "Bridge x must be inside screen width")
+        assertTrue(bridge.y in 0f..h, "Bridge y must be inside screen height")
+
+        // Also test engine integration
+        engine.selectedTopology = PathTopology.DUAL_FORK
+        engine.mapSeed = 7777L
+        engine.init(w, h)
+        assertTrue(engine.bridgeZones.isNotEmpty(), "Engine bridgeZones must be populated on init with DUAL_FORK")
+        assertEquals(2, engine.paths.size, "Engine paths must have 2 lanes for DUAL_FORK")
+    }
+
+    @Test
+    fun testPathGeneratorSeedDeterminism() {
+        val w = 1080f
+        val h = 1920f
+        val bx = 540f
+        val by = 1632f
+
+        // Same seed must produce identical paths
+        val l1 = MapPathGenerator.generateLayout(MapType.DESERT, w, h, bx, by, rng = java.util.Random(424242L), topology = PathTopology.S_CURVE)
+        val l2 = MapPathGenerator.generateLayout(MapType.DESERT, w, h, bx, by, rng = java.util.Random(424242L), topology = PathTopology.S_CURVE)
+
+        assertEquals(l1.paths.size, l2.paths.size)
+        for (i in l1.paths.indices) {
+            val pts1 = l1.paths[i].waypoints
+            val pts2 = l2.paths[i].waypoints
+            assertEquals(pts1.size, pts2.size)
+            for (j in pts1.indices) {
+                assertEquals(pts1[j].x, pts2[j].x, 0.0001f)
+                assertEquals(pts1[j].y, pts2[j].y, 0.0001f)
+            }
+        }
+
+        // Different seeds should produce organic variance in jitter
+        val l3 = MapPathGenerator.generateLayout(MapType.DESERT, w, h, bx, by, rng = java.util.Random(888888L), topology = PathTopology.S_CURVE)
+        val pts3 = l3.paths[0].waypoints
+        val pts1 = l1.paths[0].waypoints
+        var foundDifference = false
+        for (j in 1 until pts1.size - 1) {
+            if (kotlin.math.abs(pts1[j].x - pts3[j].x) > 0.1f || kotlin.math.abs(pts1[j].y - pts3[j].y) > 0.1f) {
+                foundDifference = true
+                break
+            }
+        }
+        assertTrue(foundDifference, "Different seeds must create distinct organic variations")
+    }
 }

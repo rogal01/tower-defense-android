@@ -12,6 +12,7 @@ import android.view.HapticFeedbackConstants
 import com.example.myapp.game.CampaignData
 import com.example.myapp.game.EndlessBuff
 import com.example.myapp.game.MerchantCard
+import com.example.myapp.game.PathTopology
 import com.example.myapp.game.PowerType
 import com.example.myapp.game.SfxType
 import com.example.myapp.game.TowerType
@@ -494,6 +495,16 @@ class MainActivity : ImmersiveActivity() {
         val mapName = intent.getStringExtra("map_type")
         if (mapName != null) {
             try { engine.mapType = com.example.myapp.game.MapType.valueOf(mapName) } catch (_: Exception) {}
+        }
+
+        // Procedural path topology and map seed from intent
+        val topologyName = intent.getStringExtra("topology")
+        if (topologyName != null) {
+            try { engine.selectedTopology = PathTopology.valueOf(topologyName) } catch (_: Exception) {}
+        }
+        val seed = intent.getLongExtra("map_seed", 0L)
+        if (seed != 0L) {
+            engine.mapSeed = seed
         }
 
         // Continue saved game if requested

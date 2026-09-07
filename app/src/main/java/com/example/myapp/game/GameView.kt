@@ -79,6 +79,9 @@ class GameView @JvmOverloads constructor(
     private val pathPaint = Paint().apply { isAntiAlias = true; style = Paint.Style.STROKE; strokeCap = Paint.Cap.ROUND; strokeJoin = Paint.Join.ROUND }
     private val shadowPaint = Paint().apply { isAntiAlias = true; color = 0x33000000 }
     private val textOutlinePaint = Paint().apply { isAntiAlias = true; style = Paint.Style.STROKE; strokeWidth = 4f; color = 0xCC000000.toInt(); strokeJoin = Paint.Join.ROUND; strokeCap = Paint.Cap.ROUND }
+    // Bridge paints (pre-allocated)
+    private val bridgeDeckPaint = Paint().apply { isAntiAlias = true }
+    private val bridgeRailingPaint = Paint().apply { isAntiAlias = true }
     // Cached terrain decorations (regenerated on surface size change)
     private data class Decoration(val x: Float, val y: Float, val type: Int, val scale: Float, val seed: Int)
     private var decorations: List<Decoration> = emptyList()
@@ -896,6 +899,9 @@ class GameView @JvmOverloads constructor(
 
         // Strategic Terrain Obstacles (boulders, chasms, ancient ruins)
         drawObstacles(canvas)
+
+        // Bridges across chasms and chokepoints
+        drawBridges(canvas)
 
         // Decorations (trees, rocks, bushes, flowers)
         drawDecorations(canvas)
@@ -2768,6 +2774,78 @@ class GameView @JvmOverloads constructor(
                     // Weathered moss
                     terrainPaint.color = 0xAA2E7D32.toInt()
                     canvas.drawCircle(ox + r * 0.3f, oy + r * 0.15f, r * 0.22f, terrainPaint)
+                }
+            }
+        }
+    }
+
+    /** Draw bridges across chasms/rivers where paths converge */
+    private fun drawBridges(canvas: Canvas) {
+        if (engine.bridgeZones.isEmpty()) return
+        for (b in engine.bridgeZones) {
+            val left = b.x - b.width / 2f
+            val top = b.y - b.height / 2f
+            val right = b.x + b.width / 2f
+            val bottom = b.y + b.height / 2f
+
+            // 1. Drop shadow below bridge
+            bridgeDeckPaint.style = Paint.Style.FILL
+            bridgeDeckPaint.color = 0x55000000
+            canvas.drawRect(left + 3f, top + 5f, right + 3f, bottom + 5f, bridgeDeckPaint)
+
+            // 2. Main bridge deck & railings
+            if (b.isStone) {
+                bridgeDeckPaint.color = 0xFF546E7A.toInt()
+                canvas.drawRect(left, top, right, bottom, bridgeDeckPaint)
+
+                // Stone pavers (dividing transverse lines)
+                bridgeRailingPaint.style = Paint.Style.STROKE
+                bridgeRailingPaint.strokeWidth = 2f
+                bridgeRailingPaint.color = 0x55263238.toInt()
+                var px = left + 14f
+                while (px < right) {
+                    canvas.drawLine(px, top, px, bottom, bridgeRailingPaint)
+                    px += 14f
+                }
+
+                // Heavy stone railings on top & bottom
+                bridgeRailingPaint.color = 0xFF37474F.toInt()
+                bridgeRailingPaint.strokeWidth = 4.5f
+                canvas.drawLine(left, top + 1f, right, top + 1f, bridgeRailingPaint)
+                canvas.drawLine(left, bottom - 1f, right, bottom - 1f, bridgeRailingPaint)
+
+                // Railing highlights
+                bridgeRailingPaint.color = 0xFF78909C.toInt()
+                bridgeRailingPaint.strokeWidth = 1.5f
+                canvas.drawLine(left, top + 2.5f, right, top + 2.5f, bridgeRailingPaint)
+            } else {
+                bridgeDeckPaint.color = 0xFF5D4037.toInt()
+                canvas.drawRect(left, top, right, bottom, bridgeDeckPaint)
+
+                // Wood planks (vertical divider lines across width)
+                bridgeRailingPaint.style = Paint.Style.STROKE
+                bridgeRailingPaint.strokeWidth = 2f
+                bridgeRailingPaint.color = 0x772E1C14.toInt()
+                var px = left + 10f
+                while (px < right) {
+                    canvas.drawLine(px, top, px, bottom, bridgeRailingPaint)
+                    px += 10f
+                }
+
+                // Wooden handrails top & bottom
+                bridgeRailingPaint.color = 0xFF3E2723.toInt()
+                bridgeRailingPaint.strokeWidth = 4f
+                canvas.drawLine(left, top + 1f, right, top + 1f, bridgeRailingPaint)
+                canvas.drawLine(left, bottom - 1f, right, bottom - 1f, bridgeRailingPaint)
+
+                // Railing post markers
+                bridgeRailingPaint.color = 0xFF8D6E63.toInt()
+                bridgeRailingPaint.strokeWidth = 2f
+                var postX = left + 5f
+                while (postX <= right) {
+                    canvas.drawLine(postX, top - 2f, postX, top + 4f, bridgeRailingPaint)
+                    canvas.drawLine(postX, bottom - 4f, postX, bottom + 2f, bridgeRailingPaint)
+                    postX += 16f
                 }
             }
         }

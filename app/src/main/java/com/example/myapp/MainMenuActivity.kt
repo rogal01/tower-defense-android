@@ -3,6 +3,7 @@ package com.example.myapp
 import android.app.AlertDialog
 import android.content.Intent
 import android.graphics.Color
+import android.graphics.Typeface
 import android.os.Bundle
 import android.view.View
 import android.widget.LinearLayout
@@ -283,6 +284,10 @@ class MainMenuActivity : ImmersiveActivity() {
         val btnNormal = dialogView.findViewById<Button>(R.id.btn_diff_normal)
         val btnHard = dialogView.findViewById<Button>(R.id.btn_diff_hard)
         val containerTabs = dialogView.findViewById<LinearLayout>(R.id.container_biome_tabs)
+        val containerTopologyTabs = dialogView.findViewById<LinearLayout>(R.id.container_topology_tabs)
+        val tvTopologyLabel = dialogView.findViewById<TextView>(R.id.tv_topology_label)
+        val tvTopologyDesc = dialogView.findViewById<TextView>(R.id.tv_topology_desc)
+        val btnRerollSeed = dialogView.findViewById<Button>(R.id.btn_reroll_seed)
         val mapPreview = dialogView.findViewById<com.example.myapp.game.MapPreviewView>(R.id.map_preview_view)
         val tvMapName = dialogView.findViewById<TextView>(R.id.tv_map_name)
         val tvLaneBadge = dialogView.findViewById<TextView>(R.id.tv_lane_badge)
@@ -293,9 +298,13 @@ class MainMenuActivity : ImmersiveActivity() {
 
         tvTitle.text = GameStrings.endlessModeTitle
         btnStart.text = GameStrings.deployToEndless
+        tvTopologyLabel.text = GameStrings.pathTopologyLabel
+        btnRerollSeed.text = GameStrings.rerollSeedBtn
 
         var chosenSubDiff = 1 // 0=easy, 1=normal, 2=hard
         var chosenMap = selectedMap
+        var chosenTopology = com.example.myapp.game.PathTopology.DEFAULT
+        var chosenSeed = 42L
 
         fun updateDifficultyUI() {
             btnEasy.setBackgroundResource(if (chosenSubDiff == 0) R.drawable.bg_tab_active else R.drawable.bg_tab_inactive)
@@ -314,20 +323,39 @@ class MainMenuActivity : ImmersiveActivity() {
         updateDifficultyUI()
 
         val tabButtons = mutableListOf<Button>()
+        val topologyButtons = mutableListOf<Button>()
+
         fun updateMapCard(mapType: MapType) {
             chosenMap = mapType
             selectedMap = mapType
-            mapPreview.setMapType(mapType)
+            mapPreview.setMapType(mapType, chosenTopology, chosenSeed)
             tvMapName.text = "${mapType.emoji} ${GameStrings.mapName(mapType.displayName)}"
-            val lanes = com.example.myapp.game.MapPathGenerator.getLaneCount(mapType)
+            val lanes = com.example.myapp.game.MapPathGenerator.getLaneCount(mapType, chosenTopology)
             tvLaneBadge.text = "⚔️ " + GameStrings.mapLanesFmt(lanes)
             tvTacticalBadge.text = GameStrings.mapTacticalTag(mapType)
             tvMapDesc.text = GameStrings.mapDescription(mapType)
+            tvTopologyDesc.text = GameStrings.topologyDesc(chosenTopology)
 
             tabButtons.forEachIndexed { idx, btn ->
                 val isSel = MapType.entries[idx] == mapType
                 btn.setBackgroundResource(if (isSel) R.drawable.bg_tab_active else R.drawable.bg_tab_inactive)
                 btn.setTextColor(if (isSel) Color.WHITE else Color.parseColor("#B0BEC5"))
+                btn.setTypeface(null, if (isSel) Typeface.BOLD else Typeface.NORMAL)
+            }
+        }
+
+        fun updateTopologyUI() {
+            mapPreview.setTopology(chosenTopology, chosenSeed)
+            tvTopologyDesc.text = GameStrings.topologyDesc(chosenTopology)
+            val lanes = com.example.myapp.game.MapPathGenerator.getLaneCount(chosenMap, chosenTopology)
+            tvLaneBadge.text = "⚔️ " + GameStrings.mapLanesFmt(lanes)
+
+            topologyButtons.forEachIndexed { idx, btn ->
+                val topo = com.example.myapp.game.PathTopology.entries[idx]
+                val isSel = topo == chosenTopology
+                btn.setBackgroundResource(if (isSel) R.drawable.bg_tab_active else R.drawable.bg_tab_inactive)
+                btn.setTextColor(if (isSel) Color.WHITE else Color.parseColor("#B0BEC5"))
+                btn.setTypeface(null, if (isSel) Typeface.BOLD else Typeface.NORMAL)
             }
         }
 
@@ -353,7 +381,38 @@ class MainMenuActivity : ImmersiveActivity() {
             containerTabs.addView(btn)
         }
 
+        containerTopologyTabs.removeAllViews()
+        com.example.myapp.game.PathTopology.entries.forEach { topo ->
+            val btn = Button(this).apply {
+                text = "${topo.emoji} ${GameStrings.topologyName(topo)}"
+                textSize = 12f
+                isAllCaps = false
+                val padH = (12 * resources.displayMetrics.density).toInt()
+                val padV = (6 * resources.displayMetrics.density).toInt()
+                setPadding(padH, padV, padH, padV)
+                val lp = LinearLayout.LayoutParams(
+                    LinearLayout.LayoutParams.WRAP_CONTENT,
+                    (36 * resources.displayMetrics.density).toInt()
+                ).apply {
+                    marginEnd = (6 * resources.displayMetrics.density).toInt()
+                }
+                layoutParams = lp
+                setOnClickListener {
+                    chosenTopology = topo
+                    updateTopologyUI()
+                }
+            }
+            topologyButtons.add(btn)
+            containerTopologyTabs.addView(btn)
+        }
+
+        btnRerollSeed.setOnClickListener {
+            chosenSeed = (System.currentTimeMillis() % 100000L) + 1L
+            updateTopologyUI()
+        }
+
         updateMapCard(chosenMap)
+        updateTopologyUI()
 
         btnClose.setOnClickListener { dialog.dismiss() }
         btnCancel.setOnClickListener { dialog.dismiss() }
@@ -364,6 +423,8 @@ class MainMenuActivity : ImmersiveActivity() {
             intent.putExtra("difficulty", 3)
             intent.putExtra("endless_sub_difficulty", chosenSubDiff)
             intent.putExtra("map_type", chosenMap.name)
+            intent.putExtra("topology", chosenTopology.name)
+            intent.putExtra("map_seed", chosenSeed)
             startActivity(intent)
         }
 

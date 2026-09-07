@@ -193,6 +193,9 @@ class GameEngine(val prefs: GamePreferences, val audio: GameAudio = SilentAudio)
     val traps = mutableListOf<Trap>()
     val activeFirePatches = mutableListOf<FirePatch>()
     val obstacleZones = mutableListOf<ObstacleZone>()
+    val bridgeZones = mutableListOf<BridgeZone>()
+    var selectedTopology: PathTopology = PathTopology.DEFAULT
+    var mapSeed: Long = 0L
     val discoveredFusions: MutableSet<String> = prefs.getString("discovered_fusions", "").split(",").filter { it.isNotBlank() }.toMutableSet()
     private var isEchoingConduit: Boolean = false
     val supplyDrops = mutableListOf<SupplyDrop>()
@@ -860,7 +863,7 @@ class GameEngine(val prefs: GamePreferences, val audio: GameAudio = SilentAudio)
         spawnPoints.clear()
         val bx = baseX
         val by = baseY
-        val rng = java.util.Random()
+        val rng = if (mapSeed != 0L) java.util.Random(mapSeed) else java.util.Random()
 
         if (mapType == MapType.VOLCANO) {
             val vc = MapPathGenerator.getVolcanoCenter(w, h)
@@ -868,10 +871,12 @@ class GameEngine(val prefs: GamePreferences, val audio: GameAudio = SilentAudio)
             volcanoCenterY = vc.second
         }
 
-        val layout = MapPathGenerator.generateLayout(mapType, w, h, bx, by, rng)
+        val layout = MapPathGenerator.generateLayout(mapType, w, h, bx, by, rng, selectedTopology)
         paths.addAll(layout.paths)
         obstacleZones.clear()
         obstacleZones.addAll(layout.obstacles)
+        bridgeZones.clear()
+        bridgeZones.addAll(layout.bridges)
 
         paths.forEach { path ->
             val sp = path.spawnPoint

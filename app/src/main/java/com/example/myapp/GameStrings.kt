@@ -846,6 +846,35 @@ Każda wieża zadaje określony typ obrażeń. Wrogowie mają odporności i sła
         }
     }
 
+    val pathTopologyLabel get() = if (isPl) "🛣️ UKŁAD ŚCIEŻEK" else "🛣️ PATH TOPOLOGY"
+    val rerollSeedBtn get() = if (isPl) "🎲 Nowa Trasa" else "🎲 Reroll Path"
+
+    fun topologyName(topo: com.example.myapp.game.PathTopology): String = if (isPl) {
+        topo.displayNamePl
+    } else {
+        topo.displayNameEn
+    }
+
+    fun topologyDesc(topo: com.example.myapp.game.PathTopology): String = if (isPl) {
+        when (topo) {
+            com.example.myapp.game.PathTopology.DEFAULT -> "Tradycyjny układ taktyczny dostosowany do środowiska danego biomu."
+            com.example.myapp.game.PathTopology.S_CURVE -> "Długa, meandrująca trasa przez całą mapę. Idealna pod wieże obszarowe w pętlach zakrętów."
+            com.example.myapp.game.PathTopology.DUAL_FORK -> "Dwie armie zbiegają się na pojedynczym ufortyfikowanym moście nad przepaścią przed samą bazą!"
+            com.example.myapp.game.PathTopology.CROSSFIRE -> "Dwie trasy przecinające się w centrum w zabójczej strefie X. Maksymalny zmasowany ogień!"
+            com.example.myapp.game.PathTopology.SPIRAL -> "Wrogowie okrążają centralną cytadelę. Wieże na centralnym wzgórzu rażą wrogów przez cały marsz."
+            com.example.myapp.game.PathTopology.ZIGZAG -> "Ostre zakręty w wąskim skalnym kanionie. Spowalnia wrogów i skupia ich w zasięgu wież miotających."
+        }
+    } else {
+        when (topo) {
+            com.example.myapp.game.PathTopology.DEFAULT -> "Traditional tactical layout tailored to the specific biome environment."
+            com.example.myapp.game.PathTopology.S_CURVE -> "Long sweeping snake path across the entire map. Perfect for area-of-effect towers in center loops."
+            com.example.myapp.game.PathTopology.DUAL_FORK -> "Two invading armies converge onto a single fortified bridge chokepoint before reaching the base!"
+            com.example.myapp.game.PathTopology.CROSSFIRE -> "Two paths intersect in an X-pattern, creating a high-risk, high-reward central crossfire killzone."
+            com.example.myapp.game.PathTopology.SPIRAL -> "Enemies circle inward around a central citadel. Towers on the inner plateau cover the entire march!"
+            com.example.myapp.game.PathTopology.ZIGZAG -> "Tight hairpin switchbacks carved between mountain cliffs. Slows enemies and traps them in firing arcs."
+        }
+    }
+
     // ─── Help Activity ───
     fun helpText(): String {
         if (!isPl) return """
