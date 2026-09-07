@@ -1006,6 +1006,9 @@ class MainActivity : ImmersiveActivity() {
         val engine = binding.gameView.getEngine()
         val cl = engine.campaignLevel
 
+        SoundManager.play(if (isVictory) SfxType.VICTORY else SfxType.GAME_OVER)
+        binding.gameView.triggerHaptic(if (isVictory) com.example.myapp.game.GameView.HapticType.MEDIUM_PULSE else com.example.myapp.game.GameView.HapticType.HEAVY_RUMBLE)
+
         val view = layoutInflater.inflate(R.layout.dialog_battle_results, null)
         val dialog = AlertDialog.Builder(this)
             .setView(view)

@@ -185,4 +185,34 @@ class AudioAndDataIntegrityTest {
             assertTrue(ach.diamondReward > 0, "Achievement diamond bounty must be positive")
         }
     }
+
+    @Test
+    fun testBossTypeMetadataIntegrity() {
+        assertEquals(15, BossType.entries.size, "Must have exactly 15 Act Climax Bosses")
+        for (boss in BossType.entries) {
+            assertTrue(boss.displayName.isNotBlank(), "Boss ${boss.name} should have display name")
+            assertTrue(boss.emoji.isNotBlank(), "Boss ${boss.name} should have emoji")
+            assertTrue(boss.baseHp > 0f, "Boss ${boss.name} should have baseHp > 0")
+            assertTrue(boss.baseSpeed > 0f, "Boss ${boss.name} should have baseSpeed > 0")
+            assertTrue(boss.baseDmg > 0f, "Boss ${boss.name} should have baseDmg > 0")
+            assertNotNull(boss.minionType, "Boss ${boss.name} should have minionType")
+            assertNotNull(boss.ability, "Boss ${boss.name} should have ability")
+        }
+    }
+
+    @Test
+    fun testVictoryAndDefeatFanfareWaveforms() {
+        val victory = SoundManager.generateSamples(SfxType.VICTORY)
+        assertNotNull(victory)
+        assertTrue(victory.isNotEmpty(), "Victory fanfare waveform must not be empty")
+        // At 22050 Hz and ~1.35s, expected size is around 29,767 samples
+        assertTrue(victory.size > 20000, "Victory fanfare should be a rich multi-second phrase")
+
+        val defeat = SoundManager.generateSamples(SfxType.GAME_OVER)
+        assertNotNull(defeat)
+        assertTrue(defeat.isNotEmpty(), "Defeat drone waveform must not be empty")
+        // At 22050 Hz and ~1.45s, expected size is around 31,972 samples
+        assertTrue(defeat.size > 20000, "Defeat drone should be a rich multi-second phrase")
+    }
 }
+

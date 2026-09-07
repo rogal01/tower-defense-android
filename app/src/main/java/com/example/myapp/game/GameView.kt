@@ -240,7 +240,54 @@ class GameView @JvmOverloads constructor(
     private var lastBatteryCheck = 0L
     private var detectedRefreshRate: Float = 60f
     private val frameMs: Long
-        get() = if (batterySaverOn) 33L else (1000f / detectedRefreshRate).toLong().coerceIn(4L, 16L)
+        get() {
+            if (batterySaverOn) return 33L
+            val prefs = context.getSharedPreferences("tower_defense_settings", Context.MODE_PRIVATE)
+            val targetFps = prefs.getInt("target_fps", 120)
+            val effectiveRate = when (targetFps) {
+                30 -> 30f
+                60 -> 60f
+                else -> detectedRefreshRate
+            }
+            return (1000f / effectiveRate).toLong().coerceIn(4L, 35L)
+        }
+
+    enum class HapticType { LIGHT_CLICK, MEDIUM_PULSE, HEAVY_RUMBLE }
+
+    fun triggerHaptic(type: HapticType) {
+        val prefs = context.getSharedPreferences("tower_defense_settings", Context.MODE_PRIVATE)
+        if (!prefs.getBoolean("vibrations_enabled", true)) return
+
+        try {
+            val vibrator = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                val vm = context.getSystemService(Context.VIBRATOR_MANAGER_SERVICE) as? android.os.VibratorManager
+                vm?.defaultVibrator
+            } else {
+                @Suppress("DEPRECATION")
+                context.getSystemService(Context.VIBRATOR_SERVICE) as? android.os.Vibrator
+            } ?: return
+
+            if (!vibrator.hasVibrator()) return
+
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                val effect = when (type) {
+                    HapticType.LIGHT_CLICK -> android.os.VibrationEffect.createOneShot(20, 100)
+                    HapticType.MEDIUM_PULSE -> android.os.VibrationEffect.createWaveform(longArrayOf(0, 35, 40, 45), intArrayOf(0, 150, 0, 190), -1)
+                    HapticType.HEAVY_RUMBLE -> android.os.VibrationEffect.createOneShot(120, 220)
+                }
+                vibrator.vibrate(effect)
+            } else {
+                @Suppress("DEPRECATION")
+                when (type) {
+                    HapticType.LIGHT_CLICK -> vibrator.vibrate(20)
+                    HapticType.MEDIUM_PULSE -> vibrator.vibrate(longArrayOf(0, 35, 40, 45), -1)
+                    HapticType.HEAVY_RUMBLE -> vibrator.vibrate(120)
+                }
+            }
+        } catch (_: Exception) {
+            runCatching { performHapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP) }
+        }
+    }
 
     private fun detectRefreshRate() {
         val display = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
@@ -2310,7 +2357,7 @@ class GameView @JvmOverloads constructor(
                     placementMode = null
                     placementTouchX = -1f
                     placementTouchY = -1f
-                    runCatching { performHapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP) }
+                    triggerHaptic(HapticType.LIGHT_CLICK)
                     post {
                         onPlacementModeChanged?.invoke(false)
                         onGoldChanged?.invoke(engine.gold)
@@ -2325,7 +2372,7 @@ class GameView @JvmOverloads constructor(
                     blockadePlacementMode = false
                     placementTouchX = -1f
                     placementTouchY = -1f
-                    runCatching { performHapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP) }
+                    triggerHaptic(HapticType.LIGHT_CLICK)
                     post {
                         onPlacementModeChanged?.invoke(false)
                         onGoldChanged?.invoke(engine.gold)
@@ -2340,7 +2387,7 @@ class GameView @JvmOverloads constructor(
                     trapPlacementMode = null
                     placementTouchX = -1f
                     placementTouchY = -1f
-                    runCatching { performHapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP) }
+                    triggerHaptic(HapticType.LIGHT_CLICK)
                     post {
                         onPlacementModeChanged?.invoke(false)
                         onGoldChanged?.invoke(engine.gold)

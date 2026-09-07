@@ -5,10 +5,12 @@ import android.content.Intent
 import android.os.Bundle
 import android.widget.SeekBar
 import android.widget.Toast
+import android.graphics.Color
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import com.example.myapp.databinding.ActivitySettingsBinding
+import com.example.myapp.game.SfxType
 import org.json.JSONObject
 
 class SettingsActivity : ImmersiveActivity() {
@@ -75,6 +77,39 @@ class SettingsActivity : ImmersiveActivity() {
         binding.seekSfx.progress = prefs.getInt("sfx_volume", 80)
         binding.switchFps.isChecked = prefs.getBoolean("show_fps", false)
         binding.switchShake.isChecked = prefs.getBoolean("screen_shake", true)
+        binding.switchVibrate.isChecked = prefs.getBoolean("vibrations_enabled", true)
+
+        var currentFps = prefs.getInt("target_fps", 120)
+        fun updateFpsButtons() {
+            binding.btnFps120.setBackgroundResource(if (currentFps == 120) R.drawable.bg_tab_active else R.drawable.bg_tab_inactive)
+            binding.btnFps120.setTextColor(if (currentFps == 120) Color.WHITE else Color.parseColor("#B0BEC5"))
+
+            binding.btnFps60.setBackgroundResource(if (currentFps == 60) R.drawable.bg_tab_active else R.drawable.bg_tab_inactive)
+            binding.btnFps60.setTextColor(if (currentFps == 60) Color.WHITE else Color.parseColor("#B0BEC5"))
+
+            binding.btnFps30.setBackgroundResource(if (currentFps == 30) R.drawable.bg_tab_active else R.drawable.bg_tab_inactive)
+            binding.btnFps30.setTextColor(if (currentFps == 30) Color.WHITE else Color.parseColor("#B0BEC5"))
+        }
+        updateFpsButtons()
+
+        binding.btnFps120.setOnClickListener {
+            currentFps = 120
+            prefs.edit().putInt("target_fps", 120).apply()
+            updateFpsButtons()
+            SoundManager.play(SfxType.UI_CLICK)
+        }
+        binding.btnFps60.setOnClickListener {
+            currentFps = 60
+            prefs.edit().putInt("target_fps", 60).apply()
+            updateFpsButtons()
+            SoundManager.play(SfxType.UI_CLICK)
+        }
+        binding.btnFps30.setOnClickListener {
+            currentFps = 30
+            prefs.edit().putInt("target_fps", 30).apply()
+            updateFpsButtons()
+            SoundManager.play(SfxType.UI_CLICK)
+        }
 
         val seekListener = object : SeekBar.OnSeekBarChangeListener {
             override fun onProgressChanged(seekBar: SeekBar, progress: Int, fromUser: Boolean) {
@@ -102,6 +137,10 @@ class SettingsActivity : ImmersiveActivity() {
 
         binding.switchShake.setOnCheckedChangeListener { _, checked ->
             prefs.edit().putBoolean("screen_shake", checked).apply()
+        }
+
+        binding.switchVibrate.setOnCheckedChangeListener { _, checked ->
+            prefs.edit().putBoolean("vibrations_enabled", checked).apply()
         }
 
         binding.btnBack.setOnClickListener { finish() }

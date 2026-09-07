@@ -62,7 +62,7 @@ object SoundManager {
             .build()
         soundPool = SoundPool.Builder().setMaxStreams(12).setAudioAttributes(attrs).build()
 
-        val cacheDir = File(context.cacheDir, "sfx_v3")
+        val cacheDir = File(context.cacheDir, "sfx_v4")
         cacheDir.mkdirs()
 
         for (sfx in SfxType.entries) {
@@ -151,8 +151,8 @@ object SoundManager {
             SfxType.WAVE_COMPLETE -> harpChime(0.35, doubleArrayOf(523.25, 659.25, 783.99, 1046.50), 0.5)
             SfxType.COMBO -> harpChime(0.12, doubleArrayOf(659.25, 880.0), 0.4)
             SfxType.ACHIEVEMENT -> harpChime(0.45, doubleArrayOf(587.33, 739.99, 880.0, 1174.66), 0.55)
-            SfxType.GAME_OVER -> harpChime(0.50, doubleArrayOf(440.0, 415.30, 392.0, 329.63), 0.55)
-            SfxType.VICTORY -> harpChime(0.60, doubleArrayOf(523.25, 659.25, 783.99, 1046.50, 1318.51), 0.6)
+            SfxType.GAME_OVER -> defeatDrone(1.45, 0.75)
+            SfxType.VICTORY -> triumphalFanfare(1.35, 0.75)
 
             // Management & Economy
             SfxType.TOWER_PLACE -> snapThud(0.08, 220.0, 0.5)
@@ -791,6 +791,108 @@ object SoundManager {
             val idx = samples.size - 1 - i
             samples[idx] = (samples[idx] * factor).toInt().toShort()
         }
+    }
+
+    /** Epic, uplifting multi-phrase victory fanfare with brass chords, sparkling bells, and noble sustained harmony */
+    private fun triumphalFanfare(dur: Double, vol: Double): ShortArray {
+        val n = (SAMPLE_RATE * dur).toInt()
+        val out = ShortArray(n)
+        val notes = doubleArrayOf(261.63, 329.63, 392.00, 523.25)
+        val noteStarts = doubleArrayOf(0.0, 0.12, 0.24, 0.38)
+        val chordFreqs = doubleArrayOf(261.63, 392.00, 523.25, 659.25, 783.99)
+        val bellFreqs = doubleArrayOf(1046.50, 1318.51, 1567.98, 2093.00)
+
+        for (i in 0 until n) {
+            val t = i.toDouble() / SAMPLE_RATE
+            var sample = 0.0
+
+            // 1. Initial fanfare arpeggio notes
+            for (k in 0..2) {
+                val dt = t - noteStarts[k]
+                if (dt in 0.0..0.22) {
+                    val env = (1.0 - dt / 0.22).pow(0.8) * sin((dt / 0.02).coerceAtMost(1.0) * (PI / 2))
+                    val p = 2.0 * PI * notes[k] * dt
+                    val brass = sin(p) + 0.35 * sin(2.0 * p) + 0.15 * sin(3.0 * p)
+                    sample += brass * env * 0.28
+                }
+            }
+
+            // 2. Grand climax chord (starts at 0.38s)
+            val dtChord = t - noteStarts[3]
+            if (dtChord > 0.0) {
+                val chordDur = dur - noteStarts[3]
+                val frac = dtChord / chordDur
+                val attack = (dtChord / 0.04).coerceAtMost(1.0)
+                val decay = (1.0 - frac).pow(1.1)
+                val chordEnv = attack * decay
+
+                var chordSum = 0.0
+                for (cf in chordFreqs) {
+                    val p = 2.0 * PI * cf * dtChord
+                    val voice = sin(p) + 0.38 * sin(2.0 * p) + 0.18 * sin(3.0 * p) + 0.08 * sin(4.0 * p)
+                    chordSum += voice
+                }
+                sample += (chordSum / chordFreqs.size) * chordEnv * 0.55
+
+                // 3. Shimmering high bells at climax
+                var bellSum = 0.0
+                for (bf in bellFreqs) {
+                    val bellEnv = exp(-dtChord * 4.2)
+                    bellSum += sin(2.0 * PI * bf * dtChord) * bellEnv
+                }
+                sample += bellSum * 0.18
+            }
+
+            val mixed = (sample * vol).coerceIn(-1.0, 1.0)
+            out[i] = (mixed * 32767).toInt().coerceIn(-32768, 32767).toShort()
+        }
+        applyDeclick(out)
+        return out
+    }
+
+    /** Dark, heavy defeat collapse with falling sub-bass, somber minor chord, and melancholic resonant reverb tail */
+    private fun defeatDrone(dur: Double, vol: Double): ShortArray {
+        val n = (SAMPLE_RATE * dur).toInt()
+        val out = ShortArray(n)
+        val rng = java.util.Random(999)
+        var phaseBass = 0.0
+        var phaseD = 0.0
+        var phaseF = 0.0
+        var phaseA = 0.0
+        var phaseToll = 0.0
+
+        for (i in 0 until n) {
+            val t = i.toDouble() / SAMPLE_RATE
+            val frac = i.toDouble() / n
+
+            val pitchDrop = 1.0 - 0.18 * (t / 0.70).coerceAtMost(1.0)
+            val env = if (frac < 0.05) (frac / 0.05) else (1.0 - frac).pow(1.3)
+
+            phaseBass += 2.0 * PI * (73.42 * pitchDrop) / SAMPLE_RATE // D2
+            phaseD += 2.0 * PI * (146.83 * pitchDrop) / SAMPLE_RATE    // D3
+            phaseF += 2.0 * PI * (174.61 * pitchDrop) / SAMPLE_RATE    // F3
+            phaseA += 2.0 * PI * (220.00 * pitchDrop) / SAMPLE_RATE    // A3
+
+            val minorChord = sin(phaseBass) * 0.45 +
+                             sin(phaseD) * 0.28 +
+                             sin(phaseF) * 0.22 +
+                             sin(phaseA) * 0.18
+
+            var toll = 0.0
+            if (t > 0.35) {
+                val dt = t - 0.35
+                phaseToll += 2.0 * PI * 116.54 / SAMPLE_RATE // Bb2
+                val tollEnv = exp(-dt * 3.0)
+                toll = (sin(phaseToll) + 0.3 * sin(phaseToll * 2.76) + 0.15 * sin(phaseToll * 5.4)) * tollEnv * 0.35
+            }
+
+            val rumble = (rng.nextDouble() * 2.0 - 1.0) * exp(-frac * 3.5) * 0.08
+
+            val s = (minorChord + toll + rumble) * env * vol
+            out[i] = (s.coerceIn(-1.0, 1.0) * 32767).toInt().coerceIn(-32768, 32767).toShort()
+        }
+        applyDeclick(out)
+        return out
     }
 
     /** Write ShortArray PCM data as standard 16-bit 44.1kHz WAV */
