@@ -12,54 +12,55 @@
         android:layout_width="match_parent"
         android:layout_height="match_parent" />
 
-    <!-- Top HUD — Modern translucent game status bar -->
+    <!-- Top HUD — Modern translucent Obsidian Glass status bar -->
     <LinearLayout
         android:id="@+id/top_hud"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:orientation="horizontal"
         android:background="@drawable/bg_top_hud_obsidian"
-        android:paddingHorizontal="6dp"
-        android:paddingVertical="4dp"
+        android:paddingHorizontal="8dp"
+        android:paddingVertical="5dp"
         android:gravity="center_vertical"
-        android:elevation="6dp">
+        android:elevation="8dp">
 
         <Button
             android:id="@+id/btn_tutorial"
-            android:layout_width="36dp"
-            android:layout_height="36dp"
+            android:layout_width="32dp"
+            android:layout_height="32dp"
             android:text="?"
-            android:textSize="16sp"
+            android:textSize="15sp"
             android:textStyle="bold"
             android:textColor="#FFFFFF"
             android:background="@drawable/bg_btn_hud_glow"
             android:padding="0dp"
-            android:minWidth="36dp"
-            android:minHeight="36dp"
-            android:layout_marginEnd="3dp" />
+            android:minWidth="32dp"
+            android:minHeight="32dp"
+            android:layout_marginEnd="4dp" />
 
         <Button
             android:id="@+id/btn_codex"
-            android:layout_width="36dp"
-            android:layout_height="36dp"
+            android:layout_width="32dp"
+            android:layout_height="32dp"
             android:text="⚗️"
-            android:textSize="16sp"
+            android:textSize="14sp"
             android:textStyle="bold"
             android:textColor="#FFFFFF"
             android:background="@drawable/bg_btn_hud_glow"
             android:padding="0dp"
-            android:minWidth="36dp"
-            android:minHeight="36dp"
-            android:layout_marginEnd="4dp" />
+            android:minWidth="32dp"
+            android:minHeight="32dp"
+            android:layout_marginEnd="6dp" />
 
+        <!-- Gold Status Capsule -->
         <LinearLayout
             android:layout_width="wrap_content"
-            android:layout_height="36dp"
+            android:layout_height="32dp"
             android:orientation="horizontal"
             android:gravity="center_vertical"
-            android:background="@drawable/bg_hud_chip"
-            android:paddingHorizontal="8dp"
-            android:layout_marginEnd="3dp">
+            android:background="@drawable/bg_hud_capsule_gold"
+            android:paddingHorizontal="10dp"
+            android:layout_marginEnd="4dp">
             <TextView
                 android:id="@+id/text_gold"
                 android:layout_width="wrap_content"
@@ -70,118 +71,122 @@
                 android:textStyle="bold" />
         </LinearLayout>
 
+        <!-- Wave Status Capsule -->
         <LinearLayout
             android:layout_width="wrap_content"
-            android:layout_height="36dp"
+            android:layout_height="32dp"
             android:orientation="horizontal"
             android:gravity="center_vertical"
-            android:background="@drawable/bg_hud_chip"
-            android:paddingHorizontal="8dp"
-            android:layout_marginEnd="3dp">
+            android:background="@drawable/bg_hud_capsule"
+            android:paddingHorizontal="9dp"
+            android:layout_marginEnd="4dp">
             <TextView
                 android:id="@+id/text_wave"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:text="⚔️ Wave 0"
                 android:textColor="#FFFFFF"
-                android:textSize="13sp"
+                android:textSize="12sp"
                 android:textStyle="bold" />
         </LinearLayout>
 
+        <!-- Kills Capsule -->
         <LinearLayout
             android:layout_width="wrap_content"
-            android:layout_height="36dp"
+            android:layout_height="32dp"
             android:orientation="horizontal"
             android:gravity="center_vertical"
-            android:background="@drawable/bg_hud_chip"
+            android:background="@drawable/bg_hud_capsule_ruby"
             android:paddingHorizontal="8dp"
-            android:layout_marginEnd="3dp">
+            android:layout_marginEnd="4dp">
             <TextView
                 android:id="@+id/text_kills"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:text="💀 0"
-                android:textColor="#E0E0E0"
-                android:textSize="13sp"
+                android:textColor="#FF8A80"
+                android:textSize="12sp"
                 android:textStyle="bold"
                 android:maxLines="1"
                 android:ellipsize="end" />
         </LinearLayout>
 
+        <!-- Diamonds Capsule -->
         <LinearLayout
             android:layout_width="0dp"
-            android:layout_height="36dp"
+            android:layout_height="32dp"
             android:layout_weight="1"
             android:orientation="horizontal"
             android:gravity="center_vertical"
-            android:background="@drawable/bg_hud_chip_diamond"
-            android:paddingHorizontal="8dp">
+            android:background="@drawable/bg_hud_capsule_cyan"
+            android:paddingHorizontal="8dp"
+            android:layout_marginEnd="6dp">
             <TextView
                 android:id="@+id/text_diamonds"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:text="💎 0"
                 android:textColor="#00E5FF"
-                android:textSize="13sp"
+                android:textSize="12sp"
                 android:textStyle="bold"
                 android:maxLines="1"
                 android:ellipsize="end" />
         </LinearLayout>
 
-        <Button
-            android:id="@+id/btn_speed"
+        <!-- Segmented Controls Container -->
+        <LinearLayout
             android:layout_width="wrap_content"
-            android:layout_height="38dp"
-            android:minWidth="48dp"
-            android:minHeight="44dp"
-            android:layout_marginStart="4dp"
-            android:text="1x"
-            android:textSize="12sp"
-            android:textStyle="bold"
-            android:background="@drawable/bg_btn_action"
-            android:textColor="@color/gold"
-            android:padding="0dp" />
+            android:layout_height="32dp"
+            android:orientation="horizontal"
+            android:gravity="center_vertical">
 
-        <Button
-            android:id="@+id/btn_call_wave"
-            android:layout_width="wrap_content"
-            android:layout_height="38dp"
-            android:minWidth="56dp"
-            android:minHeight="44dp"
-            android:layout_marginStart="4dp"
-            android:text="▶▶ Rush"
-            android:textSize="12sp"
-            android:textStyle="bold"
-            android:background="@drawable/bg_btn_action"
-            android:textColor="@color/gold"
-            android:padding="0dp" />
+            <Button
+                android:id="@+id/btn_speed"
+                android:layout_width="wrap_content"
+                android:layout_height="32dp"
+                android:minWidth="44dp"
+                android:text="1x"
+                android:textSize="11sp"
+                android:textStyle="bold"
+                android:background="@drawable/bg_segmented_btn_left"
+                android:textColor="@color/gold"
+                android:padding="0dp" />
 
-        <Button
-            android:id="@+id/btn_auto_wave"
-            android:layout_width="wrap_content"
-            android:layout_height="38dp"
-            android:minWidth="50dp"
-            android:minHeight="44dp"
-            android:layout_marginStart="4dp"
-            android:text="Auto"
-            android:textSize="12sp"
-            android:textStyle="bold"
-            android:background="@drawable/bg_btn_action"
-            android:textColor="#B0BEC5"
-            android:padding="0dp" />
+            <Button
+                android:id="@+id/btn_call_wave"
+                android:layout_width="wrap_content"
+                android:layout_height="32dp"
+                android:minWidth="52dp"
+                android:text="▶▶ Rush"
+                android:textSize="11sp"
+                android:textStyle="bold"
+                android:background="@drawable/bg_segmented_btn_mid"
+                android:textColor="@color/gold"
+                android:padding="0dp" />
 
-        <Button
-            android:id="@+id/btn_pause"
-            android:layout_width="38dp"
-            android:layout_height="38dp"
-            android:layout_marginStart="4dp"
-            android:text="⏸"
-            android:textSize="13sp"
-            android:background="@drawable/bg_btn_danger"
-            android:textColor="#FFFFFF"
-            android:padding="0dp"
-            android:minWidth="44dp"
-            android:minHeight="44dp" />
+            <Button
+                android:id="@+id/btn_auto_wave"
+                android:layout_width="wrap_content"
+                android:layout_height="32dp"
+                android:minWidth="46dp"
+                android:text="Auto"
+                android:textSize="11sp"
+                android:textStyle="bold"
+                android:background="@drawable/bg_segmented_btn_mid"
+                android:textColor="#B0BEC5"
+                android:padding="0dp" />
+
+            <Button
+                android:id="@+id/btn_pause"
+                android:layout_width="34dp"
+                android:layout_height="32dp"
+                android:text="⏸"
+                android:textSize="12sp"
+                android:background="@drawable/bg_segmented_btn_right"
+                android:textColor="#FFFFFF"
+                android:padding="0dp"
+                android:minWidth="34dp" />
+        </LinearLayout>
     </LinearLayout>
 
     <!-- Floating Powers Bar — Vertical on right side -->
@@ -192,9 +197,9 @@
         android:layout_gravity="end|center_vertical"
         android:orientation="vertical"
         android:padding="6dp"
-        android:layout_marginEnd="6dp"
+        android:layout_marginEnd="8dp"
         android:background="@drawable/bg_card_glass"
-        android:elevation="4dp"
+        android:elevation="6dp"
         android:gravity="center">
 
         <com.example.myapp.game.HeroPowerOrbView
@@ -206,7 +211,7 @@
             android:padding="0dp"
             android:minWidth="48dp"
             android:minHeight="48dp"
-            android:layout_marginBottom="6dp" />
+            android:layout_marginBottom="8dp" />
 
         <com.example.myapp.game.HeroPowerOrbView
             android:id="@+id/btn_power_freeze"
@@ -217,7 +222,7 @@
             android:padding="0dp"
             android:minWidth="48dp"
             android:minHeight="48dp"
-            android:layout_marginBottom="6dp" />
+            android:layout_marginBottom="8dp" />
 
         <com.example.myapp.game.HeroPowerOrbView
             android:id="@+id/btn_power_heal"
@@ -228,7 +233,7 @@
             android:padding="0dp"
             android:minWidth="48dp"
             android:minHeight="48dp"
-            android:layout_marginBottom="6dp" />
+            android:layout_marginBottom="8dp" />
 
         <com.example.myapp.game.HeroPowerOrbView
             android:id="@+id/btn_power_lightning"
@@ -247,7 +252,7 @@
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:layout_gravity="bottom"
-        android:elevation="6dp">
+        android:elevation="8dp">
 
         <!-- 1. Active Placement Bar (Shown during placement mode) -->
         <LinearLayout
@@ -256,7 +261,8 @@
             android:layout_height="wrap_content"
             android:orientation="horizontal"
             android:background="@drawable/bg_card_glass"
-            android:padding="10dp"
+            android:paddingHorizontal="14dp"
+            android:paddingVertical="10dp"
             android:gravity="center_vertical"
             android:visibility="gone">
 
@@ -269,14 +275,14 @@
                 android:textColor="@color/gold"
                 android:textSize="14sp"
                 android:textStyle="bold"
-                android:paddingStart="6dp" />
+                android:paddingStart="4dp" />
 
             <Button
                 android:id="@+id/btn_cancel_placement"
                 android:layout_width="wrap_content"
-                android:layout_height="48dp"
-                android:text="✕ Cancel"
-                android:textSize="13sp"
+                android:layout_height="42dp"
+                android:text="✕ Anuluj / Cancel"
+                android:textSize="12sp"
                 android:textStyle="bold"
                 android:textColor="#FFFFFF"
                 android:background="@drawable/bg_btn_danger"
@@ -289,8 +295,10 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:orientation="vertical"
-            android:background="@drawable/bg_card_tower_inspector"
-            android:padding="8dp"
+            android:background="@drawable/bg_card_inspector_modern"
+            android:paddingHorizontal="10dp"
+            android:paddingTop="10dp"
+            android:paddingBottom="12dp"
             android:visibility="gone">
 
             <!-- Inspector Header -->
@@ -300,7 +308,7 @@
                 android:orientation="horizontal"
                 android:gravity="center_vertical"
                 android:paddingHorizontal="4dp"
-                android:paddingBottom="4dp">
+                android:paddingBottom="6dp">
 
                 <TextView
                     android:id="@+id/inspector_tower_title"
@@ -320,16 +328,16 @@
 
                 <Button
                     android:id="@+id/btn_inspector_close"
-                    android:layout_width="36dp"
-                    android:layout_height="36dp"
+                    android:layout_width="32dp"
+                    android:layout_height="32dp"
                     android:text="✕"
                     android:textSize="14sp"
                     android:textStyle="bold"
                     android:textColor="#FFFFFF"
                     android:background="@drawable/bg_btn_action"
                     android:padding="0dp"
-                    android:minWidth="44dp"
-                    android:minHeight="44dp" />
+                    android:minWidth="32dp"
+                    android:minHeight="32dp" />
             </LinearLayout>
 
             <!-- 4 Compact Stat Badges -->
@@ -340,15 +348,15 @@
                 android:orientation="horizontal"
                 android:gravity="center"
                 android:paddingHorizontal="2dp"
-                android:paddingBottom="6dp">
+                android:paddingBottom="8dp">
 
                 <TextView
                     android:id="@+id/badge_stat_dmg"
                     android:layout_width="0dp"
-                    android:layout_height="28dp"
+                    android:layout_height="30dp"
                     android:layout_weight="1"
                     android:layout_marginHorizontal="2dp"
-                    android:background="@drawable/bg_stat_badge"
+                    android:background="@drawable/bg_hud_capsule"
                     android:gravity="center"
                     android:text="⚔️ 20"
                     android:textColor="#FFFFFF"
@@ -358,10 +366,10 @@
                 <TextView
                     android:id="@+id/badge_stat_rng"
                     android:layout_width="0dp"
-                    android:layout_height="28dp"
+                    android:layout_height="30dp"
                     android:layout_weight="1"
                     android:layout_marginHorizontal="2dp"
-                    android:background="@drawable/bg_stat_badge"
+                    android:background="@drawable/bg_hud_capsule"
                     android:gravity="center"
                     android:text="🎯 140"
                     android:textColor="#FFFFFF"
@@ -371,10 +379,10 @@
                 <TextView
                     android:id="@+id/badge_stat_spd"
                     android:layout_width="0dp"
-                    android:layout_height="28dp"
+                    android:layout_height="30dp"
                     android:layout_weight="1"
                     android:layout_marginHorizontal="2dp"
-                    android:background="@drawable/bg_stat_badge"
+                    android:background="@drawable/bg_hud_capsule"
                     android:gravity="center"
                     android:text="⚡ 1.2/s"
                     android:textColor="#FFFFFF"
@@ -384,10 +392,10 @@
                 <TextView
                     android:id="@+id/badge_stat_kills"
                     android:layout_width="0dp"
-                    android:layout_height="28dp"
+                    android:layout_height="30dp"
                     android:layout_weight="1"
                     android:layout_marginHorizontal="2dp"
-                    android:background="@drawable/bg_stat_badge"
+                    android:background="@drawable/bg_hud_capsule"
                     android:gravity="center"
                     android:text="💀 0"
                     android:textColor="#FFFFFF"
@@ -409,7 +417,7 @@
                     android:layout_weight="1"
                     android:layout_marginHorizontal="2dp"
                     android:text="▲ Lv.2 [+14 DMG] [💰 45]"
-                    android:textSize="10sp"
+                    android:textSize="11sp"
                     android:textStyle="bold"
                     android:textAllCaps="false"
                     android:background="@drawable/bg_btn_gold"
@@ -472,7 +480,7 @@
                 <Button
                     android:id="@+id/btn_specialize"
                     android:layout_width="match_parent"
-                    android:layout_height="48dp"
+                    android:layout_height="44dp"
                     android:text="⚡ Choose Specialization!"
                     android:textSize="13sp"
                     android:textStyle="bold"
@@ -488,12 +496,13 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:orientation="vertical"
-            android:background="@drawable/bg_card_glass">
+            android:background="@drawable/bg_card_glass"
+            android:paddingBottom="4dp">
 
             <!-- Category Tabs Row -->
             <LinearLayout
                 android:layout_width="match_parent"
-                android:layout_height="38dp"
+                android:layout_height="36dp"
                 android:orientation="horizontal"
                 android:paddingHorizontal="6dp"
                 android:paddingTop="3dp"
@@ -505,8 +514,8 @@
                     android:layout_height="match_parent"
                     android:layout_weight="1"
                     android:layout_marginHorizontal="2dp"
-                    android:text="[🏹 Towers]"
-                    android:textSize="13sp"
+                    android:text="🏹 Towers"
+                    android:textSize="12sp"
                     android:textStyle="bold"
                     android:textAllCaps="false"
                     android:background="@drawable/bg_tab_active"
@@ -520,8 +529,8 @@
                     android:layout_height="match_parent"
                     android:layout_weight="1"
                     android:layout_marginHorizontal="2dp"
-                    android:text="[💣 Traps]"
-                    android:textSize="13sp"
+                    android:text="💣 Traps"
+                    android:textSize="12sp"
                     android:textStyle="bold"
                     android:textAllCaps="false"
                     android:background="@drawable/bg_tab_inactive"
@@ -535,8 +544,8 @@
                     android:layout_height="match_parent"
                     android:layout_weight="1"
                     android:layout_marginHorizontal="2dp"
-                    android:text="[⚔️ Hero]"
-                    android:textSize="13sp"
+                    android:text="⚔️ Hero"
+                    android:textSize="12sp"
                     android:textStyle="bold"
                     android:textAllCaps="false"
                     android:background="@drawable/bg_tab_inactive"
@@ -563,160 +572,160 @@
                     <Button
                         android:id="@+id/btn_tower_arrow"
                         android:layout_width="wrap_content"
-                        android:layout_height="48dp"
-                        android:minWidth="80dp"
+                        android:layout_height="52dp"
+                        android:minWidth="84dp"
                         android:layout_marginHorizontal="2dp"
                         android:text="🏹 Arrow\n30g"
                         android:textSize="11sp"
                         android:textStyle="bold"
                         android:textAllCaps="false"
-                        android:background="@drawable/bg_card_build"
+                        android:background="@drawable/bg_tower_card"
                         android:textColor="#FFFFFF"
                         android:paddingHorizontal="8dp" />
 
                     <Button
                         android:id="@+id/btn_tower_magic"
                         android:layout_width="wrap_content"
-                        android:layout_height="48dp"
-                        android:minWidth="80dp"
+                        android:layout_height="52dp"
+                        android:minWidth="84dp"
                         android:layout_marginHorizontal="2dp"
                         android:text="🧨 Magic\n60g"
                         android:textSize="11sp"
                         android:textStyle="bold"
                         android:textAllCaps="false"
-                        android:background="@drawable/bg_card_build"
+                        android:background="@drawable/bg_tower_card"
                         android:textColor="#FFFFFF"
                         android:paddingHorizontal="8dp" />
 
                     <Button
                         android:id="@+id/btn_tower_cannon"
                         android:layout_width="wrap_content"
-                        android:layout_height="48dp"
-                        android:minWidth="80dp"
+                        android:layout_height="52dp"
+                        android:minWidth="84dp"
                         android:layout_marginHorizontal="2dp"
                         android:text="💣 Cannon\n100g"
                         android:textSize="11sp"
                         android:textStyle="bold"
                         android:textAllCaps="false"
-                        android:background="@drawable/bg_card_build"
+                        android:background="@drawable/bg_tower_card"
                         android:textColor="#FFFFFF"
                         android:paddingHorizontal="8dp" />
 
                     <Button
                         android:id="@+id/btn_tower_poison"
                         android:layout_width="wrap_content"
-                        android:layout_height="48dp"
-                        android:minWidth="80dp"
+                        android:layout_height="52dp"
+                        android:minWidth="84dp"
                         android:layout_marginHorizontal="2dp"
                         android:text="☠️ Poison\n80g"
                         android:textSize="11sp"
                         android:textStyle="bold"
                         android:textAllCaps="false"
-                        android:background="@drawable/bg_card_build"
+                        android:background="@drawable/bg_tower_card"
                         android:textColor="#FFFFFF"
                         android:paddingHorizontal="8dp" />
 
                     <Button
                         android:id="@+id/btn_tower_tesla"
                         android:layout_width="wrap_content"
-                        android:layout_height="48dp"
-                        android:minWidth="80dp"
+                        android:layout_height="52dp"
+                        android:minWidth="84dp"
                         android:layout_marginHorizontal="2dp"
                         android:text="⚡ Tesla\n120g"
                         android:textSize="11sp"
                         android:textStyle="bold"
                         android:textAllCaps="false"
-                        android:background="@drawable/bg_card_build"
+                        android:background="@drawable/bg_tower_card"
                         android:textColor="#FFFFFF"
                         android:paddingHorizontal="8dp" />
 
                     <Button
                         android:id="@+id/btn_tower_ice"
                         android:layout_width="wrap_content"
-                        android:layout_height="48dp"
-                        android:minWidth="80dp"
+                        android:layout_height="52dp"
+                        android:minWidth="84dp"
                         android:layout_marginHorizontal="2dp"
-                        android:text="❄️ Ice\n70g"
+                        android:text="❄️ Ice\n50g"
                         android:textSize="11sp"
                         android:textStyle="bold"
                         android:textAllCaps="false"
-                        android:background="@drawable/bg_card_build"
+                        android:background="@drawable/bg_tower_card"
                         android:textColor="#FFFFFF"
                         android:paddingHorizontal="8dp" />
 
                     <Button
                         android:id="@+id/btn_tower_flame"
                         android:layout_width="wrap_content"
-                        android:layout_height="48dp"
-                        android:minWidth="80dp"
+                        android:layout_height="52dp"
+                        android:minWidth="84dp"
                         android:layout_marginHorizontal="2dp"
                         android:text="🔥 Flame\n90g"
                         android:textSize="11sp"
                         android:textStyle="bold"
                         android:textAllCaps="false"
-                        android:background="@drawable/bg_card_build"
+                        android:background="@drawable/bg_tower_card"
                         android:textColor="#FFFFFF"
                         android:paddingHorizontal="8dp" />
 
                     <Button
                         android:id="@+id/btn_tower_necro"
                         android:layout_width="wrap_content"
-                        android:layout_height="48dp"
-                        android:minWidth="80dp"
+                        android:layout_height="52dp"
+                        android:minWidth="84dp"
                         android:layout_marginHorizontal="2dp"
-                        android:text="💀 Necro\n110g"
+                        android:text="💀 Necro\n150g"
                         android:textSize="11sp"
                         android:textStyle="bold"
                         android:textAllCaps="false"
-                        android:background="@drawable/bg_card_build"
+                        android:background="@drawable/bg_tower_card"
                         android:textColor="#FFFFFF"
                         android:paddingHorizontal="8dp" />
 
                     <Button
                         android:id="@+id/btn_tower_ballista"
                         android:layout_width="wrap_content"
-                        android:layout_height="48dp"
-                        android:minWidth="80dp"
+                        android:layout_height="52dp"
+                        android:minWidth="84dp"
                         android:layout_marginHorizontal="2dp"
-                        android:text="🎯 Ballista\n140g"
+                        android:text="🎯 Ballista\n130g"
                         android:textSize="11sp"
                         android:textStyle="bold"
                         android:textAllCaps="false"
-                        android:background="@drawable/bg_card_build"
+                        android:background="@drawable/bg_tower_card"
                         android:textColor="#FFFFFF"
                         android:paddingHorizontal="8dp" />
 
                     <Button
                         android:id="@+id/btn_tower_vortex"
                         android:layout_width="wrap_content"
-                        android:layout_height="48dp"
-                        android:minWidth="80dp"
+                        android:layout_height="52dp"
+                        android:minWidth="84dp"
                         android:layout_marginHorizontal="2dp"
-                        android:text="🌀 Vortex\n100g"
+                        android:text="🌀 Vortex\n140g"
                         android:textSize="11sp"
                         android:textStyle="bold"
                         android:textAllCaps="false"
-                        android:background="@drawable/bg_card_build"
+                        android:background="@drawable/bg_tower_card"
                         android:textColor="#FFFFFF"
                         android:paddingHorizontal="8dp" />
 
                     <Button
                         android:id="@+id/btn_tower_healer"
                         android:layout_width="wrap_content"
-                        android:layout_height="48dp"
-                        android:minWidth="80dp"
+                        android:layout_height="52dp"
+                        android:minWidth="84dp"
                         android:layout_marginHorizontal="2dp"
-                        android:text="💚 Healer\n80g"
+                        android:text="💚 Healer\n110g"
                         android:textSize="11sp"
                         android:textStyle="bold"
                         android:textAllCaps="false"
-                        android:background="@drawable/bg_card_build"
+                        android:background="@drawable/bg_tower_card"
                         android:textColor="#FFFFFF"
                         android:paddingHorizontal="8dp" />
                 </LinearLayout>
             </HorizontalScrollView>
 
-            <!-- Container 2: Traps & Defenses Carousel (Initially Gone) -->
+            <!-- Container 2: Traps & Fortifications -->
             <HorizontalScrollView
                 android:id="@+id/container_traps"
                 android:layout_width="match_parent"
@@ -735,76 +744,76 @@
                     <Button
                         android:id="@+id/btn_repair"
                         android:layout_width="wrap_content"
-                        android:layout_height="48dp"
+                        android:layout_height="52dp"
                         android:minWidth="84dp"
                         android:layout_marginHorizontal="2dp"
-                        android:text="🔧 Repair\n20g"
+                        android:text="🔧 Repair\n40g"
                         android:textSize="11sp"
                         android:textStyle="bold"
                         android:textAllCaps="false"
-                        android:background="@drawable/bg_card_build"
-                        android:textColor="#80CBC4"
+                        android:background="@drawable/bg_tower_card"
+                        android:textColor="#FFFFFF"
                         android:paddingHorizontal="8dp" />
 
                     <Button
                         android:id="@+id/btn_blockade"
                         android:layout_width="wrap_content"
-                        android:layout_height="48dp"
+                        android:layout_height="52dp"
                         android:minWidth="84dp"
                         android:layout_marginHorizontal="2dp"
-                        android:text="🧱 Blockade\n50g"
+                        android:text="🪨 Blockade\n25g"
                         android:textSize="11sp"
                         android:textStyle="bold"
                         android:textAllCaps="false"
-                        android:background="@drawable/bg_card_build"
+                        android:background="@drawable/bg_tower_card"
                         android:textColor="#FFFFFF"
                         android:paddingHorizontal="8dp" />
 
                     <Button
                         android:id="@+id/btn_trap_spike"
                         android:layout_width="wrap_content"
-                        android:layout_height="48dp"
+                        android:layout_height="52dp"
                         android:minWidth="84dp"
                         android:layout_marginHorizontal="2dp"
-                        android:text="🗡️ Spike\n30g"
+                        android:text="📌 Spikes\n20g"
                         android:textSize="11sp"
                         android:textStyle="bold"
                         android:textAllCaps="false"
-                        android:background="@drawable/bg_card_build"
+                        android:background="@drawable/bg_tower_card"
                         android:textColor="#FFFFFF"
                         android:paddingHorizontal="8dp" />
 
                     <Button
                         android:id="@+id/btn_trap_tar"
                         android:layout_width="wrap_content"
-                        android:layout_height="48dp"
+                        android:layout_height="52dp"
                         android:minWidth="84dp"
                         android:layout_marginHorizontal="2dp"
-                        android:text="🟣 Tar\n40g"
+                        android:text="🍯 Tar Pit\n35g"
                         android:textSize="11sp"
                         android:textStyle="bold"
                         android:textAllCaps="false"
-                        android:background="@drawable/bg_card_build"
+                        android:background="@drawable/bg_tower_card"
                         android:textColor="#FFFFFF"
                         android:paddingHorizontal="8dp" />
 
                     <Button
                         android:id="@+id/btn_trap_mine"
                         android:layout_width="wrap_content"
-                        android:layout_height="48dp"
+                        android:layout_height="52dp"
                         android:minWidth="84dp"
                         android:layout_marginHorizontal="2dp"
-                        android:text="💣 Mine\n60g"
+                        android:text="💣 Landmine\n45g"
                         android:textSize="11sp"
                         android:textStyle="bold"
                         android:textAllCaps="false"
-                        android:background="@drawable/bg_card_build"
+                        android:background="@drawable/bg_tower_card"
                         android:textColor="#FFFFFF"
                         android:paddingHorizontal="8dp" />
                 </LinearLayout>
             </HorizontalScrollView>
 
-            <!-- Container 3: Hero Upgrades Carousel (Initially Gone) -->
+            <!-- Container 3: Hero Upgrades -->
             <HorizontalScrollView
                 android:id="@+id/container_hero"
                 android:layout_width="match_parent"
@@ -823,61 +832,60 @@
                     <Button
                         android:id="@+id/btn_up_damage"
                         android:layout_width="wrap_content"
-                        android:layout_height="48dp"
+                        android:layout_height="52dp"
                         android:minWidth="84dp"
                         android:layout_marginHorizontal="2dp"
-                        android:text="⚔️ ATK\n25g"
+                        android:text="⚔️ ATK\n50g"
                         android:textSize="11sp"
                         android:textStyle="bold"
                         android:textAllCaps="false"
-                        android:background="@drawable/bg_card_build"
-                        android:textColor="@color/gold"
+                        android:background="@drawable/bg_tower_card"
+                        android:textColor="#FFFFFF"
                         android:paddingHorizontal="8dp" />
 
                     <Button
                         android:id="@+id/btn_up_speed"
                         android:layout_width="wrap_content"
-                        android:layout_height="48dp"
+                        android:layout_height="52dp"
                         android:minWidth="84dp"
                         android:layout_marginHorizontal="2dp"
-                        android:text="👟 SPD\n20g"
+                        android:text="👟 SPD\n40g"
                         android:textSize="11sp"
                         android:textStyle="bold"
                         android:textAllCaps="false"
-                        android:background="@drawable/bg_card_build"
-                        android:textColor="@color/gold"
+                        android:background="@drawable/bg_tower_card"
+                        android:textColor="#FFFFFF"
                         android:paddingHorizontal="8dp" />
 
                     <Button
                         android:id="@+id/btn_up_hp"
                         android:layout_width="wrap_content"
-                        android:layout_height="48dp"
+                        android:layout_height="52dp"
                         android:minWidth="84dp"
                         android:layout_marginHorizontal="2dp"
-                        android:text="❤️ HP\n30g"
+                        android:text="❤️ HP\n60g"
                         android:textSize="11sp"
                         android:textStyle="bold"
                         android:textAllCaps="false"
-                        android:background="@drawable/bg_card_build"
-                        android:textColor="@color/gold"
+                        android:background="@drawable/bg_tower_card"
+                        android:textColor="#FFFFFF"
                         android:paddingHorizontal="8dp" />
 
                     <Button
                         android:id="@+id/btn_up_base"
                         android:layout_width="wrap_content"
-                        android:layout_height="48dp"
+                        android:layout_height="52dp"
                         android:minWidth="84dp"
                         android:layout_marginHorizontal="2dp"
-                        android:text="🏰 BASE\n40g"
+                        android:text="🏰 BASE\n75g"
                         android:textSize="11sp"
                         android:textStyle="bold"
                         android:textAllCaps="false"
-                        android:background="@drawable/bg_card_build"
-                        android:textColor="@color/gold"
+                        android:background="@drawable/bg_tower_card"
+                        android:textColor="#FFFFFF"
                         android:paddingHorizontal="8dp" />
                 </LinearLayout>
             </HorizontalScrollView>
         </LinearLayout>
     </FrameLayout>
-
 </FrameLayout>

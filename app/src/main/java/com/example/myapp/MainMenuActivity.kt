@@ -263,7 +263,9 @@ class MainMenuActivity : ImmersiveActivity() {
             textHighScore.text = GameStrings.highScoreFmt(highScore, highWave)
         }
 
-        MusicManager.playTrack(MusicManager.Track.MENU)
+        if (SoundManager.effectiveMusic > 0.01f) {
+            MusicManager.playTrack(MusicManager.Track.MENU)
+        }
     }
 
     override fun onPause() {

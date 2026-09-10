@@ -14,7 +14,7 @@ object SoundManager {
 
     var masterVolume: Float = 0.8f
         private set
-    var musicVolume: Float = 0.7f
+    var musicVolume: Float = 0.0f
         private set
     var sfxVolume: Float = 0.8f
         private set
@@ -35,7 +35,7 @@ object SoundManager {
     fun loadSettings(context: Context) {
         val prefs = context.getSharedPreferences("tower_defense_settings", Context.MODE_PRIVATE)
         masterVolume = prefs.getInt("master_volume", 80) / 100f
-        musicVolume = prefs.getInt("music_volume", 70) / 100f
+        musicVolume = prefs.getInt("music_volume", 0) / 100f
         sfxVolume = prefs.getInt("sfx_volume", 80) / 100f
     }
 

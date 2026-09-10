@@ -37,6 +37,10 @@ object MusicManager {
 
     fun playTrack(track: Track) {
         currentTrack = track
+        if (SoundManager.effectiveMusic <= 0.01f) {
+            stop()
+            return
+        }
         if (!playing) {
             start()
         }
@@ -44,6 +48,7 @@ object MusicManager {
 
     fun start() {
         if (playing) return
+        if (SoundManager.effectiveMusic <= 0.01f) return
         playing = true
 
         val bufSize = AudioTrack.getMinBufferSize(

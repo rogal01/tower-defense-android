@@ -15,9 +15,9 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:orientation="vertical"
-            android:paddingHorizontal="24dp"
+            android:paddingHorizontal="20dp"
             android:paddingTop="16dp"
-            android:paddingBottom="32dp"
+            android:paddingBottom="28dp"
             android:gravity="center_horizontal">
 
             <!-- Top Action Bar: Daily Reward, Diamonds Pill, Language Switcher -->
@@ -26,16 +26,16 @@
                 android:layout_height="wrap_content"
                 android:orientation="horizontal"
                 android:gravity="center_vertical"
-                android:layout_marginBottom="16dp">
+                android:layout_marginBottom="12dp">
 
                 <!-- Daily Reward Button -->
                 <Button
                     android:id="@+id/btn_daily_reward"
-                    android:layout_width="44dp"
-                    android:layout_height="44dp"
-                    android:text="📅"
-                    android:textSize="20sp"
-                    android:background="@drawable/bg_card_menu_primary"
+                    android:layout_width="42dp"
+                    android:layout_height="42dp"
+                    android:text="🎁"
+                    android:textSize="19sp"
+                    android:background="@drawable/bg_btn_hud_glow"
                     android:padding="0dp"
                     android:minWidth="0dp"
                     android:minHeight="0dp" />
@@ -49,11 +49,11 @@
                 <!-- Diamonds Badge Pill -->
                 <LinearLayout
                     android:layout_width="wrap_content"
-                    android:layout_height="38dp"
+                    android:layout_height="36dp"
                     android:orientation="horizontal"
                     android:gravity="center_vertical"
-                    android:background="@drawable/bg_hud_chip"
-                    android:paddingHorizontal="12dp"
+                    android:background="@drawable/bg_hud_capsule_cyan"
+                    android:paddingHorizontal="14dp"
                     android:layout_marginEnd="8dp">
 
                     <TextView
@@ -69,18 +69,18 @@
                 <!-- Language toggle -->
                 <LinearLayout
                     android:layout_width="wrap_content"
-                    android:layout_height="38dp"
+                    android:layout_height="36dp"
                     android:orientation="horizontal"
                     android:gravity="center_vertical"
-                    android:background="@drawable/bg_card_glass"
+                    android:background="@drawable/bg_hud_capsule"
                     android:padding="3dp">
 
                     <Button
                         android:id="@+id/btn_lang_en"
-                        android:layout_width="38dp"
-                        android:layout_height="32dp"
+                        android:layout_width="36dp"
+                        android:layout_height="30dp"
                         android:text="🇺🇸"
-                        android:textSize="16sp"
+                        android:textSize="15sp"
                         android:padding="0dp"
                         android:minWidth="0dp"
                         android:minHeight="0dp"
@@ -88,10 +88,10 @@
 
                     <Button
                         android:id="@+id/btn_lang_pl"
-                        android:layout_width="38dp"
-                        android:layout_height="32dp"
+                        android:layout_width="36dp"
+                        android:layout_height="30dp"
                         android:text="🇵🇱"
-                        android:textSize="16sp"
+                        android:textSize="15sp"
                         android:padding="0dp"
                         android:minWidth="0dp"
                         android:minHeight="0dp"
@@ -100,33 +100,34 @@
                 </LinearLayout>
             </LinearLayout>
 
-            <!-- Title & Branding -->
+            <!-- Hero Branding Header -->
             <TextView
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:text="🏰"
-                android:textSize="64sp"
-                android:gravity="center"
-                android:layout_marginTop="8dp" />
-
-            <TextView
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="@string/app_name"
-                android:textColor="@color/gold"
-                android:textSize="32sp"
-                android:textStyle="bold"
+                android:textSize="56sp"
                 android:gravity="center"
                 android:layout_marginTop="4dp" />
 
             <TextView
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="@string/menu_subtitle"
-                android:textColor="@color/text_secondary"
-                android:textSize="14sp"
+                android:text="@string/app_name"
+                android:textColor="@color/gold"
+                android:textSize="30sp"
+                android:textStyle="bold"
+                android:letterSpacing="0.04"
                 android:gravity="center"
                 android:layout_marginTop="2dp" />
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="@string/menu_subtitle"
+                android:textColor="@color/text_secondary"
+                android:textSize="13sp"
+                android:gravity="center"
+                android:layout_marginTop="1dp" />
 
             <!-- High Score Chip Card -->
             <LinearLayout
@@ -134,10 +135,10 @@
                 android:layout_height="wrap_content"
                 android:orientation="horizontal"
                 android:gravity="center"
-                android:background="@drawable/bg_hud_chip"
+                android:background="@drawable/bg_hud_capsule_gold"
                 android:paddingHorizontal="16dp"
                 android:paddingVertical="6dp"
-                android:layout_marginTop="12dp">
+                android:layout_marginTop="10dp">
 
                 <TextView
                     android:id="@+id/text_high_score"
@@ -154,7 +155,7 @@
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:orientation="vertical"
-                android:layout_marginTop="24dp">
+                android:layout_marginTop="18dp">
 
                 <!-- Continue Saved Game (Gone by default) -->
                 <Button
@@ -175,21 +176,21 @@
                 <Button
                     android:id="@+id/btn_campaign"
                     android:layout_width="match_parent"
-                    android:layout_height="58dp"
+                    android:layout_height="62dp"
                     android:text="@string/campaign"
                     android:textSize="18sp"
                     android:textStyle="bold"
                     android:textAllCaps="false"
-                    android:background="@drawable/bg_card_menu_primary"
-                    android:textColor="#101820"
+                    android:background="@drawable/bg_menu_hero_card"
+                    android:textColor="#FFFFFF"
                     android:elevation="6dp"
                     android:layout_marginBottom="10dp" />
 
-                <!-- Endless Mode Button (Secondary Hero Card) -->
+                <!-- Endless Mode Button (Secondary Card) -->
                 <Button
                     android:id="@+id/btn_endless"
                     android:layout_width="match_parent"
-                    android:layout_height="54dp"
+                    android:layout_height="52dp"
                     android:text="@string/endless_mode"
                     android:textSize="16sp"
                     android:textStyle="bold"
@@ -230,7 +231,7 @@
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:orientation="vertical"
-                android:layout_marginTop="8dp">
+                android:layout_marginTop="4dp">
 
                 <!-- Row 1: Daily Challenge + Skill Tree -->
                 <LinearLayout
@@ -249,7 +250,7 @@
                         android:textSize="13sp"
                         android:textStyle="bold"
                         android:textAllCaps="false"
-                        android:background="@drawable/bg_card_menu_action"
+                        android:background="@drawable/bg_menu_grid_card"
                         android:textColor="@color/gold"
                         android:padding="0dp" />
 
@@ -263,7 +264,7 @@
                         android:textSize="13sp"
                         android:textStyle="bold"
                         android:textAllCaps="false"
-                        android:background="@drawable/bg_card_menu_action"
+                        android:background="@drawable/bg_menu_grid_card"
                         android:textColor="#00E5FF"
                         android:padding="0dp" />
                 </LinearLayout>
@@ -285,7 +286,7 @@
                         android:textSize="13sp"
                         android:textStyle="bold"
                         android:textAllCaps="false"
-                        android:background="@drawable/bg_card_menu_action"
+                        android:background="@drawable/bg_menu_grid_card"
                         android:textColor="#E0E0E0"
                         android:padding="0dp" />
 
@@ -299,7 +300,7 @@
                         android:textSize="13sp"
                         android:textStyle="bold"
                         android:textAllCaps="false"
-                        android:background="@drawable/bg_card_menu_action"
+                        android:background="@drawable/bg_menu_grid_card"
                         android:textColor="#E0E0E0"
                         android:padding="0dp" />
                 </LinearLayout>
@@ -321,7 +322,7 @@
                         android:textSize="13sp"
                         android:textStyle="bold"
                         android:textAllCaps="false"
-                        android:background="@drawable/bg_card_menu_action"
+                        android:background="@drawable/bg_menu_grid_card"
                         android:textColor="#E0E0E0"
                         android:padding="0dp" />
 
@@ -335,17 +336,17 @@
                         android:textSize="13sp"
                         android:textStyle="bold"
                         android:textAllCaps="false"
-                        android:background="@drawable/bg_card_menu_action"
+                        android:background="@drawable/bg_menu_grid_card"
                         android:textColor="#E0E0E0"
                         android:padding="0dp" />
                 </LinearLayout>
 
-                <!-- Row 4: Bestiary & Codex + Help / Mechanics -->
+                <!-- Row 4: Bestiary + Help -->
                 <LinearLayout
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:orientation="horizontal"
-                    android:layout_marginBottom="12dp">
+                    android:layout_marginBottom="8dp">
 
                     <Button
                         android:id="@+id/btn_bestiary"
@@ -357,8 +358,8 @@
                         android:textSize="13sp"
                         android:textStyle="bold"
                         android:textAllCaps="false"
-                        android:background="@drawable/bg_card_menu_action"
-                        android:textColor="#FFD54F"
+                        android:background="@drawable/bg_menu_grid_card"
+                        android:textColor="#00E5FF"
                         android:padding="0dp" />
 
                     <Button
@@ -371,11 +372,12 @@
                         android:textSize="13sp"
                         android:textStyle="bold"
                         android:textAllCaps="false"
-                        android:background="@drawable/bg_card_menu_action"
-                        android:textColor="#B0BEC5"
+                        android:background="@drawable/bg_menu_grid_card"
+                        android:textColor="#E0E0E0"
                         android:padding="0dp" />
                 </LinearLayout>
 
+                <!-- Row 5: Elemental Fusions Codex -->
                 <LinearLayout
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
@@ -390,8 +392,8 @@
                         android:textSize="13sp"
                         android:textStyle="bold"
                         android:textAllCaps="false"
-                        android:background="@drawable/bg_card_menu_action"
-                        android:textColor="#00E5FF"
+                        android:background="@drawable/bg_menu_grid_card"
+                        android:textColor="#FFD54F"
                         android:padding="0dp" />
                 </LinearLayout>
             </LinearLayout>
@@ -405,7 +407,7 @@
                 android:textSize="14sp"
                 android:textStyle="bold"
                 android:textAllCaps="false"
-                android:background="@drawable/bg_btn_action"
+                android:background="@drawable/bg_hud_capsule"
                 android:textColor="#ECEFF1" />
 
             <LinearLayout

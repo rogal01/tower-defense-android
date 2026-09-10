@@ -73,7 +73,7 @@ class SettingsActivity : ImmersiveActivity() {
 
         // Load saved values
         binding.seekMaster.progress = prefs.getInt("master_volume", 80)
-        binding.seekMusic.progress = prefs.getInt("music_volume", 70)
+        binding.seekMusic.progress = prefs.getInt("music_volume", 0)
         binding.seekSfx.progress = prefs.getInt("sfx_volume", 80)
         binding.switchFps.isChecked = prefs.getBoolean("show_fps", false)
         binding.switchShake.isChecked = prefs.getBoolean("screen_shake", true)
@@ -122,6 +122,9 @@ class SettingsActivity : ImmersiveActivity() {
                 }
                 prefs.edit().putInt(key, progress).apply()
                 SoundManager.loadSettings(this@SettingsActivity)
+                if (key == "music_volume" && progress == 0) {
+                    MusicManager.stop()
+                }
             }
             override fun onStartTrackingTouch(seekBar: SeekBar) {}
             override fun onStopTrackingTouch(seekBar: SeekBar) {}
